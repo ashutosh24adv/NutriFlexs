@@ -2,21 +2,30 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Menu, Bell, ShoppingBag, X, User, Utensils, Clock, Shield } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
+import { Menu, ShoppingBag, X, User, Utensils, Clock, Shield, LogOut, Lock, ChefHat, Dumbbell } from "lucide-react";
 import { NutriFlexsLogo } from "@/components/ui/logo";
 import { GymSelector } from "@/components/customer/gym-selector";
 
 interface MobileHeaderProps {
   cartCount?: number;
   onOpenCart?: () => void;
+  showStaffPortal?: boolean;
 }
 
-export function MobileHeader({ cartCount = 0, onOpenCart }: MobileHeaderProps) {
+export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = false }: MobileHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const sessionContext = useSession();
+  const session = sessionContext?.data;
+  const status = sessionContext?.status || "unauthenticated";
+
+  const isAuthenticated = status === "authenticated";
+  const user = session?.user as any;
+  const userName = user?.name || "Guest";
 
   return (
     <>
-      <header className="md:hidden sticky top-0 z-30 bg-white border-b border-nutri-border-light px-4 py-2.5 shadow-sm">
+      <header className="md:hidden sticky top-0 z-30 bg-white border-b border-nutri-border px-4 py-2.5 shadow-xs">
         <div className="flex items-center justify-between gap-2 max-w-md mx-auto">
           {/* Hamburger Menu Icon */}
           <button
@@ -32,16 +41,8 @@ export function MobileHeader({ cartCount = 0, onOpenCart }: MobileHeaderProps) {
             <NutriFlexsLogo size="sm" showTagline={true} showIcon={false} />
           </div>
 
-          {/* Right Actions: Notification Bell + Cart */}
+          {/* Right Actions: Cart */}
           <div className="flex items-center gap-1.5 -mr-1">
-            <button
-              className="relative p-2 rounded-full text-nutri-charcoal hover:text-nutri-green hover:bg-nutri-green-light transition-colors"
-              aria-label="Notifications"
-            >
-              <Bell className="w-5 h-5 stroke-[2]" />
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-nutri-green ring-2 ring-white" />
-            </button>
-
             <button
               onClick={onOpenCart}
               className="relative p-2 rounded-full text-nutri-charcoal hover:text-nutri-green hover:bg-nutri-green-light transition-colors"
@@ -68,20 +69,20 @@ export function MobileHeader({ cartCount = 0, onOpenCart }: MobileHeaderProps) {
           />
 
           {/* Drawer Content */}
-          <div className="relative w-4/5 max-w-xs bg-white h-full shadow-2xl p-6 flex flex-col justify-between z-10 animate-slide-left">
+          <div className="relative w-4/5 max-w-xs bg-white h-full shadow-2xl p-6 flex flex-col justify-between z-10 animate-slide-left overflow-y-auto">
             <div>
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-nutri-border">
                 <NutriFlexsLogo size="md" showTagline={true} />
                 <button
                   onClick={() => setIsMenuOpen(false)}
-                  className="p-2 rounded-full text-nutri-muted hover:bg-nutri-border-light"
+                  className="p-2 rounded-full text-nutri-secondary hover:bg-nutri-border-light"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="mb-6">
-                <p className="text-[11px] font-bold text-nutri-muted uppercase tracking-wider mb-2">
+                <p className="text-[11px] font-bold text-nutri-secondary uppercase tracking-wider mb-2">
                   Select Gym Location
                 </p>
                 <GymSelector />
@@ -98,55 +99,92 @@ export function MobileHeader({ cartCount = 0, onOpenCart }: MobileHeaderProps) {
                 <Link
                   href="/menu"
                   onClick={() => setIsMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-2xl text-nutri-charcoal hover:bg-nutri-border-light font-semibold text-sm"
+                  className="flex items-center gap-3 p-3 rounded-2xl text-nutri-charcoal hover:bg-nutri-green-soft font-semibold text-sm"
                 >
-                  <Utensils className="w-4 h-4 text-nutri-muted" /> Menu
+                  <Utensils className="w-4 h-4 text-nutri-secondary" /> Menu
                 </Link>
                 <Link
                   href="/pass"
                   onClick={() => setIsMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-2xl text-nutri-charcoal hover:bg-nutri-border-light font-semibold text-sm"
+                  className="flex items-center gap-3 p-3 rounded-2xl text-nutri-charcoal hover:bg-nutri-green-soft font-semibold text-sm"
                 >
-                  <Clock className="w-4 h-4 text-nutri-muted" /> NutriFlexs Pass
+                  <Clock className="w-4 h-4 text-nutri-secondary" /> NutriFlexs Pass
                 </Link>
-                <Link
-                  href="/orders"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-2xl text-nutri-charcoal hover:bg-nutri-border-light font-semibold text-sm"
-                >
-                  <Clock className="w-4 h-4 text-nutri-muted" /> Your Orders
-                </Link>
-                <Link
-                  href="/profile"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-2xl text-nutri-charcoal hover:bg-nutri-border-light font-semibold text-sm"
-                >
-                  <User className="w-4 h-4 text-nutri-muted" /> Profile
-                </Link>
+
+                {isAuthenticated ? (
+                  <>
+                    <Link
+                      href="/orders"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-2xl text-nutri-charcoal hover:bg-nutri-green-soft font-semibold text-sm"
+                    >
+                      <Clock className="w-4 h-4 text-nutri-secondary" /> Your Orders
+                    </Link>
+                    <Link
+                      href="/profile"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-3 p-3 rounded-2xl text-nutri-charcoal hover:bg-nutri-green-soft font-semibold text-sm"
+                    >
+                      <User className="w-4 h-4 text-nutri-secondary" /> Profile ({userName})
+                    </Link>
+                  </>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-nutri-green text-white font-bold text-sm mt-4 shadow-xs"
+                  >
+                    Login / Sign Up
+                  </Link>
+                )}
               </nav>
             </div>
 
-            <div className="pt-4 border-t border-nutri-border space-y-2">
-              <p className="text-[10px] font-bold text-nutri-muted uppercase tracking-wider">
-                Demo Portals
-              </p>
-              <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
-                <Link
-                  href="/kitchen"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="p-2 rounded-xl bg-amber-50 text-amber-800 text-center"
-                >
-                  Kitchen
-                </Link>
-                <Link
-                  href="/trainer"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="p-2 rounded-xl bg-indigo-50 text-indigo-800 text-center"
-                >
-                  Trainer
-                </Link>
+            {/* Staff Portals Section (Rendered ONLY if showStaffPortal is explicitly true) */}
+            {showStaffPortal && (
+              <div className="pt-4 border-t border-nutri-border space-y-2 mt-6">
+                <p className="text-[10px] font-bold text-nutri-secondary uppercase tracking-wider flex items-center gap-1">
+                  <Lock className="w-3 h-3 text-nutri-green" /> Staff Portals
+                </p>
+                <div className="grid grid-cols-3 gap-1.5 text-[11px] font-bold text-center">
+                  <Link
+                    href="/kitchen"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="p-2 rounded-xl bg-amber-50 text-amber-900 border border-amber-200"
+                  >
+                    Kitchen
+                  </Link>
+                  <Link
+                    href="/trainer"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="p-2 rounded-xl bg-indigo-50 text-indigo-900 border border-indigo-200"
+                  >
+                    Trainer
+                  </Link>
+                  <Link
+                    href="/admin"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="p-2 rounded-xl bg-rose-50 text-rose-900 border border-rose-200"
+                  >
+                    Admin
+                  </Link>
+                </div>
               </div>
-            </div>
+            )}
+
+            {isAuthenticated && (
+              <div className="pt-3 border-t border-nutri-border-light mt-3">
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    signOut({ callbackUrl: "/home" });
+                  }}
+                  className="w-full text-left flex items-center gap-2 text-xs font-bold text-rose-600 p-1"
+                >
+                  <LogOut className="w-4 h-4" /> Sign Out ({userName})
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

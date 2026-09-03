@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins, Inter } from "next/font/google";
 import "./globals.css";
+import { Providers } from "@/components/providers";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -18,7 +19,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#1B4D3E",
+  themeColor: "#2F7D16",
 };
 
 export const metadata: Metadata = {
@@ -44,7 +45,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${poppins.variable} ${inter.variable}`}>
       <body className="bg-nutri-bg text-nutri-charcoal min-h-screen flex flex-col font-sans antialiased selection:bg-nutri-green-light selection:text-nutri-green">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

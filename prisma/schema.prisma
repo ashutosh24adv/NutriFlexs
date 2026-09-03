@@ -153,6 +153,10 @@ model Product {
   category               Category            @relation(fields: [categoryId], references: [id])
   ingredients            ProductIngredient[]
   orderItems             OrderItem[]
+
+  @@index([categoryId, isAvailable])
+  @@index([isPopular, isAvailable])
+  @@index([isFeatured, isAvailable])
 }
 
 model Ingredient {
@@ -202,6 +206,10 @@ model Order {
   coupon     Coupon?     @relation(fields: [couponId], references: [id])
   items      OrderItem[]
   payment    Payment?
+
+  @@index([userId, createdAt])
+  @@index([outletId, status])
+  @@index([createdAt])
 }
 
 model OrderItem {
@@ -214,6 +222,9 @@ model OrderItem {
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
 }
 
 model Payment {

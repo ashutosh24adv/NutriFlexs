@@ -1,9 +1,10 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { CartItemType } from "@/components/customer/cart-drawer";
 
 interface CartContextType {
+  cart: CartItemType[];
   cartItems: CartItemType[];
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
@@ -12,6 +13,7 @@ interface CartContextType {
   removeItem: (productId: string) => void;
   clearCart: () => void;
   totalItemCount: number;
+  getSubtotal: () => number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -19,6 +21,27 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItemType[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // Load guest cart from localStorage on initial render
+  useEffect(() => {
+    try {
+      const savedCart = localStorage.getItem("nutriflexs_guest_cart");
+      if (savedCart) {
+        setCartItems(JSON.parse(savedCart));
+      }
+    } catch (e) {
+      console.error("Error reading guest cart from localStorage", e);
+    }
+  }, []);
+
+  // Sync cartItems to localStorage whenever cart changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("nutriflexs_guest_cart", JSON.stringify(cartItems));
+    } catch (e) {
+      console.error("Error saving guest cart to localStorage", e);
+    }
+  }, [cartItems]);
 
   const addToCart = (product: any, quantity: number = 1) => {
     setCartItems((prev) => {
@@ -49,6 +72,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = () => {
     setCartItems([]);
+    try {
+      localStorage.removeItem("nutriflexs_guest_cart");
+    } catch (e) {}
+  };
+
+  const getSubtotal = () => {
+    return cartItems.reduce((sum, item) => sum + (item.product.price || 0) * item.quantity, 0);
   };
 
   const totalItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -56,6 +86,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   return (
     <CartContext.Provider
       value={{
+        cart: cartItems,
         cartItems,
         isCartOpen,
         setIsCartOpen,
@@ -64,6 +95,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         removeItem,
         clearCart,
         totalItemCount,
+        getSubtotal,
       }}
     >
       {children}
