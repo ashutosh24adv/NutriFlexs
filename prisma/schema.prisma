@@ -1,0 +1,331 @@
+// Prisma schema for NutriFlexs - Neon PostgreSQL Compatible
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  CUSTOMER
+  TRAINER
+  KITCHEN
+  ADMIN
+}
+
+enum OrderStatus {
+  ORDER_PLACED
+  ACCEPTED
+  PREPARING
+  READY_FOR_PICKUP
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FLAT
+}
+
+enum InventoryTxType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+model User {
+  id               String         @id @default(uuid())
+  name             String
+  email            String         @unique
+  passwordHash     String?
+  role             Role           @default(CUSTOMER)
+  avatar           String?
+  phone            String?
+  selectedGymId    String?
+  selectedOutletId String?
+  streakDays       Int            @default(12)
+  proteinGoalGrams Int            @default(120)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  orders           Order[]
+  subscriptions    Subscription[]
+  trainerProfile   Trainer?
+  referralsMade    Referral[]     @relation("CustomerReferrals")
+
+  selectedGym      Gym?           @relation(fields: [selectedGymId], references: [id])
+  selectedOutlet   Outlet?        @relation(fields: [selectedOutletId], references: [id])
+}
+
+model Gym {
+  id        String   @id @default(uuid())
+  name      String
+  address   String
+  city      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  outlets   Outlet[]
+  users     User[]
+}
+
+model Outlet {
+  id          String   @id @default(uuid())
+  name        String
+  gymId       String
+  address     String
+  phone       String?
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  gym            Gym             @relation(fields: [gymId], references: [id])
+  orders         Order[]
+  inventoryItems InventoryItem[]
+  users          User[]
+}
+
+model Trainer {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  referralCode      String   @unique
+  totalReferrals    Int      @default(0)
+  activeSubscribers Int      @default(0)
+  rewardsEarned     Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referrals         Referral[]      @relation("TrainerReferrals")
+  rewards           TrainerReward[]
+  orders            Order[]
+}
+
+model Category {
+  id           String    @id @default(uuid())
+  name         String    @unique
+  slug         String    @unique
+  description  String?
+  displayOrder Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  products     Product[]
+}
+
+model Product {
+  id                     String              @id @default(uuid())
+  name                   String
+  slug                   String              @unique
+  description            String
+  price                  Float
+  calories               Int
+  protein                Float
+  carbs                  Float
+  fats                   Float
+  preparationTimeMinutes Int                 @default(3)
+  imageUrl               String
+  categoryId             String
+  isAvailable            Boolean             @default(true)
+  isFeatured             Boolean             @default(false)
+  isPopular              Boolean             @default(false)
+  isVeg                  Boolean             @default(true)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  category               Category            @relation(fields: [categoryId], references: [id])
+  ingredients            ProductIngredient[]
+  orderItems             OrderItem[]
+}
+
+model Ingredient {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isOrganic Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  productIngredients ProductIngredient[]
+  inventoryItems     InventoryItem[]
+}
+
+model ProductIngredient {
+  id           String @id @default(uuid())
+  productId    String
+  ingredientId String
+  amount       String?
+
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, ingredientId])
+}
+
+model Order {
+  id                   String        @id @default(uuid())
+  orderNumber          String        @unique
+  userId               String
+  outletId             String
+  status               OrderStatus   @default(ORDER_PLACED)
+  subtotal             Float
+  discount             Float         @default(0)
+  totalAmount          Float
+  totalProtein         Float         @default(0)
+  totalCalories        Int           @default(0)
+  paymentStatus        PaymentStatus @default(PENDING)
+  trainerId            String?
+  couponId             String?
+  estimatedPrepMinutes Int           @default(3)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id])
+  outlet     Outlet      @relation(fields: [outletId], references: [id])
+  trainer    Trainer?    @relation(fields: [trainerId], references: [id])
+  coupon     Coupon?     @relation(fields: [couponId], references: [id])
+  items      OrderItem[]
+  payment    Payment?
+}
+
+model OrderItem {
+  id              String   @id @default(uuid())
+  orderId         String
+  productId       String
+  quantity        Int
+  priceAtPurchase Float
+  productJson     String?
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  orderId           String        @unique
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+  amount            Float
+  status            PaymentStatus @default(PENDING)
+  method            String        @default("RAZORPAY")
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model SubscriptionPlan {
+  id           String   @id @default(uuid())
+  name         String
+  price        Float
+  validityDays Int      @default(30)
+  creditsCount Int      @default(30)
+  description  String
+  benefits     String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id               String             @id @default(uuid())
+  userId           String
+  planId           String
+  remainingCredits Int
+  startDate        DateTime           @default(now())
+  endDate          DateTime
+  status           SubscriptionStatus @default(ACTIVE)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  user User             @relation(fields: [userId], references: [id])
+  plan SubscriptionPlan @relation(fields: [planId], references: [id])
+}
+
+model Referral {
+  id              String   @id @default(uuid())
+  trainerId       String
+  customerId      String
+  codeUsed        String
+  discountApplied Float    @default(0)
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+
+  trainer  Trainer @relation("TrainerReferrals", fields: [trainerId], references: [id])
+  customer User    @relation("CustomerReferrals", fields: [customerId], references: [id])
+}
+
+model TrainerReward {
+  id          String    @id @default(uuid())
+  trainerId   String
+  rewardTitle String
+  isClaimed   Boolean   @default(false)
+  claimedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  trainer Trainer @relation(fields: [trainerId], references: [id])
+}
+
+model Coupon {
+  id             String       @id @default(uuid())
+  code           String       @unique
+  discountType   DiscountType @default(PERCENTAGE)
+  discountValue  Float
+  minOrderAmount Float        @default(0)
+  maxDiscount    Float?
+  validUntil     DateTime?
+  usageLimit     Int?
+  usageCount     Int          @default(0)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  orders Order[]
+}
+
+model InventoryItem {
+  id                String   @id @default(uuid())
+  outletId          String
+  ingredientId      String
+  quantity          Float
+  unit              String   @default("kg")
+  lowStockThreshold Float    @default(5)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  outlet       Outlet                 @relation(fields: [outletId], references: [id])
+  ingredient   Ingredient             @relation(fields: [ingredientId], references: [id])
+  transactions InventoryTransaction[]
+
+  @@unique([outletId, ingredientId])
+}
+
+model InventoryTransaction {
+  id              String          @id @default(uuid())
+  inventoryItemId String
+  type            InventoryTxType
+  amount          Float
+  reason          String?
+  createdAt       DateTime        @default(now())
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+}

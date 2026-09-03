@@ -1,0 +1,21 @@
+{
+  "name": "NutriFlexs - Real Food. Real Fuel.",
+  "short_name": "NutriFlexs",
+  "description": "Fresh cold-pressed juices & high protein meals right outside your gym.",
+  "start_url": "/home",
+  "display": "standalone",
+  "background_color": "#FAFBF8",
+  "theme_color": "#1B4D3E",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
