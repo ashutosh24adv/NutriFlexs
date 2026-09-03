@@ -2,6 +2,7 @@
 
 import React from "react";
 import { DesktopNav } from "@/components/customer/desktop-nav";
+import { MobileHeader } from "@/components/customer/mobile-header";
 import { MobileNav } from "@/components/customer/mobile-nav";
 import { CartDrawer } from "@/components/customer/cart-drawer";
 import { CartProvider, useCart } from "@/components/customer/cart-context";
@@ -18,13 +19,18 @@ function CustomerLayoutContent({ children }: { children: React.ReactNode }) {
   } = useCart();
 
   return (
-    <div className="min-h-screen flex flex-col pb-20 md:pb-0 bg-nutri-bg">
+    <div className="min-h-screen flex flex-col pb-20 md:pb-6 bg-nutri-bg">
+      <MobileHeader
+        cartCount={totalItemCount}
+        onOpenCart={() => setIsCartOpen(true)}
+      />
+      
       <DesktopNav
         cartCount={totalItemCount}
         onOpenCart={() => setIsCartOpen(true)}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         {children}
       </main>
 

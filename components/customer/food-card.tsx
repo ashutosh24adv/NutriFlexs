@@ -24,12 +24,17 @@ interface FoodCardProps {
   };
   onAddToCart?: (product: any) => void;
   onOpenDetails?: (product: any) => void;
+  onQuickView?: (product: any) => void;
 }
 
-export function FoodCard({ product, onAddToCart, onOpenDetails }: FoodCardProps) {
+export function FoodCard({ product, onAddToCart, onOpenDetails, onQuickView }: FoodCardProps) {
+  const handleOpen = () => {
+    if (onQuickView) onQuickView(product);
+    else if (onOpenDetails) onOpenDetails(product);
+  };
   return (
     <div
-      onClick={() => onOpenDetails && onOpenDetails(product)}
+      onClick={handleOpen}
       className="group bg-white rounded-3xl p-4 border border-nutri-border shadow-card hover:shadow-float hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between cursor-pointer relative"
     >
       <div>

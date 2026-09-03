@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Clock, CheckCircle2, RotateCcw, ChevronRight, Zap, MapPin } from "lucide-react";
+import Image from "next/image";
+import { Clock, ArrowRight, RotateCcw, RefreshCw, ChevronRight, Check } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice, formatMacro } from "@/lib/utils";
+import { formatPrice } from "@/lib/utils";
 import { useCart } from "@/components/customer/cart-context";
 
 export default function CustomerOrdersPage() {
@@ -14,175 +15,153 @@ export default function CustomerOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Demo fallback orders if API call returns empty
-  const initialOrders = [
-    {
-      id: "ord-1042",
-      orderNumber: "NF-1042",
-      status: "READY_FOR_PICKUP",
-      outletName: "Indiranagar Cult Kiosk (50m away)",
-      createdAt: "5 mins ago",
-      totalAmount: 189,
-      totalProtein: 36.0,
-      totalCalories: 220,
-      items: [
-        {
-          quantity: 1,
-          product: {
-            id: "prod-7",
-            name: "Lean Grilled Chicken Breast",
-            price: 210,
-            protein: 36.0,
-            calories: 220,
-            imageUrl: "https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=600&q=80",
-          }
-        }
-      ]
-    },
-    {
-      id: "ord-1039",
-      orderNumber: "NF-1039",
-      status: "COMPLETED",
-      outletName: "Indiranagar Cult Kiosk (50m away)",
-      createdAt: "Yesterday at 7:45 PM",
-      totalAmount: 230,
-      totalProtein: 17.8,
-      totalCalories: 217,
-      items: [
-        {
-          quantity: 1,
-          product: {
-            id: "prod-11",
-            name: "Lean Refuel Combo",
-            price: 230,
-            protein: 17.8,
-            calories: 217,
-            imageUrl: "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80",
-          }
-        }
-      ]
+  async function fetchOrders() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/orders");
+      const data = await res.json();
+      if (data.success && data.orders) {
+        setOrders(data.orders);
+      }
+    } catch (e) {
+      console.error("Failed to load customer orders from PostgreSQL", e);
+    } finally {
+      setLoading(false);
     }
-  ];
+  }
 
   useEffect(() => {
-    async function fetchOrders() {
-      try {
-        const res = await fetch("/api/orders");
-        const data = await res.json();
-        if (data.success && data.orders && data.orders.length > 0) {
-          setOrders(data.orders);
-        } else {
-          setOrders(initialOrders);
-        }
-      } catch (e) {
-        setOrders(initialOrders);
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchOrders();
   }, []);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "ORDER_PLACED":
-        return <Badge variant="gold">ORDER PLACED</Badge>;
+        return <Badge className="bg-amber-100 text-amber-800 border-amber-200 font-bold">ORDER PLACED</Badge>;
       case "ACCEPTED":
-        return <Badge variant="gold">KITCHEN ACCEPTED</Badge>;
+        return <Badge className="bg-amber-100 text-amber-800 border-amber-200 font-bold">KITCHEN ACCEPTED</Badge>;
       case "PREPARING":
-        return <Badge variant="gold" className="bg-amber-500 text-white font-bold animate-pulse">PREPARING (~3 MIN)</Badge>;
+        return <Badge className="bg-amber-500 text-white font-bold animate-pulse">PREPARING (~3 MIN)</Badge>;
       case "READY_FOR_PICKUP":
-        return <Badge variant="clean" className="bg-emerald-600 text-white font-extrabold animate-bounce">READY FOR PICKUP!</Badge>;
+        return <Badge className="bg-nutri-green text-white font-extrabold animate-bounce">READY FOR PICKUP!</Badge>;
       case "COMPLETED":
-        return <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200">COMPLETED</Badge>;
+        return <Badge className="bg-nutri-green-light text-nutri-green border-nutri-border font-bold">COMPLETED</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-nutri-charcoal">
-          Your Refuel Orders
-        </h1>
-        <p className="text-xs sm:text-sm text-nutri-muted mt-1">
-          Track live pickup status or re-order your favorite post-workout combinations.
-        </p>
+    <div className="space-y-6 max-w-4xl mx-auto pb-10">
+      <div className="flex items-center justify-between border-b border-nutri-border pb-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-nutri-charcoal">
+            Your Refuel Orders 📦
+          </h1>
+          <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+            Live PostgreSQL status • Express 3-minute kiosk pickup tracking
+          </p>
+        </div>
+
+        <button
+          onClick={fetchOrders}
+          className="p-2 rounded-xl bg-white border border-nutri-border text-nutri-secondary hover:text-nutri-green transition-colors cursor-pointer"
+          title="Refresh Orders"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+        </button>
       </div>
 
       {loading ? (
-        <div className="space-y-4">
-          {[1, 2].map((i) => (
-            <div key={i} className="bg-white rounded-3xl p-5 border border-nutri-border h-32 animate-pulse" />
-          ))}
+        <div className="py-16 text-center space-y-2">
+          <RefreshCw className="w-6 h-6 text-nutri-green animate-spin mx-auto" />
+          <p className="text-xs font-bold text-nutri-secondary">Fetching orders from PostgreSQL...</p>
         </div>
       ) : orders.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-3xl border border-nutri-border p-8">
-          <Clock className="w-12 h-12 text-nutri-muted mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-nutri-charcoal font-heading">No Orders Yet</h3>
-          <p className="text-xs text-nutri-muted mt-1">Place your first 3-minute post-workout order now.</p>
-        </div>
+        <Card className="p-8 text-center bg-white border-nutri-border rounded-3xl space-y-3">
+          <Clock className="w-10 h-10 text-nutri-secondary mx-auto opacity-60" />
+          <h3 className="text-base font-bold text-nutri-charcoal">No orders placed yet</h3>
+          <p className="text-xs text-nutri-secondary max-w-sm mx-auto">
+            Order your post-workout meal or cold-pressed juice right now!
+          </p>
+          <Link href="/menu">
+            <Button size="md" className="bg-nutri-green text-white font-bold text-xs rounded-full mt-2">
+              Browse Menu →
+            </Button>
+          </Link>
+        </Card>
       ) : (
         <div className="space-y-4">
-          {orders.map((ord) => (
-            <Card key={ord.id} className="p-5 space-y-4 border-nutri-border hover:border-nutri-green/40 transition-colors">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-nutri-border-light">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-extrabold font-heading text-nutri-charcoal text-base">
-                      {ord.orderNumber}
-                    </span>
-                    {getStatusBadge(ord.status)}
+          {orders.map((ord) => {
+            const firstItem = ord.items?.[0];
+            const product = firstItem?.product;
+
+            return (
+              <Card key={ord.id} className="p-5 border-nutri-border bg-white rounded-3xl shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-nutri-border-light pb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-nutri-green text-base font-heading">
+                        {ord.orderNumber}
+                      </span>
+                      {getStatusBadge(ord.status)}
+                    </div>
+                    <p className="text-xs text-nutri-secondary mt-1">
+                      {ord.outlet?.gym?.name || "Indiranagar Cult Kiosk"} • {new Date(ord.createdAt).toLocaleString("en-IN")}
+                    </p>
                   </div>
-                  <p className="text-xs text-nutri-muted flex items-center gap-1 mt-1">
-                    <MapPin className="w-3 h-3 text-nutri-green" /> {ord.outletName || ord.outlet?.name || "Express Kiosk"} · {ord.createdAt}
-                  </p>
+
+                  <Link href={`/orders/${ord.id}`}>
+                    <Button size="sm" className="bg-nutri-green-soft text-nutri-green hover:bg-nutri-green-light font-bold text-xs rounded-full border border-nutri-border">
+                      Track Pickup Status <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+                    </Button>
+                  </Link>
                 </div>
 
-                <Link
-                  href={`/orders/${ord.id}`}
-                  className="text-xs font-bold text-nutri-green hover:underline flex items-center gap-0.5"
-                >
-                  Track Live Status <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-
-              <div className="space-y-2">
-                {ord.items.map((item: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-nutri-charcoal">
-                      {item.quantity}× {item.product?.name || "NutriFlexs Meal"}
-                    </span>
-                    <span className="text-nutri-muted">{formatPrice(item.priceAtPurchase || item.product?.price || 0)}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-between pt-3 border-t border-nutri-border-light">
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="text-nutri-green font-bold flex items-center gap-1">
-                    <Zap className="w-3.5 h-3.5 fill-nutri-green" /> {formatMacro(ord.totalProtein)} Protein
-                  </span>
-                  <span className="text-nutri-muted">·</span>
-                  <span className="font-bold text-nutri-charcoal">{formatPrice(ord.totalAmount)}</span>
+                {/* Items */}
+                <div className="space-y-2">
+                  {ord.items?.map((item: any) => (
+                    <div key={item.id} className="flex items-center justify-between text-xs py-1">
+                      <div className="flex items-center gap-3">
+                        <div className="relative w-10 h-10 rounded-xl overflow-hidden bg-nutri-bg shrink-0 border border-nutri-border-light">
+                          <Image
+                            src={item.product?.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=200&q=80"}
+                            alt={item.product?.name || "Product"}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div>
+                          <p className="font-bold text-nutri-charcoal">{item.quantity}x {item.product?.name || "Fuel Pack"}</p>
+                          <p className="text-[11px] text-nutri-secondary">{item.product?.protein || 30}g Protein • {item.product?.calories || 400} kcal</p>
+                        </div>
+                      </div>
+                      <span className="font-extrabold text-nutri-green">{formatPrice(item.priceAtPurchase * item.quantity)}</span>
+                    </div>
+                  ))}
                 </div>
 
-                <Button
-                  onClick={() => {
-                    if (ord.items[0]?.product) {
-                      addToCart(ord.items[0].product, 1);
-                    }
-                  }}
-                  variant="secondary"
-                  size="sm"
-                  className="text-xs font-bold rounded-full"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 mr-1" /> ORDER AGAIN
-                </Button>
-              </div>
-            </Card>
-          ))}
+                {/* Order Summary & Actions */}
+                <div className="flex items-center justify-between pt-3 border-t border-nutri-border-light text-xs">
+                  <div>
+                    <span className="text-nutri-secondary">Total Paid: </span>
+                    <span className="font-extrabold text-nutri-charcoal text-sm">{formatPrice(ord.totalAmount)}</span>
+                    {ord.discount > 0 && <span className="text-[10px] text-nutri-green font-bold ml-1.5">(Saved {formatPrice(ord.discount)})</span>}
+                  </div>
+
+                  {product && (
+                    <Button
+                      onClick={() => addToCart(product, 1)}
+                      size="sm"
+                      className="bg-white border border-nutri-green text-nutri-green hover:bg-nutri-green hover:text-white font-bold text-xs rounded-full"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 mr-1" /> Order Again
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

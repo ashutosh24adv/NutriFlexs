@@ -10,20 +10,24 @@ const config: Config = {
     extend: {
       colors: {
         nutri: {
-          bg: "#FAFBF8",
+          bg: "#FCFDFC",
           card: "#FFFFFF",
-          green: "#1B4D3E",
-          "green-hover": "#256653",
-          "green-light": "#E8F3EE",
-          "green-soft": "#D6ECE3",
-          "green-dark": "#113429",
-          sage: "#8AA899",
-          charcoal: "#1A1E1C",
-          muted: "#5F6B65",
-          border: "#E2E8E4",
-          "border-light": "#F0F4F1",
+          green: "#2F7D16",
+          "green-hover": "#24630F",
+          "green-deep": "#24630F",
+          "green-fresh": "#4E9F2F",
+          "green-light": "#EAF4E3",
+          "green-soft": "#F3F7EE",
+          "green-verylight": "#F7FAF4",
+          "green-dark": "#24630F",
+          sage: "#F3F7EE",
+          charcoal: "#111111",
+          secondary: "#4B5563",
+          muted: "#6B7280",
+          border: "#E5E7E2",
+          "border-light": "#E5E7E2",
           gold: "#D97706",
-          accent: "#22C55E"
+          accent: "#4E9F2F"
         }
       },
       fontFamily: {

@@ -11,67 +11,27 @@ import { formatPrice } from "@/lib/utils";
 export default function KitchenDashboard() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeOutlet, setActiveOutlet] = useState("Indiranagar Cult Kiosk");
+  const [activeOutlet, setActiveOutlet] = useState("Indiranagar Express Kiosk");
 
-  // Initial kitchen order queue
-  const initialKitchenOrders = [
-    {
-      id: "ord-1043",
-      orderNumber: "NF-1043",
-      customerName: "Rohan M.",
-      status: "ORDER_PLACED",
-      createdAt: "Just now",
-      totalAmount: 280,
-      paymentStatus: "PAID",
-      outletName: "Indiranagar Cult Kiosk",
-      items: [
-        { name: "Vegan Muscle Pack", quantity: 1, details: "Green Juice + Sprouts/Tofu Bowl" }
-      ]
-    },
-    {
-      id: "ord-1042",
-      orderNumber: "NF-1042",
-      customerName: "Ashu",
-      status: "PREPARING",
-      createdAt: "3 mins ago",
-      totalAmount: 189,
-      paymentStatus: "PAID",
-      outletName: "Indiranagar Cult Kiosk",
-      items: [
-        { name: "Lean Grilled Chicken Breast", quantity: 1, details: "150g raw / 120g cooked with vegetables" }
-      ]
-    },
-    {
-      id: "ord-1040",
-      orderNumber: "NF-1040",
-      customerName: "Sneha P.",
-      status: "READY_FOR_PICKUP",
-      createdAt: "8 mins ago",
-      totalAmount: 160,
-      paymentStatus: "PAID",
-      outletName: "Indiranagar Cult Kiosk",
-      items: [
-        { name: "ABC Stamina Rebuilder", quantity: 1, details: "Cold-pressed juice" }
-      ]
-    },
-    {
-      id: "ord-1038",
-      orderNumber: "NF-1038",
-      customerName: "Vikram K.",
-      status: "COMPLETED",
-      createdAt: "22 mins ago",
-      totalAmount: 340,
-      paymentStatus: "PAID",
-      outletName: "Indiranagar Cult Kiosk",
-      items: [
-        { name: "Pro-Gainer Combo", quantity: 1, details: "Citrus Juice + Grilled Chicken" }
-      ]
+  async function fetchKitchenOrders() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/orders?view=kitchen");
+      const data = await res.json();
+      if (data.success && data.orders) {
+        setOrders(data.orders);
+      }
+    } catch (e) {
+      console.error("Failed to fetch kitchen orders from database", e);
+    } finally {
+      setLoading(false);
     }
-  ];
+  }
 
   useEffect(() => {
-    setOrders(initialKitchenOrders);
-    setLoading(false);
+    fetchKitchenOrders();
+    const interval = setInterval(fetchKitchenOrders, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
@@ -85,6 +45,7 @@ export default function KitchenDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
+      fetchKitchenOrders();
     } catch (e) {
       console.error("Status update error", e);
     }
@@ -111,117 +72,118 @@ export default function KitchenDashboard() {
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
             </div>
             <p className="text-xs text-slate-400">
-              Active Outlet: <span className="text-emerald-400 font-semibold">{activeOutlet}</span> (50m from Cult.fit)
+              Express Kiosk Orders • Live PostgreSQL Connection
             </p>
           </div>
         </div>
 
-        {/* Quick Portal Header Controls */}
         <div className="flex items-center gap-3">
-          <Button
-            onClick={() => setOrders(initialKitchenOrders)}
-            variant="outline"
-            size="sm"
-            className="border-slate-700 text-slate-300 hover:bg-slate-800 text-xs"
+          <button
+            onClick={fetchKitchenOrders}
+            className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+            title="Refresh Live Orders"
           >
-            <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh Queue
-          </Button>
-
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
           <Link
             href="/home"
-            className="text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 flex items-center gap-1"
+            className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 rounded-xl border border-slate-700 font-semibold transition-colors"
           >
-            <Shield className="w-3.5 h-3.5" /> Customer View
+            Customer App View →
           </Link>
         </div>
       </div>
 
-      {/* Operational 4-Column Board */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* KDS Columns Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
         {columns.map((col) => {
-          const colOrders = orders.filter((o) => o.status === col.key || (col.key === "ORDER_PLACED" && o.status === "ACCEPTED"));
+          const colOrders = orders.filter((o) => o.status === col.key);
 
           return (
-            <div key={col.key} className="space-y-4">
-              {/* Column Header Pill */}
-              <div className={`p-3 rounded-2xl border font-bold text-xs flex items-center justify-between ${col.color}`}>
-                <span>{col.label}</span>
-                <span className="w-6 h-6 rounded-full bg-black/10 flex items-center justify-center text-xs">
-                  {colOrders.length}
+            <div key={col.key} className="bg-slate-950/60 rounded-3xl p-4 border border-slate-800 space-y-3 min-h-[500px]">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <span className={`text-xs font-extrabold px-3 py-1 rounded-full border ${col.color}`}>
+                  {col.label}
                 </span>
+                <span className="text-xs font-bold text-slate-400">{colOrders.length}</span>
               </div>
 
-              {/* Order Cards Column */}
               <div className="space-y-3">
                 {colOrders.length === 0 ? (
-                  <div className="p-8 text-center border border-dashed border-slate-800 rounded-2xl text-slate-500 text-xs">
-                    No orders in stage
+                  <div className="py-12 text-center text-slate-600 text-xs font-medium">
+                    No orders in this queue
                   </div>
                 ) : (
                   colOrders.map((ord) => (
                     <div
                       key={ord.id}
-                      className="bg-slate-800 rounded-2xl p-4 border border-slate-700 shadow-lg space-y-3"
+                      className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-md"
                     >
-                      <div className="flex items-center justify-between border-b border-slate-700 pb-2">
+                      <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
                         <div>
-                          <span className="font-extrabold text-white text-base font-heading">
+                          <span className="text-sm font-extrabold text-emerald-400 font-heading">
                             {ord.orderNumber}
                           </span>
-                          <p className="text-[11px] text-slate-400">{ord.customerName} · {ord.createdAt}</p>
+                          <p className="text-[11px] font-bold text-slate-300 mt-0.5">
+                            {ord.user?.name || "Customer"}
+                          </p>
                         </div>
-                        <span className="text-xs bg-emerald-950 text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-800 font-bold">
-                          {ord.paymentStatus}
+                        <span className="text-[11px] font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md">
+                          {new Date(ord.createdAt).toLocaleTimeString("en-IN", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </span>
                       </div>
 
-                      {/* Order Items */}
-                      <div className="space-y-1.5">
-                        {ord.items.map((item: any, idx: number) => (
-                          <div key={idx} className="bg-slate-900/80 p-2 rounded-xl text-xs">
-                            <p className="font-bold text-slate-200">
-                              {item.quantity}× {item.name}
-                            </p>
-                            {item.details && (
-                              <p className="text-[10px] text-slate-400 mt-0.5">{item.details}</p>
-                            )}
+                      {/* Items */}
+                      <div className="space-y-1.5 py-1">
+                        {ord.items?.map((item: any) => (
+                          <div key={item.id} className="text-xs flex items-start justify-between gap-2">
+                            <span className="font-bold text-slate-200">
+                              {item.quantity}x {item.product?.name || item.name}
+                            </span>
+                            <span className="text-[10px] text-emerald-400 font-extrabold shrink-0">
+                              {item.product?.protein || 30}g P
+                            </span>
                           </div>
                         ))}
                       </div>
 
-                      {/* Action Buttons based on status */}
-                      <div className="pt-2">
-                        {ord.status === "ORDER_PLACED" && (
+                      {/* Action buttons */}
+                      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-400">
+                          {formatPrice(ord.totalAmount)}
+                        </span>
+
+                        {col.key === "ORDER_PLACED" && (
                           <button
                             onClick={() => handleUpdateStatus(ord.id, "PREPARING")}
-                            className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs rounded-xl shadow-md transition-colors"
+                            className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm cursor-pointer"
                           >
-                            ACCEPT & PREPARE →
+                            Start Prep →
                           </button>
                         )}
-
-                        {ord.status === "PREPARING" && (
+                        {col.key === "PREPARING" && (
                           <button
                             onClick={() => handleUpdateStatus(ord.id, "READY_FOR_PICKUP")}
-                            className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-xs rounded-xl shadow-md transition-colors animate-pulse"
+                            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm cursor-pointer"
                           >
-                            MARK READY FOR PICKUP ✓
+                            Mark Ready →
                           </button>
                         )}
-
-                        {ord.status === "READY_FOR_PICKUP" && (
+                        {col.key === "READY_FOR_PICKUP" && (
                           <button
                             onClick={() => handleUpdateStatus(ord.id, "COMPLETED")}
-                            className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-slate-100 font-bold text-xs rounded-xl transition-colors"
+                            className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm cursor-pointer"
                           >
-                            HANDOVER & COMPLETE
+                            Complete ✔
                           </button>
                         )}
-
-                        {ord.status === "COMPLETED" && (
-                          <div className="text-[11px] text-slate-500 text-center font-medium">
-                            ✓ Handed over at counter
-                          </div>
+                        {col.key === "COMPLETED" && (
+                          <span className="text-[10px] font-bold text-slate-500 uppercase">
+                            Delivered
+                          </span>
                         )}
                       </div>
                     </div>
