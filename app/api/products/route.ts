@@ -11,7 +11,14 @@ export async function GET(request: Request) {
 
   try {
     const products = await getProducts({ categoryId, categorySlug, search, isVeg, isPopular });
-    return NextResponse.json({ success: true, products });
+    return NextResponse.json(
+      { success: true, products },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
