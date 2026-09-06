@@ -176,7 +176,7 @@ export default function CheckoutPage() {
             Refuel Checkout 🛒
           </h1>
           <p className="text-xs text-nutri-secondary mt-0.5">
-            Express 3-minute kiosk pickup • Server-validated pricing & nutrition
+            Express 5-minute kiosk pickup • Server-validated pricing & nutrition
           </p>
         </div>
       </div>

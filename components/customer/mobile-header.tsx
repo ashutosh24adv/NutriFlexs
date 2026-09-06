@@ -2,10 +2,12 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { Menu, ShoppingBag, X, User, Utensils, Clock, Shield, LogOut, Lock, ChefHat, Dumbbell } from "lucide-react";
 import { NutriFlexsLogo } from "@/components/ui/logo";
 import { GymSelector } from "@/components/customer/gym-selector";
+import { cn } from "@/lib/utils";
 
 interface MobileHeaderProps {
   cartCount?: number;
@@ -14,6 +16,7 @@ interface MobileHeaderProps {
 }
 
 export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = false }: MobileHeaderProps) {
+  const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const sessionContext = useSession();
   const session = sessionContext?.data;
@@ -30,7 +33,7 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
           {/* Hamburger Menu Icon */}
           <button
             onClick={() => setIsMenuOpen(true)}
-            className="p-2 -ml-2 rounded-full text-nutri-green hover:bg-nutri-green-light transition-colors"
+            className="p-2 -ml-2 rounded-full text-nutri-green hover:bg-nutri-green-light transition-colors cursor-pointer"
             aria-label="Open navigation menu"
           >
             <Menu className="w-6 h-6 stroke-[2.2]" />
@@ -45,7 +48,7 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
           <div className="flex items-center gap-1.5 -mr-1">
             <button
               onClick={onOpenCart}
-              className="relative p-2 rounded-full text-nutri-charcoal hover:text-nutri-green hover:bg-nutri-green-light transition-colors"
+              className="relative p-2 rounded-full text-nutri-charcoal hover:text-nutri-green hover:bg-nutri-green-light transition-colors cursor-pointer"
               aria-label="Shopping Bag"
             >
               <ShoppingBag className="w-5 h-5 stroke-[2]" />
@@ -75,7 +78,7 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
                 <NutriFlexsLogo size="md" showTagline={true} />
                 <button
                   onClick={() => setIsMenuOpen(false)}
-                  className="p-2 rounded-full text-nutri-secondary hover:bg-nutri-border-light"
+                  className="p-2 rounded-full text-nutri-secondary hover:bg-nutri-border-light cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -88,25 +91,34 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
                 <GymSelector />
               </div>
 
-              <nav className="space-y-2">
+              <nav className="space-y-1.5">
                 <Link
                   href="/home"
                   onClick={() => setIsMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-2xl bg-nutri-green-light text-nutri-green font-bold text-sm"
+                  className={cn(
+                    "flex items-center gap-3 p-3 rounded-2xl font-bold text-sm transition-colors",
+                    pathname === "/home" || pathname === "/" ? "bg-nutri-green-light text-nutri-green" : "text-nutri-charcoal hover:bg-nutri-green-soft"
+                  )}
                 >
                   <Utensils className="w-4 h-4" /> Home
                 </Link>
                 <Link
                   href="/menu"
                   onClick={() => setIsMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-2xl text-nutri-charcoal hover:bg-nutri-green-soft font-semibold text-sm"
+                  className={cn(
+                    "flex items-center gap-3 p-3 rounded-2xl font-bold text-sm transition-colors",
+                    pathname.startsWith("/menu") ? "bg-nutri-green-light text-nutri-green" : "text-nutri-charcoal hover:bg-nutri-green-soft"
+                  )}
                 >
                   <Utensils className="w-4 h-4 text-nutri-secondary" /> Menu
                 </Link>
                 <Link
                   href="/pass"
                   onClick={() => setIsMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-2xl text-nutri-charcoal hover:bg-nutri-green-soft font-semibold text-sm"
+                  className={cn(
+                    "flex items-center gap-3 p-3 rounded-2xl font-bold text-sm transition-colors",
+                    pathname.startsWith("/pass") ? "bg-nutri-green-light text-nutri-green" : "text-nutri-charcoal hover:bg-nutri-green-soft"
+                  )}
                 >
                   <Clock className="w-4 h-4 text-nutri-secondary" /> NutriFlexs Pass
                 </Link>
@@ -116,14 +128,20 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
                     <Link
                       href="/orders"
                       onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 p-3 rounded-2xl text-nutri-charcoal hover:bg-nutri-green-soft font-semibold text-sm"
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-2xl font-bold text-sm transition-colors",
+                        pathname.startsWith("/orders") ? "bg-nutri-green-light text-nutri-green" : "text-nutri-charcoal hover:bg-nutri-green-soft"
+                      )}
                     >
                       <Clock className="w-4 h-4 text-nutri-secondary" /> Your Orders
                     </Link>
                     <Link
                       href="/profile"
                       onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 p-3 rounded-2xl text-nutri-charcoal hover:bg-nutri-green-soft font-semibold text-sm"
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-2xl font-bold text-sm transition-colors",
+                        pathname.startsWith("/profile") ? "bg-nutri-green-light text-nutri-green" : "text-nutri-charcoal hover:bg-nutri-green-soft"
+                      )}
                     >
                       <User className="w-4 h-4 text-nutri-secondary" /> Profile ({userName})
                     </Link>
@@ -179,7 +197,7 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
                     setIsMenuOpen(false);
                     signOut({ callbackUrl: "/home" });
                   }}
-                  className="w-full text-left flex items-center gap-2 text-xs font-bold text-rose-600 p-1"
+                  className="w-full text-left flex items-center gap-2 text-xs font-bold text-rose-600 p-1 cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" /> Sign Out ({userName})
                 </button>

@@ -15,7 +15,7 @@ export default function MarketingLandingPage() {
     { num: "01", title: "CHOOSE YOUR GYM", desc: "Select your express kiosk located 50–100m from your gym (e.g. Cult.fit Indiranagar)." },
     { num: "02", title: "CHOOSE YOUR FUEL", desc: "Browse cold-pressed juices and freshly grilled organic high-protein meals." },
     { num: "03", title: "FRESH PREPARATION", desc: "Our kiosk chefs prepare your post-workout meal immediately after ordering." },
-    { num: "04", title: "READY IN 3–5 MINUTES", desc: "Track live preparation status on your phone with zero waiting time." },
+    { num: "04", title: "READY IN 5 MINUTES", desc: "Track live preparation status on your phone with zero waiting time." },
     { num: "05", title: "PICK UP & FUEL UP", desc: "Grab your fresh refuel pack right as you walk out of your workout." },
   ];
 
@@ -45,8 +45,8 @@ export default function MarketingLandingPage() {
 
   const faqs = [
     {
-      q: "How does 3–5 minute pickup work?",
-      a: "NutriFlexs express kiosks are positioned 50–100m from gyms. When you complete your workout and place your order on NutriFlexs, our kitchen starts preparing your fresh meal immediately. By the time you walk out of the gym, your order is hot and ready at the counter.",
+      q: "How does 5-minute pickup work?",
+      a: "NutriFlexs express kiosks are positioned 50–100m from gyms. When you complete your workout and place your order on NutriFlexs, our kitchen starts preparing your fresh meal immediately. By the time you walk out of the gym, your order is hot and ready in ~5 minutes at the counter.",
     },
     {
       q: "Are the macros transparent & database-backed?",
@@ -78,11 +78,11 @@ export default function MarketingLandingPage() {
             </h1>
 
             <p className="text-base sm:text-lg text-nutri-muted leading-relaxed max-w-xl">
-              Fresh cold-pressed organic juices and freshly prepared high-protein meals delivered in <span className="font-bold text-nutri-charcoal">3–5 minutes</span> at express kiosks located right outside your gym.
+              Fresh cold-pressed organic juices and freshly prepared high-protein meals delivered in <span className="font-bold text-nutri-charcoal">5 minutes</span> at express kiosks located right outside your gym.
             </p>
 
             <div className="flex flex-wrap items-center gap-4 pt-2">
-              <Link href="/home">
+              <Link href="/menu">
                 <Button size="lg" variant="primary" className="font-bold text-base shadow-lg shadow-nutri-green/20">
                   EXPLORE MENU <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
@@ -98,7 +98,7 @@ export default function MarketingLandingPage() {
             {/* Micro Highlights */}
             <div className="pt-4 flex items-center gap-6 text-xs font-semibold text-nutri-muted border-t border-nutri-border">
               <span className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-nutri-green" /> 3–5 Min Pickup
+                <Clock className="w-4 h-4 text-nutri-green" /> 5 Min Pickup
               </span>
               <span className="flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-nutri-green" /> 100% Organic & Clean
@@ -132,7 +132,7 @@ export default function MarketingLandingPage() {
                   </p>
                 </div>
                 <Badge variant="gold" className="bg-nutri-green text-white border-none font-bold text-xs">
-                  READY IN ~3 MIN
+                  READY IN ~5 MIN
                 </Badge>
               </div>
             </div>
@@ -157,9 +157,9 @@ export default function MarketingLandingPage() {
             <div className="w-12 h-12 rounded-2xl bg-nutri-green-light text-nutri-green flex items-center justify-center font-bold text-xl">
               ⚡
             </div>
-            <h3 className="text-lg font-bold font-heading text-nutri-charcoal">1. Immediate 3–5 Min Pickup</h3>
+            <h3 className="text-lg font-bold font-heading text-nutri-charcoal">1. Immediate 5-Min Pickup</h3>
             <p className="text-xs text-nutri-muted leading-relaxed">
-              Order right after your last workout set. Your food is freshly prepared and ready as you walk out of the gym.
+              Order right after your last workout set. Your food is freshly prepared and ready in 5 minutes as you walk out of the gym.
             </p>
           </Card>
 

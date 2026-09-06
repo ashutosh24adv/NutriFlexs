@@ -5,10 +5,12 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  const userEmail = session?.user?.email || "ashu@nutriflexs.com";
+  if (!session?.user?.email) {
+    return NextResponse.json({ success: true, user: null });
+  }
 
-  let user = await prisma.user.findUnique({
-    where: { email: userEmail.toLowerCase().trim() },
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email.toLowerCase().trim() },
     select: {
       id: true,
       name: true,
@@ -19,20 +21,7 @@ export async function GET() {
   });
 
   if (!user) {
-    user = await prisma.user.findFirst({
-      where: { role: "CUSTOMER" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        streakDays: true,
-        proteinGoalGrams: true,
-      },
-    });
-  }
-
-  if (!user) {
-    return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
+    return NextResponse.json({ success: true, user: null });
   }
 
   const startOfDay = new Date();

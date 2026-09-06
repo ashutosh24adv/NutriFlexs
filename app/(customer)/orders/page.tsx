@@ -34,6 +34,16 @@ export default function CustomerOrdersPage() {
     fetchOrders();
   }, []);
 
+  const handleOrderAgainOrder = (order: any) => {
+    if (order.items && order.items.length > 0) {
+      order.items.forEach((item: any) => {
+        if (item.product) {
+          addToCart(item.product, item.quantity);
+        }
+      });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "ORDER_PLACED":
@@ -41,7 +51,7 @@ export default function CustomerOrdersPage() {
       case "ACCEPTED":
         return <Badge className="bg-amber-100 text-amber-800 border-amber-200 font-bold">KITCHEN ACCEPTED</Badge>;
       case "PREPARING":
-        return <Badge className="bg-amber-500 text-white font-bold animate-pulse">PREPARING (~3 MIN)</Badge>;
+        return <Badge className="bg-amber-500 text-white font-bold animate-pulse">PREPARING (~5 MIN)</Badge>;
       case "READY_FOR_PICKUP":
         return <Badge className="bg-nutri-green text-white font-extrabold animate-bounce">READY FOR PICKUP!</Badge>;
       case "COMPLETED":
@@ -59,7 +69,7 @@ export default function CustomerOrdersPage() {
             Your Refuel Orders 📦
           </h1>
           <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
-            Live PostgreSQL status • Express 3-minute kiosk pickup tracking
+            Live PostgreSQL status • Express 5-minute kiosk pickup tracking
           </p>
         </div>
 
@@ -85,7 +95,7 @@ export default function CustomerOrdersPage() {
             Order your post-workout meal or cold-pressed juice right now!
           </p>
           <Link href="/menu">
-            <Button size="md" className="bg-nutri-green text-white font-bold text-xs rounded-full mt-2">
+            <Button size="md" className="bg-nutri-green text-white font-bold text-xs rounded-full mt-2 cursor-pointer">
               Browse Menu →
             </Button>
           </Link>
@@ -93,9 +103,6 @@ export default function CustomerOrdersPage() {
       ) : (
         <div className="space-y-4">
           {orders.map((ord) => {
-            const firstItem = ord.items?.[0];
-            const product = firstItem?.product;
-
             return (
               <Card key={ord.id} className="p-5 border-nutri-border bg-white rounded-3xl shadow-xs space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-nutri-border-light pb-3">
@@ -112,7 +119,7 @@ export default function CustomerOrdersPage() {
                   </div>
 
                   <Link href={`/orders/${ord.id}`}>
-                    <Button size="sm" className="bg-nutri-green-soft text-nutri-green hover:bg-nutri-green-light font-bold text-xs rounded-full border border-nutri-border">
+                    <Button size="sm" className="bg-nutri-green-soft text-nutri-green hover:bg-nutri-green-light font-bold text-xs rounded-full border border-nutri-border cursor-pointer">
                       Track Pickup Status <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
                     </Button>
                   </Link>
@@ -149,15 +156,13 @@ export default function CustomerOrdersPage() {
                     {ord.discount > 0 && <span className="text-[10px] text-nutri-green font-bold ml-1.5">(Saved {formatPrice(ord.discount)})</span>}
                   </div>
 
-                  {product && (
-                    <Button
-                      onClick={() => addToCart(product, 1)}
-                      size="sm"
-                      className="bg-white border border-nutri-green text-nutri-green hover:bg-nutri-green hover:text-white font-bold text-xs rounded-full"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5 mr-1" /> Order Again
-                    </Button>
-                  )}
+                  <Button
+                    onClick={() => handleOrderAgainOrder(ord)}
+                    size="sm"
+                    className="bg-white border border-nutri-green text-nutri-green hover:bg-nutri-green hover:text-white font-bold text-xs rounded-full cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 mr-1" /> Order Again
+                  </Button>
                 </div>
               </Card>
             );

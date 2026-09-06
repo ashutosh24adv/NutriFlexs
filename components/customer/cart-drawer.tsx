@@ -2,8 +2,9 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X, Trash2, Plus, Minus, Zap, Flame, ShieldCheck, Ticket, Dumbbell, ArrowRight } from "lucide-react";
+import { X, Trash2, Plus, Minus, Zap, Flame, ShieldCheck, Ticket, Dumbbell, ArrowRight, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPrice, formatMacro } from "@/lib/utils";
 
@@ -34,15 +35,14 @@ export function CartDrawer({
   const [trainerCode, setTrainerCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [appliedTrainer, setAppliedTrainer] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   if (!isOpen) return null;
 
   // Calculate totals
-  const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const totalProtein = items.reduce((sum, item) => sum + item.product.protein * item.quantity, 0);
-  const totalCalories = items.reduce((sum, item) => sum + item.product.calories * item.quantity, 0);
+  const subtotal = items.reduce((sum, item) => sum + (item.product.price || 0) * item.quantity, 0);
+  const totalProtein = items.reduce((sum, item) => sum + (item.product.protein || 0) * item.quantity, 0);
+  const totalCalories = items.reduce((sum, item) => sum + (item.product.calories || 0) * item.quantity, 0);
 
   let discount = 0;
   if (appliedCoupon) discount += appliedCoupon.discount;
@@ -57,7 +57,7 @@ export function CartDrawer({
       const res = await fetch("/api/coupons/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: couponCode, subtotal }),
+        body: JSON.stringify({ code: couponCode, orderAmount: subtotal }),
       });
       const data = await res.json();
       if (data.success) {
@@ -72,7 +72,7 @@ export function CartDrawer({
 
   const handleApplyTrainerCode = () => {
     if (!trainerCode) return;
-    if (trainerCode.toUpperCase() === "NUTRI-ARJUN") {
+    if (trainerCode.toUpperCase().trim() === "NUTRI-ARJUN") {
       setAppliedTrainer({ code: "NUTRI-ARJUN", trainerName: "Trainer Arjun" });
       setErrorMsg("");
     } else {
@@ -80,54 +80,14 @@ export function CartDrawer({
     }
   };
 
-  const handleCheckout = async () => {
-    if (items.length === 0) return;
-    setIsLoading(true);
-    setErrorMsg("");
+  const handleProceedToCheckout = () => {
+    onClose();
+    router.push("/checkout");
+  };
 
-    try {
-      // 1. Create order on server
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          outletId: "outlet-1", // Indiranagar Cult Kiosk default
-          items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
-          couponCode: appliedCoupon?.code,
-          trainerReferralCode: appliedTrainer?.code,
-        }),
-      });
-
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || "Failed to create order");
-      }
-
-      // 2. Simulate Razorpay Payment verification
-      const verifyRes = await fetch("/api/payments/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId: data.order.id,
-          razorpayOrderId: data.razorpay.id,
-          razorpayPaymentId: `pay_test_${Date.now()}`,
-          razorpaySignature: "demo_sig_valid",
-        }),
-      });
-
-      const verifyData = await verifyRes.json();
-      if (verifyData.success) {
-        onClearCart();
-        onClose();
-        router.push(`/orders/${data.order.id}`);
-      } else {
-        throw new Error(verifyData.error || "Payment verification failed");
-      }
-    } catch (e: any) {
-      setErrorMsg(e.message || "Checkout error");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleContinueShopping = () => {
+    onClose();
+    router.push("/menu");
   };
 
   return (
@@ -147,7 +107,8 @@ export function CartDrawer({
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white text-nutri-charcoal flex items-center justify-center hover:bg-nutri-border transition-colors"
+              className="w-8 h-8 rounded-full bg-white text-nutri-charcoal flex items-center justify-center hover:bg-nutri-border transition-colors cursor-pointer"
+              aria-label="Close cart"
             >
               <X className="w-4 h-4" />
             </button>
@@ -156,14 +117,22 @@ export function CartDrawer({
           {/* Cart Items List */}
           <div className="p-5 overflow-y-auto flex-1 space-y-4">
             {items.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-nutri-green-light rounded-full flex items-center justify-center mx-auto mb-3 text-nutri-green">
-                  <Zap className="w-8 h-8" />
+              <div className="text-center py-12 space-y-3">
+                <div className="w-16 h-16 bg-nutri-green-light rounded-full flex items-center justify-center mx-auto mb-3 text-nutri-green shadow-xs">
+                  <ShoppingBag className="w-8 h-8 stroke-[2]" />
                 </div>
                 <h4 className="font-bold text-nutri-charcoal font-heading text-lg">Your Cart is Empty</h4>
-                <p className="text-xs text-nutri-muted mt-1 max-w-xs mx-auto">
+                <p className="text-xs text-nutri-muted max-w-xs mx-auto">
                   Fuel up your post-workout recovery with fresh juices and high-protein meals.
                 </p>
+                <div className="pt-2">
+                  <button
+                    onClick={handleContinueShopping}
+                    className="bg-nutri-green text-white hover:bg-nutri-green-dark font-bold text-xs px-5 py-2.5 rounded-full cursor-pointer shadow-xs"
+                  >
+                    Browse Menu →
+                  </button>
+                </div>
               </div>
             ) : (
               <>
@@ -210,14 +179,16 @@ export function CartDrawer({
                       <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-full border border-nutri-border shrink-0">
                         <button
                           onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
-                          className="text-nutri-charcoal hover:text-nutri-green"
+                          className="text-nutri-charcoal hover:text-rose-600 transition-colors cursor-pointer"
+                          title={item.quantity === 1 ? "Remove item" : "Decrease quantity"}
                         >
                           {item.quantity === 1 ? <Trash2 className="w-3.5 h-3.5 text-rose-500" /> : <Minus className="w-3 h-3" />}
                         </button>
                         <span className="text-xs font-bold w-3 text-center">{item.quantity}</span>
                         <button
                           onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                          className="text-nutri-green font-bold"
+                          className="text-nutri-green font-bold cursor-pointer"
+                          title="Increase quantity"
                         >
                           <Plus className="w-3 h-3" />
                         </button>
@@ -242,7 +213,7 @@ export function CartDrawer({
                     </div>
                     <button
                       onClick={handleApplyTrainerCode}
-                      className="text-xs font-semibold px-3 py-2 bg-nutri-green-light text-nutri-green hover:bg-nutri-green-soft rounded-xl transition-colors shrink-0"
+                      className="text-xs font-semibold px-3 py-2 bg-nutri-green-light text-nutri-green hover:bg-nutri-green-soft rounded-xl transition-colors shrink-0 cursor-pointer"
                     >
                       Apply
                     </button>
@@ -254,7 +225,7 @@ export function CartDrawer({
                       <Ticket className="w-3.5 h-3.5 text-nutri-muted absolute left-3 top-3" />
                       <input
                         type="text"
-                        placeholder="Coupon Code (e.g. GYMPOWER20)"
+                        placeholder="Coupon Code (e.g. WELCOME10)"
                         value={couponCode}
                         onChange={(e) => setCouponCode(e.target.value)}
                         className="w-full text-xs bg-nutri-bg pl-8 pr-3 py-2 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green"
@@ -262,7 +233,7 @@ export function CartDrawer({
                     </div>
                     <button
                       onClick={handleApplyCoupon}
-                      className="text-xs font-semibold px-3 py-2 bg-nutri-green-light text-nutri-green hover:bg-nutri-green-soft rounded-xl transition-colors shrink-0"
+                      className="text-xs font-semibold px-3 py-2 bg-nutri-green-light text-nutri-green hover:bg-nutri-green-soft rounded-xl transition-colors shrink-0 cursor-pointer"
                     >
                       Apply
                     </button>
@@ -312,19 +283,27 @@ export function CartDrawer({
                 </div>
               </div>
 
-              <Button
-                onClick={handleCheckout}
-                isLoading={isLoading}
-                size="lg"
-                variant="primary"
-                className="w-full font-bold shadow-lg shadow-nutri-green/20"
-              >
-                PAY & PICKUP IN 3-5 MIN <ArrowRight className="w-4 h-4 ml-1.5" />
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  onClick={handleProceedToCheckout}
+                  size="lg"
+                  variant="primary"
+                  className="w-full font-bold shadow-lg shadow-nutri-green/20 cursor-pointer"
+                >
+                  PROCEED TO CHECKOUT · {formatPrice(finalTotal)} <ArrowRight className="w-4 h-4 ml-1.5" />
+                </Button>
+
+                <button
+                  onClick={handleContinueShopping}
+                  className="w-full text-center text-xs font-semibold text-nutri-secondary hover:text-nutri-green py-1.5 transition-colors cursor-pointer"
+                >
+                  Continue Shopping
+                </button>
+              </div>
 
               <p className="text-[10px] text-nutri-muted text-center flex items-center justify-center gap-1">
                 <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                Secured by Razorpay · Server-side Price Verification
+                Ready in ~5 minutes · Express Kiosk Pickup
               </p>
             </div>
           )}

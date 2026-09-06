@@ -15,8 +15,8 @@ function LoginForm() {
   const callbackUrl = searchParams.get("callbackUrl") || "/home";
   const isStaff = searchParams.get("staff") === "true";
 
-  const [email, setEmail] = useState("ashu@nutriflexs.com");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +36,7 @@ function LoginForm() {
         router.push(callbackUrl);
         router.refresh();
       } else {
-        setError(res?.error || "Invalid login credentials");
+        setError(res?.error || "Invalid login credentials. Please check your email and password.");
       }
     } catch (err: any) {
       setError("Login error");
@@ -47,6 +47,7 @@ function LoginForm() {
 
   const handleQuickRole = async (targetEmail: string, targetPath: string) => {
     setEmail(targetEmail);
+    setPassword("password123");
     setLoading(true);
     setError(null);
 
@@ -60,6 +61,8 @@ function LoginForm() {
       if (res?.ok) {
         router.push(targetPath);
         router.refresh();
+      } else {
+        setError("Could not sign in with demo credentials");
       }
     } catch (err) {
       console.error(err);
@@ -97,6 +100,7 @@ function LoginForm() {
               <input
                 type="email"
                 required
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full text-xs pl-10 pr-3 py-2.5 bg-white rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green text-nutri-charcoal font-medium"
@@ -111,6 +115,7 @@ function LoginForm() {
               <input
                 type="password"
                 required
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full text-xs pl-10 pr-3 py-2.5 bg-white rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green text-nutri-charcoal font-medium"
@@ -126,34 +131,34 @@ function LoginForm() {
         {/* Role Access Selectors */}
         <div className="pt-3 border-t border-nutri-border-light space-y-2">
           <span className="text-[10px] font-bold text-nutri-secondary uppercase tracking-wider block text-center">
-            Select Demo Role Credentials
+            Quick Demo Login
           </span>
           <div className="grid grid-cols-2 gap-2 text-[11px]">
             <button
               type="button"
               onClick={() => handleQuickRole("ashu@nutriflexs.com", callbackUrl)}
-              className="p-2 rounded-xl bg-nutri-green-light text-nutri-green font-bold border border-nutri-border text-left cursor-pointer"
+              className="p-2 rounded-xl bg-nutri-green-light text-nutri-green font-bold border border-nutri-border text-left cursor-pointer hover:bg-nutri-green-soft transition-colors"
             >
               👤 Customer View
             </button>
             <button
               type="button"
               onClick={() => handleQuickRole("kitchen@nutriflexs.com", "/kitchen")}
-              className="p-2 rounded-xl bg-amber-50 text-amber-900 font-bold border border-amber-200 text-left cursor-pointer"
+              className="p-2 rounded-xl bg-amber-50 text-amber-900 font-bold border border-amber-200 text-left cursor-pointer hover:bg-amber-100 transition-colors"
             >
               👨‍🍳 Kitchen Kiosk
             </button>
             <button
               type="button"
               onClick={() => handleQuickRole("arjun@nutriflexs.com", "/trainer")}
-              className="p-2 rounded-xl bg-indigo-50 text-indigo-900 font-bold border border-indigo-200 text-left cursor-pointer"
+              className="p-2 rounded-xl bg-indigo-50 text-indigo-900 font-bold border border-indigo-200 text-left cursor-pointer hover:bg-indigo-100 transition-colors"
             >
               🏋️ Trainer Portal
             </button>
             <button
               type="button"
               onClick={() => handleQuickRole("admin@nutriflexs.com", "/admin")}
-              className="p-2 rounded-xl bg-rose-50 text-rose-900 font-bold border border-rose-200 text-left cursor-pointer"
+              className="p-2 rounded-xl bg-rose-50 text-rose-900 font-bold border border-rose-200 text-left cursor-pointer hover:bg-rose-100 transition-colors"
             >
               🛡️ Admin Operations
             </button>

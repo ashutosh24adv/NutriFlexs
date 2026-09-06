@@ -13,19 +13,22 @@ export async function GET() {
     });
 
     let activeSubscription = null;
-    const userEmail = session?.user?.email || "ashu@nutriflexs.com";
-    const user = await prisma.user.findUnique({ where: { email: userEmail.toLowerCase().trim() } });
-
-    if (user) {
-      activeSubscription = await prisma.subscription.findFirst({
-        where: {
-          userId: user.id,
-          status: "ACTIVE",
-        },
-        include: {
-          plan: true,
-        },
+    if (session?.user?.email) {
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email.toLowerCase().trim() },
       });
+
+      if (user) {
+        activeSubscription = await prisma.subscription.findFirst({
+          where: {
+            userId: user.id,
+            status: "ACTIVE",
+          },
+          include: {
+            plan: true,
+          },
+        });
+      }
     }
 
     return NextResponse.json({ success: true, plans, activeSubscription });

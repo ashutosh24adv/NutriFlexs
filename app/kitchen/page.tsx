@@ -53,7 +53,7 @@ export default function KitchenDashboard() {
 
   const columns = [
     { key: "ORDER_PLACED", label: "NEW ORDERS", color: "bg-rose-50 border-rose-200 text-rose-800" },
-    { key: "PREPARING", label: "PREPARING (~3 MIN)", color: "bg-amber-50 border-amber-200 text-amber-900" },
+    { key: "PREPARING", label: "PREPARING (~5 MIN)", color: "bg-amber-50 border-amber-200 text-amber-900" },
     { key: "READY_FOR_PICKUP", label: "READY FOR PICKUP", color: "bg-emerald-50 border-emerald-200 text-emerald-900" },
     { key: "COMPLETED", label: "COMPLETED", color: "bg-gray-50 border-gray-200 text-gray-700" },
   ];

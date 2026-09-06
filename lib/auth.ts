@@ -7,27 +7,26 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "NutriFlexs Account",
       credentials: {
-        email: { label: "Email", type: "email", placeholder: "ashu@nutriflexs.com" },
+        email: { label: "Email", type: "email", placeholder: "customer@nutriflexs.com" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email) return null;
+        if (!credentials?.email || !credentials?.password) return null;
 
-        // Find user by email
+        const email = credentials.email.toLowerCase().trim();
+
+        // Find user in Neon PostgreSQL
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase().trim() },
+          where: { email },
         });
 
         if (!user) {
-          // Default fallback demo user for instant login
-          return {
-            id: "demo-customer-id",
-            name: "Ashu",
-            email: credentials.email,
-            role: "CUSTOMER",
-            selectedGymId: null,
-            selectedOutletId: null,
-          };
+          return null;
+        }
+
+        // If user has a passwordHash, verify it matches
+        if (user.passwordHash && user.passwordHash !== credentials.password) {
+          return null;
         }
 
         return {

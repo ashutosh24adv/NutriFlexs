@@ -17,9 +17,12 @@ export async function GET(request: Request) {
     }
 
     const session = await getServerSession(authOptions);
-    const userEmail = session?.user?.email || "ashu@nutriflexs.com";
-    const user = await prisma.user.findFirst({
-      where: { email: userEmail.toLowerCase().trim() },
+    if (!session?.user?.email) {
+      return NextResponse.json({ success: true, orders: [] });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email.toLowerCase().trim() },
     });
 
     if (!user) {
@@ -35,17 +38,19 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
-  const userEmail = session?.user?.email || "ashu@nutriflexs.com";
-  let user = await prisma.user.findFirst({
-    where: { email: userEmail.toLowerCase().trim() },
+  if (!session?.user?.email) {
+    return NextResponse.json(
+      { success: false, error: "Authentication required to place an order" },
+      { status: 401 }
+    );
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email.toLowerCase().trim() },
   });
 
   if (!user) {
-    user = await prisma.user.findFirst({ where: { role: "CUSTOMER" } });
-  }
-
-  if (!user) {
-    return NextResponse.json({ success: false, error: "User profile not found" }, { status: 400 });
+    return NextResponse.json({ success: false, error: "User profile not found" }, { status: 401 });
   }
 
   try {

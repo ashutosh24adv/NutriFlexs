@@ -17,7 +17,7 @@ export function MobileNav({ cartCount = 0, onOpenCart }: MobileNavProps) {
   const navItems = [
     { label: "Home", href: "/home", icon: Home },
     { label: "Menu", href: "/menu", icon: Leaf },
-    { label: "Order", href: "/menu", icon: ShoppingBag, isCenterOrder: true },
+    { label: "Cart", href: "/cart", icon: ShoppingBag, isCenterOrder: true },
     { label: "Orders", href: "/orders", icon: Clock },
     { label: "Profile", href: "/profile", icon: User },
   ];
@@ -26,27 +26,42 @@ export function MobileNav({ cartCount = 0, onOpenCart }: MobileNavProps) {
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-nutri-border-light px-3 py-1.5 shadow-lg">
       <div className="flex items-center justify-around max-w-md mx-auto relative">
         {navItems.map((item, idx) => {
-          const isActive = pathname === item.href || (item.href === "/menu" && pathname.startsWith("/menu") && !item.isCenterOrder);
+          let isActive = false;
+          if (item.href === "/home") {
+            isActive = pathname === "/home" || pathname === "/";
+          } else if (item.href === "/menu") {
+            isActive = pathname.startsWith("/menu");
+          } else if (item.href === "/orders") {
+            isActive = pathname.startsWith("/orders");
+          } else if (item.href === "/profile") {
+            isActive = pathname.startsWith("/profile");
+          } else if (item.href === "/cart") {
+            isActive = pathname.startsWith("/cart") || pathname.startsWith("/checkout");
+          }
 
           if (item.isCenterOrder) {
             return (
-              <Link
+              <button
                 key={idx}
-                href="/menu"
-                className="relative -top-5 flex flex-col items-center group shrink-0"
+                type="button"
+                onClick={() => {
+                  if (onOpenCart) onOpenCart();
+                }}
+                className="relative -top-5 flex flex-col items-center group shrink-0 cursor-pointer"
+                aria-label="View Cart"
               >
                 <div className="w-13 h-13 rounded-full bg-nutri-green text-white flex items-center justify-center shadow-lg border-3 border-white transition-transform active:scale-95 group-hover:bg-nutri-green-dark p-3">
                   <ShoppingBag className="w-6 h-6 stroke-[2]" />
                 </div>
                 <span className="text-[11px] font-bold text-nutri-green tracking-tight mt-0.5">
-                  Order
+                  {cartCount > 0 ? `Cart (${cartCount})` : "Cart"}
                 </span>
                 {cartCount > 0 && (
                   <span className="absolute -top-1 right-0 bg-amber-500 text-white text-[10px] font-extrabold rounded-full w-5 h-5 flex items-center justify-center border-2 border-white">
                     {cartCount}
                   </span>
                 )}
-              </Link>
+              </button>
             );
           }
 

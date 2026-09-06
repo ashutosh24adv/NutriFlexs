@@ -46,7 +46,7 @@ export default function OrderTrackingPage() {
   const stages = [
     { key: "ORDER_PLACED", label: "Order Placed", desc: "Sent to Express Kiosk" },
     { key: "ACCEPTED", label: "Accepted", desc: "Kitchen staff confirmed order" },
-    { key: "PREPARING", label: "Preparing Fresh", desc: "Express 3-min preparation" },
+    { key: "PREPARING", label: "Preparing Fresh", desc: "Express 5-min preparation" },
     { key: "READY_FOR_PICKUP", label: "Ready for Pickup", desc: "Counter pickup at Kiosk" },
     { key: "COMPLETED", label: "Completed", desc: "Refueled & ready to hit goals" },
   ];

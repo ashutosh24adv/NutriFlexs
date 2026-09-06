@@ -24,7 +24,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "NutriFlexs | Real Food. Real Fuel.",
-  description: "Fresh cold-pressed juices & freshly prepared high-protein meals right outside your gym in 3-5 minutes.",
+  description: "Fresh cold-pressed juices & freshly prepared high-protein meals right outside your gym in 5 minutes.",
   keywords: ["gym food", "protein meals", "cold pressed juice", "post workout meal", "nutriflexs"],
   manifest: "/manifest.json",
   openGraph: {

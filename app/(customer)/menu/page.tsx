@@ -1,14 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, Leaf, Zap, RefreshCw } from "lucide-react";
 import { FoodCard } from "@/components/customer/food-card";
 import { ProductModal } from "@/components/customer/product-modal";
 import { useCart } from "@/components/customer/cart-context";
 
-export default function MenuPage() {
+function MenuContent() {
   const { addToCart } = useCart();
-  const [activeCategory, setActiveCategory] = useState("all");
+  const searchParams = useSearchParams();
+  const initialCategoryParam = searchParams.get("category");
+
+  const [activeCategory, setActiveCategory] = useState(initialCategoryParam ? initialCategoryParam.toLowerCase() : "all");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterVegOnly, setFilterVegOnly] = useState(false);
   const [filterHighProtein, setFilterHighProtein] = useState(false);
@@ -17,6 +21,13 @@ export default function MenuPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync active category if query param changes
+  useEffect(() => {
+    if (initialCategoryParam) {
+      setActiveCategory(initialCategoryParam.toLowerCase());
+    }
+  }, [initialCategoryParam]);
 
   useEffect(() => {
     async function loadMenuData() {
@@ -53,12 +64,11 @@ export default function MenuPage() {
   }, []);
 
   const filteredProducts = products.filter((p) => {
-    if (
-      activeCategory !== "all" &&
-      p.categorySlug !== activeCategory &&
-      p.category?.slug !== activeCategory
-    ) {
-      return false;
+    if (activeCategory !== "all") {
+      const prodCatSlug = (p.categorySlug || p.category?.slug || "").toLowerCase();
+      if (prodCatSlug !== activeCategory) {
+        return false;
+      }
     }
     if (filterVegOnly && !p.isVeg) return false;
     if (filterHighProtein && p.protein < 25) return false;
@@ -83,7 +93,7 @@ export default function MenuPage() {
             NutriFlexs Fuel Menu 🥗
           </h1>
           <p className="text-xs sm:text-sm text-nutri-secondary mt-0.5">
-            Database-backed organic nutrition • Transparent macros • 3–5 min express pickup
+            Database-backed organic nutrition • Transparent macros • 5 min express pickup
           </p>
         </div>
 
@@ -107,19 +117,23 @@ export default function MenuPage() {
           {categories.length === 0 ? (
             <div className="text-xs font-bold text-nutri-secondary">Loading Categories...</div>
           ) : (
-            categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.slug || cat.id)}
-                className={`text-xs font-bold px-4 py-2 rounded-full transition-all shrink-0 cursor-pointer ${
-                  activeCategory === (cat.slug || cat.id)
-                    ? "bg-nutri-green text-white shadow-xs"
-                    : "bg-white text-nutri-secondary border border-nutri-border hover:border-nutri-green hover:text-nutri-charcoal"
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))
+            categories.map((cat) => {
+              const catSlug = (cat.slug || cat.id).toLowerCase();
+              const isSelected = activeCategory === catSlug;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(catSlug)}
+                  className={`text-xs font-bold px-4 py-2 rounded-full transition-all shrink-0 cursor-pointer ${
+                    isSelected
+                      ? "bg-nutri-green text-white shadow-xs"
+                      : "bg-white text-nutri-secondary border border-nutri-border hover:border-nutri-green hover:text-nutri-charcoal"
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              );
+            })
           )}
         </div>
 
@@ -187,5 +201,13 @@ export default function MenuPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function MenuPage() {
+  return (
+    <Suspense fallback={<div className="py-20 text-center text-xs font-bold text-nutri-green">Loading Menu...</div>}>
+      <MenuContent />
+    </Suspense>
   );
 }

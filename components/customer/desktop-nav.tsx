@@ -57,7 +57,7 @@ export function DesktopNav({ cartCount = 0, onOpenCart, showStaffPortal = false 
         {/* Center Links */}
         <nav className="hidden md:flex items-center gap-6">
           {links.map((link, idx) => {
-            const isActive = pathname === link.href;
+            const isActive = link.href === "/home" ? (pathname === "/home" || pathname === "/") : pathname.startsWith(link.href);
             return (
               <Link
                 key={idx}

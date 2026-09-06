@@ -19,8 +19,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-nutri-secondary">
             <a href="#why" className="hover:text-nutri-green transition-colors">Why NutriFlexs</a>
             <a href="#how" className="hover:text-nutri-green transition-colors">How It Works</a>
-            <a href="#menu" className="hover:text-nutri-green transition-colors">Menu</a>
-            <a href="#pass" className="hover:text-nutri-green transition-colors">NutriFlexs Pass</a>
+            <Link href="/menu" className="hover:text-nutri-green transition-colors">Menu</Link>
+            <Link href="/pass" className="hover:text-nutri-green transition-colors">NutriFlexs Pass</Link>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -68,6 +68,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               )}
             </div>
 
+            <Link href="/login" className="hidden sm:inline-block text-xs font-bold text-nutri-charcoal hover:text-nutri-green px-2 py-1 transition-colors">
+              Sign In
+            </Link>
+
             <Link href="/home">
               <Button size="sm" className="bg-nutri-green text-white hover:bg-nutri-green-dark font-extrabold text-xs px-4 py-2 rounded-full cursor-pointer shadow-xs">
                 OPEN APP →
@@ -87,7 +91,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <div className="max-w-sm space-y-3">
               <NutriFlexsLogo size="md" className="text-white [&_span]:text-white" />
               <p className="text-xs text-nutri-secondary leading-relaxed">
-                Gym-adjacent fitness nutrition platform delivering cold-pressed organic juices and freshly prepared high-protein meals in 3–5 minutes.
+                Gym-adjacent fitness nutrition platform delivering cold-pressed organic juices and freshly prepared high-protein meals in 5 minutes.
               </p>
             </div>
 

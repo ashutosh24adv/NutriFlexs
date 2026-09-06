@@ -383,9 +383,18 @@ export default function CustomerHomePage() {
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-nutri-green bg-nutri-green-light border border-nutri-border px-2.5 py-0.5 rounded-full">
+                          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-nutri-green bg-nutri-green-light border border-nutri-border px-2.5 py-0.5 rounded-full">
                             {ord.status.replace("_", " ")} <Check className="w-3 h-3 stroke-[3]" />
                           </span>
+                          {product && (
+                            <button
+                              onClick={() => handleOrderAgain(product)}
+                              className="bg-nutri-green-soft hover:bg-nutri-green hover:text-white text-nutri-green border border-nutri-border text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>Order Again</span>
+                            </button>
+                          )}
                         </div>
                       </Card>
                     );
@@ -395,7 +404,7 @@ export default function CustomerHomePage() {
             ) : (
               <Card className="bg-white border-nutri-border p-6 rounded-2xl text-center space-y-3">
                 <p className="text-xs font-bold text-nutri-charcoal">Sign in to view your order history & streak rewards</p>
-                <p className="text-xs text-nutri-secondary">Track live 3-minute kiosk pickup status right outside your gym.</p>
+                <p className="text-xs text-nutri-secondary">Track live 5-minute kiosk pickup status right outside your gym.</p>
                 <Link href="/login">
                   <Button size="sm" className="bg-nutri-green text-white font-bold text-xs rounded-full">
                     Sign In to Account →
