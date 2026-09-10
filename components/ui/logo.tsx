@@ -6,9 +6,10 @@ interface LogoProps {
   showTagline?: boolean;
   showIcon?: boolean;
   className?: string;
+  href?: string;
 }
 
-export function NutriFlexsLogo({ size = "md", showTagline = false, showIcon = true, className = "" }: LogoProps) {
+export function NutriFlexsLogo({ size = "md", showTagline = false, showIcon = true, className = "", href = "/" }: LogoProps) {
   const iconDimensions = {
     sm: "w-6 h-6",
     md: "w-8 h-8",
@@ -22,7 +23,7 @@ export function NutriFlexsLogo({ size = "md", showTagline = false, showIcon = tr
   }[size];
 
   return (
-    <Link href="/home" className={`inline-flex items-center gap-2 group cursor-pointer ${className}`}>
+    <Link href={href} className={`inline-flex items-center gap-2 group cursor-pointer ${className}`}>
       {showIcon && (
         <div className={`relative ${iconDimensions} bg-nutri-green text-white rounded-xl flex items-center justify-center shadow-sm group-hover:bg-nutri-green-hover transition-colors p-1.5 shrink-0`}>
           <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">

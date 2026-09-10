@@ -17,6 +17,7 @@ export default function CustomerProfilePage() {
   const [userName, setUserName] = useState("Customer");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("+91 99999 88888");
+  const [weightKg, setWeightKg] = useState<string>("");
   const [proteinGoal, setProteinGoal] = useState(120);
   const [saved, setSaved] = useState(false);
 
@@ -25,7 +26,22 @@ export default function CustomerProfilePage() {
       if (user.name) setUserName(user.name);
       if (user.email) setEmail(user.email);
     }
-  }, [user]);
+    async function loadStats() {
+      try {
+        const res = await fetch("/api/user/stats");
+        const data = await res.json();
+        if (data.success && data.user) {
+          if (data.user.weightKg) setWeightKg(String(data.user.weightKg));
+          if (data.user.proteinGoalGrams) setProteinGoal(data.user.proteinGoalGrams);
+        }
+      } catch (err) {
+        console.error("Error loading user profile stats", err);
+      }
+    }
+    if (isAuthenticated) {
+      loadStats();
+    }
+  }, [user, isAuthenticated]);
 
   // If unauthenticated, show sign in prompt
   if (status === "unauthenticated") {
@@ -58,8 +74,32 @@ export default function CustomerProfilePage() {
     );
   }
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    try {
+      if (weightKg && !isNaN(parseFloat(weightKg))) {
+        await fetch("/api/user/nutrition-goal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "set_weight",
+            weightKg: parseFloat(weightKg),
+          }),
+        });
+      }
+      if (proteinGoal && !isNaN(proteinGoal)) {
+        await fetch("/api/user/nutrition-goal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "set_goal",
+            customDailyProteinGoal: proteinGoal,
+          }),
+        });
+      }
+    } catch (err) {
+      console.error("Error saving profile nutrition data", err);
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -170,6 +210,26 @@ export default function CustomerProfilePage() {
                 type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                className="w-full bg-white text-xs px-3.5 py-2.5 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green text-nutri-charcoal font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-nutri-secondary mb-1">Body Weight (kg)</label>
+              <input
+                type="number"
+                step="0.1"
+                min="1"
+                max="300"
+                placeholder="e.g. 75"
+                value={weightKg}
+                onChange={(e) => {
+                  setWeightKg(e.target.value);
+                  const w = parseFloat(e.target.value);
+                  if (!isNaN(w) && w > 0) {
+                    setProteinGoal(Math.round(w * 1.6));
+                  }
+                }}
                 className="w-full bg-white text-xs px-3.5 py-2.5 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green text-nutri-charcoal font-medium"
               />
             </div>

@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getUserNutritionGoal } from "@/services/nutrition-goal.service";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ success: true, user: null });
@@ -16,6 +17,8 @@ export async function GET() {
       name: true,
       email: true,
       streakDays: true,
+      weightKg: true,
+      customDailyProteinGoal: true,
       proteinGoalGrams: true,
     },
   });
@@ -24,11 +27,12 @@ export async function GET() {
     return NextResponse.json({ success: true, user: null });
   }
 
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const { searchParams } = new URL(req.url);
+  const timeZone = searchParams.get("timeZone") || "Asia/Kolkata";
+  const dateStr = searchParams.get("date") || undefined;
 
-  // Parallelize recent orders fetch and today's protein calculation
-  const [recentOrders, todayOrders] = await Promise.all([
+  // Parallelize recent orders fetch and today's nutrition goal calculation
+  const [recentOrders, nutritionGoal] = await Promise.all([
     prisma.order.findMany({
       where: { userId: user.id },
       take: 5,
@@ -61,19 +65,8 @@ export async function GET() {
         },
       },
     }),
-    prisma.order.findMany({
-      where: {
-        userId: user.id,
-        createdAt: { gte: startOfDay },
-        status: { not: "CANCELLED" },
-      },
-      select: {
-        totalProtein: true,
-      },
-    }),
+    getUserNutritionGoal(user.id, timeZone, dateStr),
   ]);
-
-  const todayConsumedProtein = todayOrders.reduce((sum, ord) => sum + (ord.totalProtein || 0), 0);
 
   return NextResponse.json({
     success: true,
@@ -82,9 +75,12 @@ export async function GET() {
       name: user.name,
       email: user.email,
       streakDays: user.streakDays || 12,
-      proteinGoalGrams: user.proteinGoalGrams || 120,
-      todayConsumedProtein: Math.round(todayConsumedProtein),
+      weightKg: nutritionGoal.weightKg,
+      proteinGoalGrams: nutritionGoal.proteinGoal,
+      todayConsumedProtein: nutritionGoal.completedProtein,
+      nutritionGoal,
       recentOrders,
     },
   });
 }
+

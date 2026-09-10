@@ -19,6 +19,7 @@ import {
   Sparkles,
   Lock,
   UserCheck,
+  X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,16 +38,30 @@ export default function CustomerHomePage() {
   const [userStats, setUserStats] = useState<{
     name: string;
     streakDays: number;
+    weightKg: number | null;
     proteinGoalGrams: number;
     todayConsumedProtein: number;
+    hasWeight: boolean;
+    isCustomGoal: boolean;
     recentOrders: any[];
   }>({
     name: "Guest",
     streakDays: 0,
-    proteinGoalGrams: 120,
+    weightKg: null,
+    proteinGoalGrams: 0,
     todayConsumedProtein: 0,
+    hasWeight: false,
+    isCustomGoal: false,
     recentOrders: [],
   });
+
+  // Modal dialog states
+  const [isAddWeightModalOpen, setIsAddWeightModalOpen] = useState(false);
+  const [isEditGoalModalOpen, setIsEditGoalModalOpen] = useState(false);
+  const [inputWeight, setInputWeight] = useState("");
+  const [inputGoal, setInputGoal] = useState("");
+  const [modalSubmitting, setModalSubmitting] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   const [recommendedProduct, setRecommendedProduct] = useState<any | null>(null);
   const [categories, setCategories] = useState<any[]>([]);
@@ -55,13 +70,14 @@ export default function CustomerHomePage() {
   useEffect(() => {
     async function loadHomeData() {
       try {
+        const clientTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
         const promises: Promise<any>[] = [
           fetch("/api/products?isPopular=true"),
           fetch("/api/categories"),
         ];
 
         if (isAuthenticated) {
-          promises.push(fetch("/api/user/stats"));
+          promises.push(fetch(`/api/user/stats?timeZone=${encodeURIComponent(clientTimeZone)}`));
         }
 
         const responses = await Promise.all(promises);
@@ -81,14 +97,24 @@ export default function CustomerHomePage() {
 
         if (resStats) {
           const dataStats = await resStats.json();
-          if (dataStats.success) {
+          if (dataStats.success && dataStats.user) {
+            const ng = dataStats.user.nutritionGoal;
             setUserStats({
               name: dataStats.user.name,
               streakDays: dataStats.user.streakDays,
-              proteinGoalGrams: dataStats.user.proteinGoalGrams,
-              todayConsumedProtein: dataStats.user.todayConsumedProtein,
+              weightKg: dataStats.user.weightKg ?? null,
+              proteinGoalGrams: dataStats.user.proteinGoalGrams ?? (ng?.proteinGoal || 0),
+              todayConsumedProtein: dataStats.user.todayConsumedProtein ?? (ng?.completedProtein || 0),
+              hasWeight: Boolean(ng?.hasWeight ?? (dataStats.user.weightKg && dataStats.user.weightKg > 0)),
+              isCustomGoal: Boolean(ng?.isCustomGoal),
               recentOrders: dataStats.user.recentOrders || [],
             });
+            if (dataStats.user.weightKg) {
+              setInputWeight(String(dataStats.user.weightKg));
+            }
+            if (dataStats.user.proteinGoalGrams) {
+              setInputGoal(String(dataStats.user.proteinGoalGrams));
+            }
           }
         }
       } catch (error) {
@@ -107,6 +133,88 @@ export default function CustomerHomePage() {
     }
   };
 
+  const handleSaveWeight = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setModalError(null);
+    const weightNum = parseFloat(inputWeight);
+    if (isNaN(weightNum) || weightNum <= 0 || weightNum > 500) {
+      setModalError("Please enter a valid positive weight in kg.");
+      return;
+    }
+
+    try {
+      setModalSubmitting(true);
+      const clientTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
+      const res = await fetch("/api/user/nutrition-goal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set_weight",
+          weightKg: weightNum,
+          timeZone: clientTimeZone,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setUserStats((prev) => ({
+          ...prev,
+          weightKg: data.data.weightKg,
+          proteinGoalGrams: data.data.proteinGoal,
+          todayConsumedProtein: data.data.completedProtein,
+          hasWeight: data.data.hasWeight,
+          isCustomGoal: data.data.isCustomGoal,
+        }));
+        setIsAddWeightModalOpen(false);
+      } else {
+        setModalError(data.error || "Failed to save weight.");
+      }
+    } catch (err: any) {
+      setModalError(err.message || "Failed to save weight.");
+    } finally {
+      setModalSubmitting(false);
+    }
+  };
+
+  const handleSaveGoal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setModalError(null);
+    const goalNum = parseInt(inputGoal, 10);
+    if (isNaN(goalNum) || goalNum <= 0 || goalNum > 600) {
+      setModalError("Please enter a valid positive daily protein target in grams.");
+      return;
+    }
+
+    try {
+      setModalSubmitting(true);
+      const clientTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
+      const res = await fetch("/api/user/nutrition-goal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set_goal",
+          customDailyProteinGoal: goalNum,
+          timeZone: clientTimeZone,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setUserStats((prev) => ({
+          ...prev,
+          proteinGoalGrams: data.data.proteinGoal,
+          todayConsumedProtein: data.data.completedProtein,
+          isCustomGoal: data.data.isCustomGoal,
+        }));
+        setIsEditGoalModalOpen(false);
+      } else {
+        setModalError(data.error || "Failed to update protein goal.");
+      }
+    } catch (err: any) {
+      setModalError(err.message || "Failed to update protein goal.");
+    } finally {
+      setModalSubmitting(false);
+    }
+  };
+
   const getCategoryIcon = (slug: string) => {
     switch (slug.toLowerCase()) {
       case "bowls":
@@ -122,6 +230,7 @@ export default function CustomerHomePage() {
     }
   };
 
+  const hasConfiguredGoal = userStats.hasWeight || userStats.isCustomGoal || userStats.proteinGoalGrams > 0;
   const progressPercentage = isAuthenticated && userStats.proteinGoalGrams > 0
     ? Math.min(100, Math.round((userStats.todayConsumedProtein / userStats.proteinGoalGrams) * 100))
     : 0;
@@ -175,18 +284,39 @@ export default function CustomerHomePage() {
                 <div>
                   <p className="text-xs font-semibold text-nutri-secondary">Today&apos;s Nutrition Goal</p>
                   <h3 className="text-base sm:text-lg font-extrabold font-heading text-nutri-charcoal leading-tight">
-                    {isAuthenticated ? `${userStats.proteinGoalGrams}g Daily Protein Goal` : "Optimal Post-Workout Nutrition"}
+                    {isAuthenticated
+                      ? (hasConfiguredGoal ? `${userStats.proteinGoalGrams}g Daily Protein Goal` : "Tell us your weight")
+                      : "Optimal Post-Workout Nutrition"}
                   </h3>
                 </div>
               </div>
 
               {isAuthenticated ? (
-                <Link
-                  href="/profile"
-                  className="text-xs font-bold text-nutri-charcoal hover:text-nutri-green flex items-center gap-0.5 transition-colors"
-                >
-                  Edit Goal <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
+                hasConfiguredGoal ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalError(null);
+                      setInputGoal(String(userStats.proteinGoalGrams || 120));
+                      setIsEditGoalModalOpen(true);
+                    }}
+                    className="text-xs font-bold text-nutri-charcoal hover:text-nutri-green flex items-center gap-0.5 transition-colors cursor-pointer"
+                  >
+                    Edit Goal <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalError(null);
+                      setInputWeight(userStats.weightKg ? String(userStats.weightKg) : "");
+                      setIsAddWeightModalOpen(true);
+                    }}
+                    className="text-xs font-extrabold text-nutri-green hover:underline flex items-center gap-0.5 cursor-pointer"
+                  >
+                    Add Weight <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )
               ) : (
                 <Link
                   href="/login"
@@ -199,19 +329,41 @@ export default function CustomerHomePage() {
 
             {/* Progress Bar or Guest CTA */}
             {isAuthenticated ? (
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="w-full bg-nutri-green-light h-3 rounded-full overflow-hidden mr-3">
-                    <div
-                      className="bg-nutri-green h-full rounded-full transition-all duration-500"
-                      style={{ width: `${progressPercentage}%` }}
-                    />
+              hasConfiguredGoal ? (
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="w-full bg-nutri-green-light h-3 rounded-full overflow-hidden mr-3">
+                      <div
+                        className="bg-nutri-green h-full rounded-full transition-all duration-500"
+                        style={{ width: `${progressPercentage}%` }}
+                      />
+                    </div>
+                    <span className="font-extrabold text-nutri-green text-sm shrink-0 whitespace-nowrap">
+                      {userStats.todayConsumedProtein}g / {userStats.proteinGoalGrams}g
+                    </span>
                   </div>
-                  <span className="font-extrabold text-nutri-green text-sm shrink-0 whitespace-nowrap">
-                    {userStats.todayConsumedProtein}g / {userStats.proteinGoalGrams}g
-                  </span>
+                  {progressPercentage >= 100 && (
+                    <p className="text-[11px] font-bold text-emerald-600 flex items-center gap-1 mt-1">
+                      <Check className="w-3.5 h-3.5" /> Goal reached for today! 🎉
+                    </p>
+                  )}
                 </div>
-              </div>
+              ) : (
+                <div className="pt-2 text-xs text-nutri-secondary border-t border-nutri-border-light flex items-center justify-between">
+                  <span>Add your weight to calculate your daily protein goal.</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalError(null);
+                      setInputWeight(userStats.weightKg ? String(userStats.weightKg) : "");
+                      setIsAddWeightModalOpen(true);
+                    }}
+                    className="font-extrabold text-nutri-green hover:underline shrink-0 ml-2 flex items-center gap-1 cursor-pointer"
+                  >
+                    Add Weight →
+                  </button>
+                </div>
+              )
             ) : (
               <div className="pt-2 text-xs text-nutri-secondary border-t border-nutri-border-light flex items-center justify-between">
                 <span>Browse our organic menu & add refuel packs directly to your cart.</span>
@@ -503,6 +655,164 @@ export default function CustomerHomePage() {
           onClose={() => setSelectedProductModal(null)}
           onAddToCart={(prod, qty) => addToCart(prod, qty)}
         />
+      )}
+
+      {/* Add Weight Modal Dialog */}
+      {isAddWeightModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl border border-nutri-border space-y-4 relative">
+            <button
+              type="button"
+              onClick={() => setIsAddWeightModalOpen(false)}
+              className="absolute top-4 right-4 p-2 text-nutri-secondary hover:text-nutri-charcoal rounded-full hover:bg-nutri-border-light transition-colors cursor-pointer"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div>
+              <div className="w-10 h-10 rounded-2xl bg-nutri-green-light text-nutri-green flex items-center justify-center mb-3">
+                <Target className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <h3 className="text-lg font-extrabold font-heading text-nutri-charcoal">
+                Tell us your weight
+              </h3>
+              <p className="text-xs text-nutri-secondary mt-1">
+                We calculate your daily protein fitness target as <strong>1.6g per kg</strong> of body weight.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveWeight} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-nutri-charcoal mb-1">
+                  Weight (kg)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="1"
+                    max="300"
+                    placeholder="e.g. 75"
+                    value={inputWeight}
+                    onChange={(e) => setInputWeight(e.target.value)}
+                    required
+                    autoFocus
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green text-sm font-semibold text-nutri-charcoal bg-white"
+                  />
+                  <span className="absolute right-3.5 top-2.5 text-xs font-bold text-nutri-secondary">
+                    kg
+                  </span>
+                </div>
+                {inputWeight && !isNaN(parseFloat(inputWeight)) && parseFloat(inputWeight) > 0 && (
+                  <p className="text-[11px] text-nutri-green font-semibold mt-1.5">
+                    → Daily target: <strong>{Math.round(parseFloat(inputWeight) * 1.6)}g</strong> protein
+                  </p>
+                )}
+              </div>
+
+              {modalError && (
+                <p className="text-xs text-rose-600 font-semibold bg-rose-50 p-2.5 rounded-xl border border-rose-200">
+                  {modalError}
+                </p>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
+                <Button
+                  type="submit"
+                  disabled={modalSubmitting}
+                  className="flex-1 bg-nutri-green text-white hover:bg-nutri-green-dark font-extrabold text-xs py-2.5 rounded-full cursor-pointer shadow-xs"
+                >
+                  {modalSubmitting ? "Saving..." : "Save Weight"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsAddWeightModalOpen(false)}
+                  className="bg-white border-nutri-border text-nutri-secondary hover:text-nutri-charcoal text-xs py-2.5 rounded-full cursor-pointer"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Goal Modal Dialog */}
+      {isEditGoalModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl border border-nutri-border space-y-4 relative">
+            <button
+              type="button"
+              onClick={() => setIsEditGoalModalOpen(false)}
+              className="absolute top-4 right-4 p-2 text-nutri-secondary hover:text-nutri-charcoal rounded-full hover:bg-nutri-border-light transition-colors cursor-pointer"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div>
+              <div className="w-10 h-10 rounded-2xl bg-nutri-green-light text-nutri-green flex items-center justify-center mb-3">
+                <Target className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <h3 className="text-lg font-extrabold font-heading text-nutri-charcoal">
+                Edit Daily Protein Goal
+              </h3>
+              <p className="text-xs text-nutri-secondary mt-1">
+                Adjust your daily target. Your today&apos;s completed protein will stay intact.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveGoal} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-nutri-charcoal mb-1">
+                  Daily Protein Goal (grams)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="10"
+                    max="500"
+                    placeholder="e.g. 120"
+                    value={inputGoal}
+                    onChange={(e) => setInputGoal(e.target.value)}
+                    required
+                    autoFocus
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green text-sm font-semibold text-nutri-charcoal bg-white"
+                  />
+                  <span className="absolute right-3.5 top-2.5 text-xs font-bold text-nutri-secondary">
+                    g / day
+                  </span>
+                </div>
+              </div>
+
+              {modalError && (
+                <p className="text-xs text-rose-600 font-semibold bg-rose-50 p-2.5 rounded-xl border border-rose-200">
+                  {modalError}
+                </p>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
+                <Button
+                  type="submit"
+                  disabled={modalSubmitting}
+                  className="flex-1 bg-nutri-green text-white hover:bg-nutri-green-dark font-extrabold text-xs py-2.5 rounded-full cursor-pointer shadow-xs"
+                >
+                  {modalSubmitting ? "Saving..." : "Save Goal"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditGoalModalOpen(false)}
+                  className="bg-white border-nutri-border text-nutri-secondary hover:text-nutri-charcoal text-xs py-2.5 rounded-full cursor-pointer"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
