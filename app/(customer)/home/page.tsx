@@ -23,6 +23,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProductModal } from "@/components/customer/product-modal";
+import { BmiRecommendations } from "@/components/customer/bmi-recommendations";
 import { useCart } from "@/components/customer/cart-context";
 
 export default function CustomerHomePage() {
@@ -297,6 +298,9 @@ export default function CustomerHomePage() {
               </div>
             </div>
           )}
+
+          {/* Find What Fits You / Personalized Recommendations Section */}
+          <BmiRecommendations />
 
           {/* Quick Order Categories (Loaded from PostgreSQL Category table) */}
           <div className="space-y-3">

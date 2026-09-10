@@ -7,6 +7,7 @@ import { Zap, Clock, ShieldCheck, MapPin, Sparkles, ArrowRight, CheckCircle2, Fl
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { BmiRecommendations } from "@/components/customer/bmi-recommendations";
 
 export default function MarketingLandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -138,6 +139,11 @@ export default function MarketingLandingPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* FIND WHAT FITS YOU / PERSONALIZED RECOMMENDATIONS */}
+      <section id="find-fit" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <BmiRecommendations />
       </section>
 
       {/* 2. WHY NUTRIFLEXS (BUSINESS ADVANTAGES) */}

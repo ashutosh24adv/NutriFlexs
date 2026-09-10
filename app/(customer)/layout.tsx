@@ -52,9 +52,5 @@ function CustomerLayoutContent({ children }: { children: React.ReactNode }) {
 }
 
 export default function CustomerLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <CartProvider>
-      <CustomerLayoutContent>{children}</CustomerLayoutContent>
-    </CartProvider>
-  );
+  return <CustomerLayoutContent>{children}</CustomerLayoutContent>;
 }
