@@ -8,10 +8,12 @@ export const dynamic = "force-dynamic";
 const querySchema = z.object({
   lat: z.coerce
     .number()
+    .finite("Latitude must be a valid number")
     .min(-90, "Latitude must be >= -90")
     .max(90, "Latitude must be <= 90"),
   lng: z.coerce
     .number()
+    .finite("Longitude must be a valid number")
     .min(-180, "Longitude must be >= -180")
     .max(180, "Longitude must be <= 180"),
 });

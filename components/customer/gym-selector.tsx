@@ -67,6 +67,13 @@ export function GymSelector({
     }
   }, [searchQuery, allGyms]);
 
+  // Open modal automatically if showModalDirectly is set
+  useEffect(() => {
+    if (showModalDirectly) {
+      openGymModal();
+    }
+  }, [showModalDirectly, openGymModal]);
+
   // Sync modal view when location state changes
   useEffect(() => {
     if (isLocating) {
@@ -76,7 +83,7 @@ export function GymSelector({
     } else if (nearbyGyms.length > 0 && isModalOpen && modalView !== "manual") {
       setModalView("nearby");
     }
-  }, [isLocating, locationError, nearbyGyms, isModalOpen]);
+  }, [isLocating, locationError, nearbyGyms, isModalOpen, modalView]);
 
   // Handle opening modal
   const handleOpen = () => {
@@ -90,6 +97,7 @@ export function GymSelector({
   };
 
   const handleStartDetect = async () => {
+    clearLocationError();
     setModalView("loading");
     const results = await detectLocationAndFindNearby();
     if (results && results.length > 0) {

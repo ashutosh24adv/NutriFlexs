@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 export interface OutletInfo {
@@ -177,15 +178,19 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
     };
   }, [session, status]);
 
-  // Check URL search parameters for find-gym action (e.g. from marketing page)
+function UrlGymListener({ onTrigger }: { onTrigger: () => void }) {
+  const searchParams = useSearchParams();
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("action") === "find-gym" || params.get("findGym") === "true") {
-        setIsModalOpen(true);
+    if (searchParams) {
+      const action = searchParams.get("action");
+      const findGym = searchParams.get("findGym");
+      if (action === "find-gym" || findGym === "true") {
+        onTrigger();
       }
     }
-  }, []);
+  }, [searchParams, onTrigger]);
+  return null;
+}
 
   // Select Gym & Outlet handler
   const selectGymAndOutlet = useCallback(
@@ -229,19 +234,26 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
 
     if (typeof window === "undefined" || !navigator.geolocation) {
       setIsLocating(false);
-      setLocationError("Geolocation is not supported by your browser. Please select your gym manually.");
+      setLocationError("Geolocation is not supported by your browser. Please choose your gym manually.");
       return null;
     }
 
     return new Promise<GymInfo[] | null>((resolve) => {
+      let isResolved = false;
+
       const geoTimeout = setTimeout(() => {
-        setIsLocating(false);
-        setLocationError("Location request timed out. Please try again or choose your gym manually.");
-        resolve(null);
+        if (!isResolved) {
+          isResolved = true;
+          setIsLocating(false);
+          setLocationError("Location request timed out. Please try again or choose your gym manually.");
+          resolve(null);
+        }
       }, 10000);
 
       navigator.geolocation.getCurrentPosition(
         async (position) => {
+          if (isResolved) return;
+          isResolved = true;
           clearTimeout(geoTimeout);
           const { latitude, longitude } = position.coords;
 
@@ -250,6 +262,13 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
             const data = await res.json();
 
             if (data.success && Array.isArray(data.gyms)) {
+              if (data.gyms.length === 0) {
+                setIsLocating(false);
+                setLocationError("No partner gyms found near your location. Please choose your gym manually.");
+                resolve(null);
+                return;
+              }
+
               const mappedGyms: GymInfo[] = data.gyms.map((g: any) => ({
                 id: g.gymId,
                 name: g.gymName,
@@ -268,32 +287,34 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
               resolve(mappedGyms);
             } else {
               setIsLocating(false);
-              setLocationError(data.error || "Could not find nearby gyms. Please select manually.");
+              setLocationError(data.error || "Unable to detect your location. Please choose your gym manually.");
               resolve(null);
             }
           } catch (err: any) {
             setIsLocating(false);
-            setLocationError("Failed to fetch nearby gyms from server. Please select manually.");
+            setLocationError("Failed to fetch nearby gyms from server. Please choose your gym manually.");
             resolve(null);
           }
         },
         (err) => {
+          if (isResolved) return;
+          isResolved = true;
           clearTimeout(geoTimeout);
           setIsLocating(false);
           switch (err.code) {
             case err.PERMISSION_DENIED:
               setLocationError(
-                "Location access was denied. Please select your gym manually or allow location access in your browser."
+                "Location access is disabled. Please allow location access in your browser or choose a gym manually."
               );
               break;
             case err.POSITION_UNAVAILABLE:
-              setLocationError("Location information is unavailable. Please select your gym manually.");
+              setLocationError("Unable to detect your location. Please choose your gym manually.");
               break;
             case err.TIMEOUT:
-              setLocationError("Location request timed out. Please try again or select manually.");
+              setLocationError("Location request timed out. Please try again or choose your gym manually.");
               break;
             default:
-              setLocationError("An unknown error occurred while retrieving location. Please select manually.");
+              setLocationError("Unable to detect your location. Please choose your gym manually.");
               break;
           }
           resolve(null);
@@ -301,7 +322,7 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
         {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 30000,
+          maximumAge: 0,
         }
       );
     });
@@ -327,6 +348,9 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
         clearLocationError,
       }}
     >
+      <Suspense fallback={null}>
+        <UrlGymListener onTrigger={openGymModal} />
+      </Suspense>
       {children}
     </GymContext.Provider>
   );

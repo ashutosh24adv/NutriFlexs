@@ -43,7 +43,10 @@ export function formatDistance(distanceKm: number): string {
   return `${distanceKm.toFixed(1)} km away`;
 }
 
-function getGymCoordinates(gym: { name: string; latitude?: number | null; longitude?: number | null }): {
+function getGymCoordinates(
+  gym: { name: string; latitude?: number | null; longitude?: number | null },
+  outlet?: { latitude?: number | null; longitude?: number | null }
+): {
   lat: number;
   lng: number;
 } {
@@ -56,6 +59,16 @@ function getGymCoordinates(gym: { name: string; latitude?: number | null; longit
     return { lat: gym.latitude, lng: gym.longitude };
   }
 
+  if (
+    outlet &&
+    typeof outlet.latitude === "number" &&
+    !isNaN(outlet.latitude) &&
+    typeof outlet.longitude === "number" &&
+    !isNaN(outlet.longitude)
+  ) {
+    return { lat: outlet.latitude, lng: outlet.longitude };
+  }
+
   const lowerName = gym.name.toLowerCase();
   for (const [key, coords] of Object.entries(DEFAULT_GYM_COORDS)) {
     if (lowerName.includes(key)) {
@@ -63,7 +76,7 @@ function getGymCoordinates(gym: { name: string; latitude?: number | null; longit
     }
   }
 
-  // Default fallback to Bengaluru central if unknown
+  // Default fallback if coordinates cannot be determined
   return { lat: 12.9716, lng: 77.5946 };
 }
 
@@ -110,9 +123,24 @@ export async function getNearbyGyms(
         },
       },
     },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      city: true,
+      latitude: true,
+      longitude: true,
       outlets: {
         where: {
+          isAvailable: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          phone: true,
+          latitude: true,
+          longitude: true,
           isAvailable: true,
         },
       },
@@ -122,24 +150,17 @@ export async function getNearbyGyms(
   const results: NearbyGymResult[] = [];
 
   for (const gym of gyms) {
-    if (gym.outlets.length === 0) continue;
+    if (!gym.outlets || gym.outlets.length === 0) continue;
 
     const gymCoords = getGymCoordinates(gym);
-    const gymDistanceKm = calculateHaversineDistance(
-      userLat,
-      userLng,
-      gymCoords.lat,
-      gymCoords.lng
-    );
 
     const computedOutlets = gym.outlets.map((outlet) => {
-      const outletLat = outlet.latitude ?? gymCoords.lat;
-      const outletLng = outlet.longitude ?? gymCoords.lng;
+      const outletCoords = getGymCoordinates(gym, outlet);
       const outletDistKm = calculateHaversineDistance(
         userLat,
         userLng,
-        outletLat,
-        outletLng
+        outletCoords.lat,
+        outletCoords.lng
       );
 
       return {
@@ -200,7 +221,7 @@ export async function getAllActiveGyms(search?: string) {
     const q = search.trim().toLowerCase();
     where.OR = [
       { name: { contains: q, mode: "insensitive" } },
-      { city: { contains: q, mode: "insensitive" } },
+      { city: { mode: "insensitive", contains: q } },
       { address: { contains: q, mode: "insensitive" } },
       {
         outlets: {
@@ -215,9 +236,24 @@ export async function getAllActiveGyms(search?: string) {
 
   const gyms = await prisma.gym.findMany({
     where,
-    include: {
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      city: true,
+      latitude: true,
+      longitude: true,
       outlets: {
         where: {
+          isAvailable: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          phone: true,
+          latitude: true,
+          longitude: true,
           isAvailable: true,
         },
       },
@@ -225,22 +261,24 @@ export async function getAllActiveGyms(search?: string) {
     orderBy: { name: "asc" },
   });
 
-  return gyms.map((gym) => {
-    const coords = getGymCoordinates(gym);
-    return {
-      id: gym.id,
-      name: gym.name,
-      address: gym.address,
-      city: gym.city,
-      latitude: coords.lat,
-      longitude: coords.lng,
-      outlets: gym.outlets.map((o) => ({
-        id: o.id,
-        name: o.name,
-        address: o.address,
-        phone: o.phone,
-        isAvailable: o.isAvailable,
-      })),
-    };
-  });
+  return gyms
+    .filter((gym) => gym.outlets && gym.outlets.length > 0)
+    .map((gym) => {
+      const coords = getGymCoordinates(gym);
+      return {
+        id: gym.id,
+        name: gym.name,
+        address: gym.address,
+        city: gym.city,
+        latitude: coords.lat,
+        longitude: coords.lng,
+        outlets: gym.outlets.map((o) => ({
+          id: o.id,
+          name: o.name,
+          address: o.address,
+          phone: o.phone,
+          isAvailable: o.isAvailable,
+        })),
+      };
+    });
 }
