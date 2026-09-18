@@ -9,11 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import { useCart } from "@/components/customer/cart-context";
+import { useDietary } from "@/components/customer/dietary-context";
 
 export default function CustomerOrdersPage() {
   const { addToCart } = useCart();
+  const { isVegetarian } = useDietary();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reorderNotice, setReorderNotice] = useState<string | null>(null);
 
   async function fetchOrders() {
     setLoading(true);
@@ -35,12 +38,27 @@ export default function CustomerOrdersPage() {
   }, []);
 
   const handleOrderAgainOrder = (order: any) => {
-    if (order.items && order.items.length > 0) {
-      order.items.forEach((item: any) => {
-        if (item.product) {
-          addToCart(item.product, item.quantity);
-        }
-      });
+    if (!order.items || order.items.length === 0) return;
+
+    let addedCount = 0;
+    let skippedCount = 0;
+
+    order.items.forEach((item: any) => {
+      if (!item.product) return;
+      if (isVegetarian && !item.product.isVeg) {
+        skippedCount++;
+      } else {
+        addToCart(item.product, item.quantity);
+        addedCount++;
+      }
+    });
+
+    if (skippedCount > 0 && addedCount > 0) {
+      setReorderNotice(`${skippedCount} non-vegetarian item(s) from this order were skipped because Vegetarian Mode is enabled.`);
+      setTimeout(() => setReorderNotice(null), 6000);
+    } else if (skippedCount > 0 && addedCount === 0) {
+      setReorderNotice(`All items in this order are non-vegetarian and cannot be reordered while Vegetarian Mode is enabled.`);
+      setTimeout(() => setReorderNotice(null), 6000);
     }
   };
 
@@ -81,6 +99,13 @@ export default function CustomerOrdersPage() {
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
         </button>
       </div>
+
+      {reorderNotice && (
+        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold animate-fade-in flex items-center justify-between">
+          <span>🥬 {reorderNotice}</span>
+          <button onClick={() => setReorderNotice(null)} className="text-amber-700 hover:text-amber-900 font-bold ml-2">×</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="py-16 text-center space-y-2">

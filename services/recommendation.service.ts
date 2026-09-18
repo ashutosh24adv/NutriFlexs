@@ -32,7 +32,9 @@ export function calculateBmi(heightCm: number, weightKg: number): BmiResult {
   return { bmi, category, categoryLabel };
 }
 
-export async function getRecommendations(heightCm: number, weightKg: number) {
+import { buildProductDietaryWhere } from "./dietary-filter.service";
+
+export async function getRecommendations(heightCm: number, weightKg: number, isVeg?: boolean) {
   // Validate human boundaries
   if (
     typeof heightCm !== "number" ||
@@ -49,9 +51,10 @@ export async function getRecommendations(heightCm: number, weightKg: number) {
 
   const { bmi, category, categoryLabel } = calculateBmi(heightCm, weightKg);
 
-  // Query actual available products from Neon PostgreSQL
+  // Query actual available products from Neon PostgreSQL applying dietary filter
+  const where = buildProductDietaryWhere({ isVeg, availableOnly: true });
   const products = await prisma.product.findMany({
-    where: { isAvailable: true },
+    where,
     include: {
       category: true,
       ingredients: {

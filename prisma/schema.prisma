@@ -64,6 +64,7 @@ model User {
   proteinGoalGrams         Int            @default(120)
   weightKg                 Float?
   customDailyProteinGoal   Int?
+  isVegetarian             Boolean        @default(false)
   createdAt                DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -81,6 +82,8 @@ model Gym {
   name      String
   address   String
   city      String
+  latitude  Float?
+  longitude Float?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -94,6 +97,8 @@ model Outlet {
   gymId       String
   address     String
   phone       String?
+  latitude    Float?
+  longitude   Float?
   isAvailable Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

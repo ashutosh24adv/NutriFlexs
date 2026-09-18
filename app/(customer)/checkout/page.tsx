@@ -10,15 +10,19 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GymSelector } from "@/components/customer/gym-selector";
 import { useCart } from "@/components/customer/cart-context";
+import { useDietary } from "@/components/customer/dietary-context";
+import { useGym } from "@/components/customer/gym-context";
 import { formatPrice } from "@/lib/utils";
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const { cart, getSubtotal, clearCart } = useCart();
+  const { cart, getSubtotal, clearCart, removeItem } = useCart();
+  const { isVegetarian } = useDietary();
+  const { selectedOutlet } = useGym();
 
-  const [selectedOutletId, setSelectedOutletId] = useState("outlet-1");
-  const [selectedOutletName, setSelectedOutletName] = useState("Indiranagar Cult Kiosk");
+  const [selectedOutletId, setSelectedOutletId] = useState("");
+  const [selectedOutletName, setSelectedOutletName] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
@@ -26,10 +30,20 @@ export default function CheckoutPage() {
   const [trainerCode, setTrainerCode] = useState("");
   const [appliedTrainer, setAppliedTrainer] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dietaryError, setDietaryError] = useState<string | null>(null);
 
   const isAuthenticated = status === "authenticated";
   const subtotal = getSubtotal();
   const totalAmount = Math.max(0, subtotal - discountAmount);
+
+  // Check if non-veg items exist while Veg mode is ON
+  const nonVegCartItems = isVegetarian ? cart.filter((c) => !c.product.isVeg) : [];
+  const hasDietaryConflict = nonVegCartItems.length > 0;
+
+  const handleRemoveNonVegItems = () => {
+    nonVegCartItems.forEach((c) => removeItem(c.product.id));
+    setDietaryError(null);
+  };
 
   // 1. Guest Authentication Intercept Card
   if (status === "unauthenticated") {
@@ -133,7 +147,19 @@ export default function CheckoutPage() {
 
   // 5. Final Order Submission (PostgreSQL & Server-Side Verified)
   const handleCreateOrder = async () => {
+    if (hasDietaryConflict) {
+      setDietaryError("One or more items in your cart are non-vegetarian. Please remove them to place an order in Vegetarian Mode.");
+      return;
+    }
+
+    const activeOutletId = selectedOutlet?.id || selectedOutletId;
+    if (!activeOutletId) {
+      setDietaryError("Please select an express kiosk pickup location before proceeding.");
+      return;
+    }
+
     setIsSubmitting(true);
+    setDietaryError(null);
     try {
       const items = cart.map((c) => ({
         productId: c.product.id,
@@ -144,10 +170,11 @@ export default function CheckoutPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          outletId: selectedOutletId,
+          outletId: activeOutletId,
           items,
           couponCode: appliedCoupon,
           trainerCode: appliedTrainer,
+          isVegetarian,
         }),
       });
 
@@ -156,10 +183,10 @@ export default function CheckoutPage() {
         clearCart();
         router.push(`/orders/${data.order.id}`);
       } else {
-        alert(data.error || "Failed to create order");
+        setDietaryError(data.error || "Failed to create order");
       }
     } catch (e: any) {
-      alert("Network error creating order");
+      setDietaryError("Network error creating order");
     } finally {
       setIsSubmitting(false);
     }
@@ -204,6 +231,31 @@ export default function CheckoutPage() {
             <h3 className="font-extrabold text-nutri-charcoal text-sm border-b border-nutri-border-light pb-2">
               Order Items ({cart.length})
             </h3>
+
+            {hasDietaryConflict && (
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-xs space-y-2">
+                <div className="font-bold flex items-center gap-1.5">
+                  <span>🥬 Vegetarian Mode is ON</span>
+                </div>
+                <p className="text-[11px] text-amber-900 leading-relaxed">
+                  Your cart contains {nonVegCartItems.length} non-vegetarian item(s). In Vegetarian Mode, orders cannot contain non-vegetarian items.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleRemoveNonVegItems}
+                  className="bg-amber-700 text-white hover:bg-amber-800 font-bold text-[11px] px-3 py-1.5 rounded-full cursor-pointer transition-colors"
+                >
+                  Remove Non-Veg Items ({nonVegCartItems.length})
+                </button>
+              </div>
+            )}
+
+            {dietaryError && (
+              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
+                {dietaryError}
+              </div>
+            )}
+
             <div className="space-y-3">
               {cart.map((item) => (
                 <div key={item.product.id} className="flex items-center justify-between text-xs py-1">

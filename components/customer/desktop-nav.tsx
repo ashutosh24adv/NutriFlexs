@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { NutriFlexsLogo } from "@/components/ui/logo";
 import { GymSelector } from "@/components/customer/gym-selector";
+import { VegetarianToggle } from "@/components/customer/vegetarian-toggle";
 import { ShoppingBag, Shield, ChefHat, Dumbbell, LogOut, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -76,6 +77,8 @@ export function DesktopNav({ cartCount = 0, onOpenCart, showStaffPortal = false 
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
+          {/* Global Vegetarian Toggle */}
+          <VegetarianToggle variant="header" />
           {/* Staff Portal Dropdown (Rendered ONLY when explicitly enabled on Landing Page) */}
           {showStaffPortal && (
             <div className="relative">

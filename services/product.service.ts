@@ -36,48 +36,20 @@ function setInCache<T>(key: string, data: T, ttlMs = CACHE_TTL_MS): void {
   });
 }
 
-export async function getProducts(options?: {
-  categoryId?: string;
-  categorySlug?: string;
-  search?: string;
-  isVeg?: boolean;
-  isPopular?: boolean;
-  isFeatured?: boolean;
-}) {
+import { buildProductDietaryWhere, DietaryFilterOptions } from "./dietary-filter.service";
+
+export function invalidateProductCache() {
+  memoryCache.clear();
+}
+
+export async function getProducts(options?: DietaryFilterOptions) {
   const cacheKey = `products_${JSON.stringify(options || {})}`;
   const cached = getFromCache<any[]>(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const where: any = { isAvailable: true };
-
-  if (options?.categoryId) {
-    where.categoryId = options.categoryId;
-  } else if (options?.categorySlug) {
-    where.category = { slug: options.categorySlug };
-  }
-
-  if (options?.isVeg !== undefined) {
-    where.isVeg = options.isVeg;
-  }
-
-  if (options?.isPopular) {
-    where.isPopular = true;
-  }
-
-  if (options?.isFeatured) {
-    where.isFeatured = true;
-  }
-
-  if (options?.search) {
-    const query = options.search.trim().toLowerCase();
-    where.OR = [
-      { name: { contains: query, mode: "insensitive" } },
-      { description: { contains: query, mode: "insensitive" } },
-      { ingredients: { some: { ingredient: { name: { contains: query, mode: "insensitive" } } } } },
-    ];
-  }
+  const where = buildProductDietaryWhere(options);
 
   const products = await prisma.product.findMany({
     where,

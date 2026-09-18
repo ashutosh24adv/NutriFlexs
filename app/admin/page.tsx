@@ -233,44 +233,15 @@ export default function AdminDashboard() {
 
       {/* 2. PRODUCTS CATALOG TAB (Loaded from PostgreSQL Product Table) */}
       {activeTab === "products" && (
-        <Card className="p-6 border-nutri-border bg-white space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-extrabold font-heading text-nutri-charcoal">
-              Database Product Catalog ({adminData.products.length} Products)
-            </h3>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-nutri-border text-nutri-secondary font-bold uppercase tracking-wider">
-                  <th className="py-3 px-2">Product Name</th>
-                  <th className="py-3 px-2">Category</th>
-                  <th className="py-3 px-2">Price</th>
-                  <th className="py-3 px-2">Protein</th>
-                  <th className="py-3 px-2">Calories</th>
-                  <th className="py-3 px-2">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {adminData.products.map((p: any) => (
-                  <tr key={p.id} className="border-b border-nutri-border-light hover:bg-nutri-green-soft transition-colors">
-                    <td className="py-3 px-2 font-bold text-nutri-charcoal">{p.name}</td>
-                    <td className="py-3 px-2 text-nutri-secondary font-medium">{p.category?.name || "General"}</td>
-                    <td className="py-3 px-2 font-extrabold text-nutri-green">{formatPrice(p.price)}</td>
-                    <td className="py-3 px-2 font-semibold text-nutri-charcoal">{p.protein}g</td>
-                    <td className="py-3 px-2 text-nutri-secondary">{p.calories} kcal</td>
-                    <td className="py-3 px-2">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${p.isAvailable ? "bg-nutri-green-light text-nutri-green border border-nutri-border" : "bg-rose-50 text-rose-800"}`}>
-                        {p.isAvailable ? "Available" : "Disabled"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        <AdminProductsCatalog
+          products={adminData.products}
+          onProductUpdated={(updatedProd) => {
+            setAdminData((prev) => ({
+              ...prev,
+              products: prev.products.map((p) => (p.id === updatedProd.id ? updatedProd : p)),
+            }));
+          }}
+        />
       )}
 
       {/* 3. COUPONS TAB (Loaded from PostgreSQL Coupon Table) */}
@@ -341,3 +312,156 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+function AdminProductsCatalog({
+  products,
+  onProductUpdated,
+}: {
+  products: any[];
+  onProductUpdated: (product: any) => void;
+}) {
+  const [dietaryFilter, setDietaryFilter] = useState<"ALL" | "VEG" | "NON_VEG">("ALL");
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const vegCount = products.filter((p) => p.isVeg).length;
+  const nonVegCount = products.filter((p) => !p.isVeg).length;
+
+  const filteredProducts = products.filter((p) => {
+    if (dietaryFilter === "VEG") return p.isVeg;
+    if (dietaryFilter === "NON_VEG") return !p.isVeg;
+    return true;
+  });
+
+  const handleToggleDietary = async (product: any) => {
+    const newIsVeg = !product.isVeg;
+    setUpdatingId(product.id);
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}/dietary`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isVeg: newIsVeg }),
+      });
+      const data = await res.json();
+      if (data.success && data.product) {
+        onProductUpdated(data.product);
+      } else {
+        alert(data.error || "Failed to update product dietary classification");
+      }
+    } catch (e: any) {
+      alert("Network error updating product");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  return (
+    <Card className="p-6 border-nutri-border bg-white space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-nutri-border-light pb-3">
+        <div>
+          <h3 className="text-base font-extrabold font-heading text-nutri-charcoal">
+            Database Product Catalog ({products.length} Products)
+          </h3>
+          <p className="text-xs text-nutri-secondary mt-0.5">
+            Manage product pricing, macros, availability and dietary classifications in PostgreSQL
+          </p>
+        </div>
+
+        {/* Dietary Filters */}
+        <div className="flex items-center gap-1.5 bg-nutri-bg p-1 rounded-full border border-nutri-border">
+          <button
+            type="button"
+            onClick={() => setDietaryFilter("ALL")}
+            className={`text-xs font-bold px-3 py-1 rounded-full transition-all cursor-pointer ${
+              dietaryFilter === "ALL"
+                ? "bg-white text-nutri-charcoal shadow-xs"
+                : "text-nutri-secondary hover:text-nutri-charcoal"
+            }`}
+          >
+            All ({products.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setDietaryFilter("VEG")}
+            className={`text-xs font-bold px-3 py-1 rounded-full transition-all flex items-center gap-1 cursor-pointer ${
+              dietaryFilter === "VEG"
+                ? "bg-nutri-green text-white shadow-xs"
+                : "text-nutri-secondary hover:text-nutri-green"
+            }`}
+          >
+            <span>🥬 Vegetarian ({vegCount})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setDietaryFilter("NON_VEG")}
+            className={`text-xs font-bold px-3 py-1 rounded-full transition-all flex items-center gap-1 cursor-pointer ${
+              dietaryFilter === "NON_VEG"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "text-nutri-secondary hover:text-amber-700"
+            }`}
+          >
+            <span>🥩 Non-Veg ({nonVegCount})</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="border-b border-nutri-border text-nutri-secondary font-bold uppercase tracking-wider">
+              <th className="py-3 px-2">Product Name</th>
+              <th className="py-3 px-2">Dietary Type</th>
+              <th className="py-3 px-2">Category</th>
+              <th className="py-3 px-2">Price</th>
+              <th className="py-3 px-2">Protein</th>
+              <th className="py-3 px-2">Calories</th>
+              <th className="py-3 px-2">Status</th>
+              <th className="py-3 px-2 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredProducts.map((p: any) => {
+              const isUpdating = updatingId === p.id;
+              return (
+                <tr key={p.id} className="border-b border-nutri-border-light hover:bg-nutri-green-soft transition-colors">
+                  <td className="py-3 px-2 font-bold text-nutri-charcoal">{p.name}</td>
+                  <td className="py-3 px-2">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border ${
+                        p.isVeg
+                          ? "bg-nutri-green-light text-nutri-green border-nutri-green-soft"
+                          : "bg-amber-50 text-amber-900 border-amber-200"
+                      }`}
+                    >
+                      {p.isVeg ? "🥬 VEGETARIAN" : "🥩 NON-VEG"}
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 text-nutri-secondary font-medium">{p.category?.name || "General"}</td>
+                  <td className="py-3 px-2 font-extrabold text-nutri-green">{formatPrice(p.price)}</td>
+                  <td className="py-3 px-2 font-semibold text-nutri-charcoal">{p.protein}g</td>
+                  <td className="py-3 px-2 text-nutri-secondary">{p.calories} kcal</td>
+                  <td className="py-3 px-2">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${p.isAvailable ? "bg-nutri-green-light text-nutri-green border border-nutri-border" : "bg-rose-50 text-rose-800"}`}>
+                      {p.isAvailable ? "Available" : "Disabled"}
+                    </span>
+                  </td>
+                  <td className="py-3 px-2 text-right">
+                    <button
+                      type="button"
+                      disabled={isUpdating}
+                      onClick={() => handleToggleDietary(p)}
+                      className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-white border border-nutri-border hover:border-nutri-green text-nutri-secondary hover:text-nutri-charcoal transition-colors cursor-pointer disabled:opacity-50"
+                      title="Toggle between Vegetarian and Non-Vegetarian in database"
+                    >
+                      {isUpdating ? "Saving..." : p.isVeg ? "Set Non-Veg" : "Set Vegetarian"}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+

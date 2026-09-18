@@ -8,10 +8,11 @@ export interface CreateOrderParams {
   items: Array<{ productId: string; quantity: number }>;
   couponCode?: string;
   trainerReferralCode?: string;
+  isVegetarian?: boolean;
 }
 
 export async function createOrder(params: CreateOrderParams) {
-  const { userId, outletId, items, couponCode, trainerReferralCode } = params;
+  const { userId, outletId, items, couponCode, trainerReferralCode, isVegetarian } = params;
 
   // 1. Fetch user & outlet validation
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -19,6 +20,7 @@ export async function createOrder(params: CreateOrderParams) {
 
   const outlet = await prisma.outlet.findUnique({ where: { id: outletId } });
   if (!outlet) throw new Error("Outlet not found");
+  if (!outlet.isAvailable) throw new Error("Selected kiosk outlet is currently unavailable.");
 
   // 2. Fetch products and calculate prices & macros server-side
   const productIds = items.map((i) => i.productId);
@@ -28,6 +30,15 @@ export async function createOrder(params: CreateOrderParams) {
 
   if (products.length !== productIds.length) {
     throw new Error("One or more selected products are unavailable or invalid.");
+  }
+
+  // Server-side strict dietary check
+  const activeVegetarianMode = isVegetarian !== undefined ? isVegetarian : Boolean(user.isVegetarian);
+  if (activeVegetarianMode) {
+    const hasNonVegProduct = products.some((p) => !p.isVeg);
+    if (hasNonVegProduct) {
+      throw new Error("One or more items are not available in Vegetarian Mode.");
+    }
   }
 
   let subtotal = 0;

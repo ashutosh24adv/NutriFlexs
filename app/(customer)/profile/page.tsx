@@ -9,8 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GymSelector } from "@/components/customer/gym-selector";
 
+import { useDietary } from "@/components/customer/dietary-context";
+
 export default function CustomerProfilePage() {
   const { data: session, status } = useSession();
+  const { isVegetarian, setIsVegetarian } = useDietary();
   const isAuthenticated = status === "authenticated";
   const user = session?.user as any;
 
@@ -19,7 +22,12 @@ export default function CustomerProfilePage() {
   const [phone, setPhone] = useState("+91 99999 88888");
   const [weightKg, setWeightKg] = useState<string>("");
   const [proteinGoal, setProteinGoal] = useState(120);
+  const [dietaryChoice, setDietaryChoice] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setDietaryChoice(isVegetarian);
+  }, [isVegetarian]);
 
   useEffect(() => {
     if (user) {
@@ -33,6 +41,9 @@ export default function CustomerProfilePage() {
         if (data.success && data.user) {
           if (data.user.weightKg) setWeightKg(String(data.user.weightKg));
           if (data.user.proteinGoalGrams) setProteinGoal(data.user.proteinGoalGrams);
+          if (typeof data.user.isVegetarian === "boolean") {
+            setDietaryChoice(data.user.isVegetarian);
+          }
         }
       } catch (err) {
         console.error("Error loading user profile stats", err);
@@ -77,6 +88,9 @@ export default function CustomerProfilePage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (dietaryChoice !== isVegetarian) {
+        await setIsVegetarian(dietaryChoice);
+      }
       if (weightKg && !isNaN(parseFloat(weightKg))) {
         await fetch("/api/user/nutrition-goal", {
           method: "POST",
@@ -125,9 +139,16 @@ export default function CustomerProfilePage() {
           <div>
             <h3 className="text-lg font-bold font-heading text-nutri-charcoal">{userName}</h3>
             <p className="text-xs text-nutri-secondary">{email || "customer@nutriflexs.com"} · {phone}</p>
-            <Badge variant="gold" className="bg-nutri-green-light text-nutri-green border-nutri-green-soft font-bold text-[10px] px-2.5 py-0.5 mt-1.5">
-              {user?.role || "CUSTOMER ACCOUNT"}
-            </Badge>
+            <div className="flex items-center gap-2 mt-1.5">
+              <Badge variant="gold" className="bg-nutri-green-light text-nutri-green border-nutri-green-soft font-bold text-[10px] px-2.5 py-0.5">
+                {user?.role || "CUSTOMER ACCOUNT"}
+              </Badge>
+              {isVegetarian && (
+                <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 font-bold text-[10px] px-2.5 py-0.5">
+                  🥬 VEGETARIAN PREFERRED
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
 
@@ -180,7 +201,7 @@ export default function CustomerProfilePage() {
       <Card className="p-6 border-nutri-border bg-white rounded-3xl shadow-xs">
         <form onSubmit={handleSave} className="space-y-4">
           <h3 className="text-sm font-bold font-heading text-nutri-charcoal border-b border-nutri-border-light pb-2">
-            Personal Information & Goals
+            Personal Information & Dietary Preference
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -212,6 +233,34 @@ export default function CustomerProfilePage() {
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full bg-white text-xs px-3.5 py-2.5 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green text-nutri-charcoal font-medium"
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-nutri-secondary mb-1">Dietary Preference</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDietaryChoice(false)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    !dietaryChoice
+                      ? "bg-nutri-green-light border-nutri-green text-nutri-green"
+                      : "bg-white border-nutri-border text-nutri-secondary hover:text-nutri-charcoal"
+                  }`}
+                >
+                  All Food
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDietaryChoice(true)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    dietaryChoice
+                      ? "bg-nutri-green text-white border-nutri-green-deep shadow-xs"
+                      : "bg-white border-nutri-border text-nutri-secondary hover:text-nutri-charcoal"
+                  }`}
+                >
+                  🥬 Vegetarian Only
+                </button>
+              </div>
             </div>
 
             <div>

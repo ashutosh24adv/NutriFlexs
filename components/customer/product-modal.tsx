@@ -6,6 +6,7 @@ import { X, Clock, Zap, Flame, Wheat, Droplets, CheckCircle2, Plus, Minus } from
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPrice, formatMacro } from "@/lib/utils";
+import { useDietary } from "@/components/customer/dietary-context";
 
 interface ProductModalProps {
   product: any | null;
@@ -14,11 +15,15 @@ interface ProductModalProps {
 }
 
 export function ProductModal({ product, onClose, onAddToCart }: ProductModalProps) {
+  const { isVegetarian } = useDietary();
   const [quantity, setQuantity] = useState(1);
 
   if (!product) return null;
 
+  const isBlockedByDietary = isVegetarian && !product.isVeg;
+
   const handleAdd = () => {
+    if (isBlockedByDietary) return;
     onAddToCart(product, quantity);
     onClose();
   };
@@ -29,7 +34,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-white/80 backdrop-blur-md text-nutri-charcoal flex items-center justify-center hover:bg-white shadow-md transition-all"
+          className="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-white/80 backdrop-blur-md text-nutri-charcoal flex items-center justify-center hover:bg-white shadow-md transition-all cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -59,6 +64,13 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
 
         {/* Details Body */}
         <div className="p-5 overflow-y-auto space-y-5">
+          {/* Dietary Warning if Non-Veg and Veg Mode is ON */}
+          {isBlockedByDietary && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold leading-relaxed">
+              🥬 <strong>Vegetarian Mode is enabled.</strong> This item contains non-vegetarian ingredients and is unavailable in your active preference. Switch off Vegetarian Mode to order.
+            </div>
+          )}
+
           <p className="text-sm text-nutri-muted leading-relaxed">{product.description}</p>
 
           {/* Prominent Macro Dashboard */}
@@ -128,7 +140,8 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
           <div className="flex items-center gap-3 bg-white p-1.5 rounded-full border border-nutri-border">
             <button
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="w-8 h-8 rounded-full bg-nutri-bg text-nutri-charcoal flex items-center justify-center hover:bg-nutri-border font-bold text-sm"
+              disabled={isBlockedByDietary}
+              className="w-8 h-8 rounded-full bg-nutri-bg text-nutri-charcoal flex items-center justify-center hover:bg-nutri-border font-bold text-sm disabled:opacity-50 cursor-pointer"
             >
               <Minus className="w-3.5 h-3.5" />
             </button>
@@ -137,7 +150,8 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
             </span>
             <button
               onClick={() => setQuantity(quantity + 1)}
-              className="w-8 h-8 rounded-full bg-nutri-green-light text-nutri-green flex items-center justify-center hover:bg-nutri-green-soft font-bold text-sm"
+              disabled={isBlockedByDietary}
+              className="w-8 h-8 rounded-full bg-nutri-green-light text-nutri-green flex items-center justify-center hover:bg-nutri-green-soft font-bold text-sm disabled:opacity-50 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
@@ -146,11 +160,14 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
           {/* Add CTA */}
           <Button
             onClick={handleAdd}
+            disabled={isBlockedByDietary}
             size="lg"
             variant="primary"
-            className="flex-1 font-bold shadow-lg shadow-nutri-green/20"
+            className="flex-1 font-bold shadow-lg shadow-nutri-green/20 disabled:bg-neutral-300 disabled:cursor-not-allowed cursor-pointer"
           >
-            ADD TO ORDER · {formatPrice(product.price * quantity)}
+            {isBlockedByDietary
+              ? "UNAVAILABLE IN VEG MODE"
+              : `ADD TO ORDER · ${formatPrice(product.price * quantity)}`}
           </Button>
         </div>
       </div>

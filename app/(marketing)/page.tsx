@@ -89,7 +89,7 @@ export default function MarketingLandingPage() {
                 </Button>
               </Link>
 
-              <Link href="/home">
+              <Link href="/home?action=find-gym">
                 <Button size="lg" variant="outline" className="font-bold text-base">
                   <MapPin className="w-4 h-4 mr-2 text-nutri-green" /> FIND YOUR GYM
                 </Button>

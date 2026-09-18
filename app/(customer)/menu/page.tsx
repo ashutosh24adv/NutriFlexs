@@ -6,15 +6,16 @@ import { Search, Leaf, Zap, RefreshCw } from "lucide-react";
 import { FoodCard } from "@/components/customer/food-card";
 import { ProductModal } from "@/components/customer/product-modal";
 import { useCart } from "@/components/customer/cart-context";
+import { useDietary } from "@/components/customer/dietary-context";
 
 function MenuContent() {
   const { addToCart } = useCart();
+  const { isVegetarian, toggleVegetarian } = useDietary();
   const searchParams = useSearchParams();
   const initialCategoryParam = searchParams.get("category");
 
   const [activeCategory, setActiveCategory] = useState(initialCategoryParam ? initialCategoryParam.toLowerCase() : "all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterVegOnly, setFilterVegOnly] = useState(false);
   const [filterHighProtein, setFilterHighProtein] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [products, setProducts] = useState<any[]>([]);
@@ -34,8 +35,9 @@ function MenuContent() {
       setLoading(true);
       setError(null);
       try {
+        const prodUrl = `/api/products${isVegetarian ? "?isVeg=true" : ""}`;
         const [resProds, resCats] = await Promise.all([
-          fetch("/api/products"),
+          fetch(prodUrl),
           fetch("/api/categories"),
         ]);
 
@@ -61,7 +63,7 @@ function MenuContent() {
       }
     }
     loadMenuData();
-  }, []);
+  }, [isVegetarian]);
 
   const filteredProducts = products.filter((p) => {
     if (activeCategory !== "all") {
@@ -70,7 +72,7 @@ function MenuContent() {
         return false;
       }
     }
-    if (filterVegOnly && !p.isVeg) return false;
+    if (isVegetarian && !p.isVeg) return false;
     if (filterHighProtein && p.protein < 25) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -102,7 +104,7 @@ function MenuContent() {
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-nutri-secondary" />
           <input
             type="text"
-            placeholder="Search protein, juices..."
+            placeholder={isVegetarian ? "Search veg protein, juices..." : "Search protein, juices..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-white border border-nutri-border rounded-full pl-9 pr-4 py-2 text-xs font-medium placeholder:text-nutri-muted text-nutri-charcoal focus:outline-none focus:border-nutri-green transition-colors"
@@ -140,14 +142,16 @@ function MenuContent() {
         {/* Filters */}
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={() => setFilterVegOnly(!filterVegOnly)}
+            onClick={() => toggleVegetarian()}
             className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 cursor-pointer ${
-              filterVegOnly
-                ? "bg-nutri-green-light border-nutri-green text-nutri-green"
+              isVegetarian
+                ? "bg-nutri-green text-white border-nutri-green-deep shadow-xs"
                 : "bg-white border-nutri-border text-nutri-secondary hover:text-nutri-charcoal"
             }`}
+            title={isVegetarian ? "Click to disable Vegetarian Mode" : "Click to enable Vegetarian Mode"}
           >
-            <Leaf className="w-3.5 h-3.5 text-nutri-green" /> 100% Veg
+            <Leaf className={`w-3.5 h-3.5 ${isVegetarian ? "fill-white text-white" : "text-nutri-green"}`} />
+            <span>100% Veg {isVegetarian ? "ON" : "OFF"}</span>
           </button>
 
           <button

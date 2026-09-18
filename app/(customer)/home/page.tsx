@@ -26,13 +26,16 @@ import { Button } from "@/components/ui/button";
 import { ProductModal } from "@/components/customer/product-modal";
 import { BmiRecommendations } from "@/components/customer/bmi-recommendations";
 import { useCart } from "@/components/customer/cart-context";
+import { useDietary } from "@/components/customer/dietary-context";
 
 export default function CustomerHomePage() {
   const { addToCart } = useCart();
+  const { isVegetarian } = useDietary();
   const { data: session, status } = useSession();
   const isAuthenticated = status === "authenticated";
 
   const [selectedProductModal, setSelectedProductModal] = useState<any | null>(null);
+  const [reorderNotice, setReorderNotice] = useState<string | null>(null);
 
   // Database-driven state
   const [userStats, setUserStats] = useState<{
@@ -71,8 +74,9 @@ export default function CustomerHomePage() {
     async function loadHomeData() {
       try {
         const clientTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
+        const prodUrl = `/api/products?isPopular=true${isVegetarian ? "&isVeg=true" : ""}`;
         const promises: Promise<any>[] = [
-          fetch("/api/products?isPopular=true"),
+          fetch(prodUrl),
           fetch("/api/categories"),
         ];
 
@@ -89,6 +93,8 @@ export default function CustomerHomePage() {
         if (dataProds.success && dataProds.products.length > 0) {
           const featured = dataProds.products.find((p: any) => p.isFeatured) || dataProds.products[0];
           setRecommendedProduct(featured);
+        } else if (dataProds.success && dataProds.products.length === 0) {
+          setRecommendedProduct(null);
         }
 
         if (dataCats.success) {
@@ -125,12 +131,16 @@ export default function CustomerHomePage() {
     }
 
     loadHomeData();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isVegetarian]);
 
   const handleOrderAgain = (product: any) => {
-    if (product) {
-      addToCart(product, 1);
+    if (!product) return;
+    if (isVegetarian && !product.isVeg) {
+      setReorderNotice(`"${product.name}" is non-vegetarian and cannot be added in Vegetarian Mode.`);
+      setTimeout(() => setReorderNotice(null), 5000);
+      return;
     }
+    addToCart(product, 1);
   };
 
   const handleSaveWeight = async (e: React.FormEvent) => {
@@ -502,6 +512,12 @@ export default function CustomerHomePage() {
                 </Link>
               )}
             </div>
+
+            {reorderNotice && (
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold animate-fade-in">
+                🥬 {reorderNotice}
+              </div>
+            )}
 
             {isAuthenticated ? (
               <div className="space-y-3">

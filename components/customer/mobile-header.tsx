@@ -7,6 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import { Menu, ShoppingBag, X, User, Utensils, Clock, Shield, LogOut, Lock, ChefHat, Dumbbell } from "lucide-react";
 import { NutriFlexsLogo } from "@/components/ui/logo";
 import { GymSelector } from "@/components/customer/gym-selector";
+import { VegetarianToggle } from "@/components/customer/vegetarian-toggle";
 import { cn } from "@/lib/utils";
 
 interface MobileHeaderProps {
@@ -44,8 +45,9 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
             <NutriFlexsLogo size="sm" showTagline={true} showIcon={false} />
           </div>
 
-          {/* Right Actions: Cart */}
+          {/* Right Actions: Veg Toggle + Cart */}
           <div className="flex items-center gap-1.5 -mr-1">
+            <VegetarianToggle variant="mobile-header" />
             <button
               onClick={onOpenCart}
               className="relative p-2 rounded-full text-nutri-charcoal hover:text-nutri-green hover:bg-nutri-green-light transition-colors cursor-pointer"
@@ -82,6 +84,11 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
                 >
                   <X className="w-5 h-5" />
                 </button>
+              </div>
+
+              {/* Vegetarian Mode Toggle in Drawer */}
+              <div className="mb-4">
+                <VegetarianToggle variant="drawer" />
               </div>
 
               <div className="mb-6">

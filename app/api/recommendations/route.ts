@@ -6,6 +6,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const heightCm = Number(body.heightCm);
     const weightKg = Number(body.weightKg);
+    const isVeg = body.isVeg === true ? true : body.isVeg === false ? false : undefined;
 
     if (
       !heightCm ||
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const data = await getRecommendations(heightCm, weightKg);
+    const data = await getRecommendations(heightCm, weightKg, isVeg);
     return NextResponse.json({
       success: true,
       ...data,

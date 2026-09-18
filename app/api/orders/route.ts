@@ -63,6 +63,7 @@ export async function POST(request: Request) {
       items: validated.items,
       couponCode: validated.couponCode,
       trainerReferralCode: validated.trainerReferralCode,
+      isVegetarian: validated.isVegetarian,
     });
 
     return NextResponse.json({ success: true, ...result });

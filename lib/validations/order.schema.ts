@@ -12,6 +12,7 @@ export const createOrderSchema = z.object({
     .min(1, "At least one item must be in cart"),
   trainerReferralCode: z.string().optional(),
   couponCode: z.string().optional(),
+  isVegetarian: z.boolean().optional(),
 });
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;

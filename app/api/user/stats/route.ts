@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
       weightKg: true,
       customDailyProteinGoal: true,
       proteinGoalGrams: true,
+      isVegetarian: true,
     },
   });
 
@@ -59,6 +60,7 @@ export async function GET(req: NextRequest) {
                 protein: true,
                 calories: true,
                 imageUrl: true,
+                isVeg: true,
               },
             },
           },
@@ -75,6 +77,7 @@ export async function GET(req: NextRequest) {
       name: user.name,
       email: user.email,
       streakDays: user.streakDays || 12,
+      isVegetarian: Boolean(user.isVegetarian),
       weightKg: nutritionGoal.weightKg,
       proteinGoalGrams: nutritionGoal.proteinGoal,
       todayConsumedProtein: nutritionGoal.completedProtein,

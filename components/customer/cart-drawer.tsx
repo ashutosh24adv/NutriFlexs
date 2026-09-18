@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { X, Trash2, Plus, Minus, Zap, Flame, ShieldCheck, Ticket, Dumbbell, ArrowRight, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPrice, formatMacro } from "@/lib/utils";
+import { useDietary } from "@/components/customer/dietary-context";
 
 export interface CartItemType {
   product: any;
@@ -31,6 +32,7 @@ export function CartDrawer({
   onClearCart,
 }: CartDrawerProps) {
   const router = useRouter();
+  const { isVegetarian } = useDietary();
   const [couponCode, setCouponCode] = useState("");
   const [trainerCode, setTrainerCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
@@ -38,6 +40,13 @@ export function CartDrawer({
   const [errorMsg, setErrorMsg] = useState("");
 
   if (!isOpen) return null;
+
+  const nonVegItems = isVegetarian ? items.filter((i) => !i.product.isVeg) : [];
+  const hasDietaryConflict = nonVegItems.length > 0;
+
+  const handleRemoveNonVeg = () => {
+    nonVegItems.forEach((i) => onRemoveItem(i.product.id));
+  };
 
   // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + (item.product.price || 0) * item.quantity, 0);
@@ -81,6 +90,10 @@ export function CartDrawer({
   };
 
   const handleProceedToCheckout = () => {
+    if (hasDietaryConflict) {
+      setErrorMsg("Please remove non-vegetarian items before proceeding to checkout.");
+      return;
+    }
     onClose();
     router.push("/checkout");
   };
@@ -136,6 +149,23 @@ export function CartDrawer({
               </div>
             ) : (
               <>
+                {/* Dietary conflict warning banner */}
+                {hasDietaryConflict && (
+                  <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-xs space-y-1.5 animate-fade-in">
+                    <p className="font-bold">🥬 Vegetarian Mode is active</p>
+                    <p className="text-[11px] text-amber-900">
+                      Your cart has {nonVegItems.length} non-vegetarian item(s).
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleRemoveNonVeg}
+                      className="bg-amber-700 hover:bg-amber-800 text-white font-bold text-[11px] px-3 py-1 rounded-full cursor-pointer transition-colors"
+                    >
+                      Remove Non-Veg ({nonVegItems.length})
+                    </button>
+                  </div>
+                )}
+
                 {/* Macro Summary Header */}
                 <div className="bg-nutri-green-light/80 p-3 rounded-2xl border border-nutri-green-soft flex items-center justify-between text-xs font-semibold text-nutri-green">
                   <span className="flex items-center gap-1">

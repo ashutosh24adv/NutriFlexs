@@ -8,9 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { FoodCard } from "@/components/customer/food-card";
 import { ProductModal } from "@/components/customer/product-modal";
 import { useCart } from "@/components/customer/cart-context";
+import { useDietary } from "@/components/customer/dietary-context";
 
 export function BmiRecommendations() {
   const { addToCart } = useCart();
+  const { isVegetarian } = useDietary();
 
   const [heightCm, setHeightCm] = useState<string>("");
   const [weightKg, setWeightKg] = useState<string>("");
@@ -39,25 +41,19 @@ export function BmiRecommendations() {
     }
   }, []);
 
-  const handleCalculate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    const h = parseFloat(heightCm);
-    const w = parseFloat(weightKg);
-
+  const calculateWithParams = async (h: number, w: number, vegOnly: boolean) => {
     if (isNaN(h) || isNaN(w) || h <= 0 || w <= 0 || h < 80 || h > 260 || w < 20 || w > 350) {
-      setError("Please enter a valid height and weight.");
       return;
     }
 
     setLoading(true);
+    setError(null);
 
     try {
       const res = await fetch("/api/recommendations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ heightCm: h, weightKg: w }),
+        body: JSON.stringify({ heightCm: h, weightKg: w, isVeg: vegOnly ? true : undefined }),
       });
 
       const data = await res.json();
@@ -73,20 +69,44 @@ export function BmiRecommendations() {
         categoryLabel: data.categoryLabel,
         products: data.products || [],
       });
-
-      try {
-        localStorage.setItem(
-          "nutriflexs_bmi_inputs",
-          JSON.stringify({ heightCm: h, weightKg: w })
-        );
-      } catch (e) {
-        // ignore
-      }
     } catch (err: any) {
       setError(err.message || "Failed to calculate recommendations. Please try again.");
     } finally {
       setLoading(false);
     }
+  };
+
+  // When isVegetarian changes and a result is already shown, re-fetch with new dietary mode
+  useEffect(() => {
+    if (result && heightCm && weightKg) {
+      const h = parseFloat(heightCm);
+      const w = parseFloat(weightKg);
+      if (!isNaN(h) && !isNaN(w) && h >= 80 && w >= 20) {
+        calculateWithParams(h, w, isVegetarian);
+      }
+    }
+  }, [isVegetarian]);
+
+  const handleCalculate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    const h = parseFloat(heightCm);
+    const w = parseFloat(weightKg);
+
+    if (isNaN(h) || isNaN(w) || h <= 0 || w <= 0 || h < 80 || h > 260 || w < 20 || w > 350) {
+      setError("Please enter a valid height and weight.");
+      return;
+    }
+
+    try {
+      localStorage.setItem(
+        "nutriflexs_bmi_inputs",
+        JSON.stringify({ heightCm: h, weightKg: w })
+      );
+    } catch (e) {}
+
+    await calculateWithParams(h, w, isVegetarian);
   };
 
   const getCategoryBadgeClass = (category: string) => {

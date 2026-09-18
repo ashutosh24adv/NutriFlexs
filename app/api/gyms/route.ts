@@ -1,16 +1,21 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
+import { getAllActiveGyms } from "@/services/gym.service";
 
-export async function GET() {
+export const dynamic = "force-dynamic";
+
+
+export async function GET(request: NextRequest) {
   try {
-    const gyms = await prisma.gym.findMany({
-      include: {
-        outlets: true,
-      },
-      orderBy: { name: "asc" },
-    });
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search") || undefined;
+
+    const gyms = await getAllActiveGyms(search);
     return NextResponse.json({ success: true, gyms });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error("Failed to fetch active gyms:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || "Failed to fetch gyms" },
+      { status: 500 }
+    );
   }
 }
