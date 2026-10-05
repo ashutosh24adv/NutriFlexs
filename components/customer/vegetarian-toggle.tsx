@@ -19,17 +19,22 @@ export function VegetarianToggle({ variant = "header", className }: VegetarianTo
         type="button"
         onClick={toggleVegetarian}
         className={cn(
-          "flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold border transition-all cursor-pointer select-none shrink-0",
+          "relative inline-flex items-center justify-center gap-1 h-[28px] px-2 rounded-full text-[11px] font-bold border transition-all cursor-pointer select-none shrink-0 shadow-xs",
           isVegetarian
-            ? "bg-nutri-green text-white border-nutri-green-dark shadow-xs"
-            : "bg-white text-nutri-secondary border-nutri-border hover:border-nutri-green hover:text-nutri-charcoal",
+            ? "bg-nutri-green text-white border-nutri-green-dark"
+            : "bg-nutri-green-soft text-nutri-charcoal border-nutri-border hover:border-nutri-green hover:bg-nutri-green-light/60",
           className
         )}
         aria-pressed={isVegetarian}
         title={isVegetarian ? "Vegetarian Mode: ON (Click to show all)" : "Vegetarian Mode: OFF (Click for Veg only)"}
       >
-        <Leaf className={cn("w-3.5 h-3.5", isVegetarian ? "fill-white text-white" : "text-nutri-green")} />
-        <span className="text-[11px] font-bold">Veg {isVegetarian ? "ON" : "OFF"}</span>
+        <Leaf
+          className={cn(
+            "w-3 h-3 shrink-0 transition-colors",
+            isVegetarian ? "fill-white text-white" : "text-nutri-green fill-nutri-green/20"
+          )}
+        />
+        <span className="text-[11px] font-bold leading-none tracking-tight">Veg</span>
       </button>
     );
   }
@@ -81,37 +86,24 @@ export function VegetarianToggle({ variant = "header", className }: VegetarianTo
       type="button"
       onClick={toggleVegetarian}
       className={cn(
-        "relative flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer select-none",
+        "relative inline-flex items-center justify-center gap-1.5 h-[30px] px-2.5 rounded-full text-xs font-bold border transition-all cursor-pointer select-none shrink-0 shadow-xs",
         isVegetarian
-          ? "bg-nutri-green text-white border-nutri-green-deep shadow-xs"
+          ? "bg-nutri-green text-white border-nutri-green-deep"
           : "bg-nutri-green-soft text-nutri-charcoal border-nutri-border hover:border-nutri-green hover:bg-nutri-green-light/60",
         className
       )}
       aria-pressed={isVegetarian}
       title={isVegetarian ? "Vegetarian Mode: ON (Click to show all)" : "Vegetarian Mode: OFF (Click for Veg only)"}
     >
-      <div
+      <Leaf
         className={cn(
-          "w-4 h-4 rounded-full flex items-center justify-center transition-transform",
-          isVegetarian ? "text-white" : "text-nutri-green"
+          "w-3.5 h-3.5 shrink-0 transition-colors",
+          isVegetarian ? "fill-white text-white" : "text-nutri-green fill-nutri-green/20"
         )}
-      >
-        <Leaf className={cn("w-3.5 h-3.5", isVegetarian ? "fill-white text-white" : "text-nutri-green fill-nutri-green/30")} />
-      </div>
+      />
 
-      <span className="text-xs font-extrabold tracking-tight">
-        🥬 Vegetarian
-      </span>
-
-      <span
-        className={cn(
-          "text-[10px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider",
-          isVegetarian
-            ? "bg-white text-nutri-green font-black"
-            : "bg-white/80 text-nutri-secondary border border-nutri-border"
-        )}
-      >
-        {isVegetarian ? "ON" : "OFF"}
+      <span className="text-[11px] font-bold leading-none tracking-tight">
+        Veg
       </span>
     </button>
   );

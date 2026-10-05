@@ -3,16 +3,18 @@
 import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { NutriFlexsLogo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Lock, Mail, User, Phone, ArrowRight } from "lucide-react";
+import { PublicHeader } from "@/components/customer/public-header";
 
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/home";
+  const { status } = useSession();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -20,6 +22,12 @@ function SignupForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (status === "authenticated") {
+      router.push(callbackUrl);
+    }
+  }, [status, callbackUrl, router]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,10 +166,13 @@ function SignupForm() {
 
 export default function SignupPage() {
   return (
-    <div className="min-h-screen bg-nutri-bg flex flex-col justify-center items-center p-4">
-      <Suspense fallback={<div className="text-xs font-bold text-nutri-green">Loading Sign Up...</div>}>
-        <SignupForm />
-      </Suspense>
+    <div className="min-h-screen flex flex-col bg-nutri-bg">
+      <PublicHeader />
+      <main className="flex-1 flex flex-col justify-center items-center p-4 py-8 sm:py-12">
+        <Suspense fallback={<div className="text-xs font-bold text-nutri-green">Loading Sign Up...</div>}>
+          <SignupForm />
+        </Suspense>
+      </main>
     </div>
   );
 }

@@ -42,7 +42,7 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
 
           {/* Centered NutriFlexs Logo & Tagline */}
           <div className="flex-1 flex justify-center">
-            <NutriFlexsLogo size="sm" showTagline={true} showIcon={false} />
+            <NutriFlexsLogo size="sm" showTagline={true} showIcon={false} href={isAuthenticated ? "/home" : "/"} />
           </div>
 
           {/* Right Actions: Veg Toggle + Cart */}
@@ -77,7 +77,7 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
           <div className="relative w-4/5 max-w-xs bg-white h-full shadow-2xl p-6 flex flex-col justify-between z-10 animate-slide-left overflow-y-auto">
             <div>
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-nutri-border">
-                <NutriFlexsLogo size="md" showTagline={true} />
+                <NutriFlexsLogo size="md" showTagline={true} href={isAuthenticated ? "/home" : "/"} />
                 <button
                   onClick={() => setIsMenuOpen(false)}
                   className="p-2 rounded-full text-nutri-secondary hover:bg-nutri-border-light cursor-pointer"
@@ -104,7 +104,7 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
                   onClick={() => setIsMenuOpen(false)}
                   className={cn(
                     "flex items-center gap-3 p-3 rounded-2xl font-bold text-sm transition-colors",
-                    pathname === "/home" || pathname === "/" ? "bg-nutri-green-light text-nutri-green" : "text-nutri-charcoal hover:bg-nutri-green-soft"
+                    pathname === "/home" ? "bg-nutri-green-light text-nutri-green" : "text-nutri-charcoal hover:bg-nutri-green-soft"
                   )}
                 >
                   <Utensils className="w-4 h-4" /> Home
@@ -130,7 +130,11 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
                   <Clock className="w-4 h-4 text-nutri-secondary" /> NutriFlexs Pass
                 </Link>
 
-                {isAuthenticated ? (
+                {status === "loading" ? (
+                  <div className="p-3 space-y-2">
+                    <div className="h-4 bg-nutri-border-light rounded-md animate-pulse" />
+                  </div>
+                ) : isAuthenticated ? (
                   <>
                     <Link
                       href="/orders"
@@ -202,7 +206,7 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
                 <button
                   onClick={() => {
                     setIsMenuOpen(false);
-                    signOut({ callbackUrl: "/home" });
+                    signOut({ callbackUrl: "/" });
                   }}
                   className="w-full text-left flex items-center gap-2 text-xs font-bold text-rose-600 p-1 cursor-pointer"
                 >

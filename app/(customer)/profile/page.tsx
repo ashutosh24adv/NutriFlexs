@@ -54,6 +54,19 @@ export default function CustomerProfilePage() {
     }
   }, [user, isAuthenticated]);
 
+  // If auth is loading, show clean skeleton
+  if (status === "loading") {
+    return (
+      <div className="max-w-md mx-auto py-16 text-center space-y-4">
+        <Card className="p-8 bg-white border border-nutri-border rounded-3xl space-y-4 shadow-sm animate-pulse">
+          <div className="w-16 h-16 bg-nutri-green-light rounded-full mx-auto" />
+          <div className="h-5 bg-nutri-border-light rounded-md w-3/4 mx-auto" />
+          <div className="h-4 bg-nutri-border-light rounded-md w-1/2 mx-auto" />
+        </Card>
+      </div>
+    );
+  }
+
   // If unauthenticated, show sign in prompt
   if (status === "unauthenticated") {
     return (
@@ -153,7 +166,7 @@ export default function CustomerProfilePage() {
         </div>
 
         <button
-          onClick={() => signOut({ callbackUrl: "/home" })}
+          onClick={() => signOut({ callbackUrl: "/" })}
           className="flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-4 py-2 rounded-full border border-rose-200 transition-colors shrink-0 cursor-pointer self-start sm:self-auto"
         >
           <LogOut className="w-3.5 h-3.5" /> Sign Out

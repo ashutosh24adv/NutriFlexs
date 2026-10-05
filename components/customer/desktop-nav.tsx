@@ -50,7 +50,7 @@ export function DesktopNav({ cartCount = 0, onOpenCart, showStaffPortal = false 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Left Logo + Gym Selector */}
         <div className="flex items-center gap-4">
-          <NutriFlexsLogo size="md" />
+          <NutriFlexsLogo size="md" href={isAuthenticated ? "/home" : "/"} />
           <div className="hidden sm:block border-l border-nutri-border pl-4">
             <GymSelector />
           </div>
@@ -59,7 +59,7 @@ export function DesktopNav({ cartCount = 0, onOpenCart, showStaffPortal = false 
         {/* Center Links */}
         <nav className="hidden md:flex items-center gap-6">
           {links.map((link, idx) => {
-            const isActive = link.href === "/home" ? (pathname === "/home" || pathname === "/") : pathname.startsWith(link.href);
+            const isActive = link.href === "/home" ? pathname === "/home" : pathname.startsWith(link.href);
             return (
               <Link
                 key={idx}
@@ -139,7 +139,12 @@ export function DesktopNav({ cartCount = 0, onOpenCart, showStaffPortal = false 
           </button>
 
           {/* Auth Button / Profile Indicator */}
-          {isAuthenticated ? (
+          {status === "loading" ? (
+            <div className="flex items-center gap-2 pl-2 border-l border-nutri-border">
+              <div className="w-8 h-8 rounded-full bg-nutri-green/20 animate-pulse" />
+              <div className="hidden lg:block w-16 h-3.5 bg-nutri-border-light rounded-md animate-pulse" />
+            </div>
+          ) : isAuthenticated ? (
             <div className="flex items-center gap-2 pl-2 border-l border-nutri-border">
               <Link href="/profile" className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-nutri-green text-white flex items-center justify-center font-extrabold text-xs">
@@ -150,8 +155,8 @@ export function DesktopNav({ cartCount = 0, onOpenCart, showStaffPortal = false 
                 </span>
               </Link>
               <button
-                onClick={() => signOut({ callbackUrl: "/home" })}
-                className="p-1.5 text-nutri-secondary hover:text-rose-600 transition-colors"
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="p-1.5 text-nutri-secondary hover:text-rose-600 transition-colors cursor-pointer"
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />

@@ -3,6 +3,10 @@
 @import 'tailwindcss/utilities';
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     background-color: #FCFDFC;
     color: #111111;

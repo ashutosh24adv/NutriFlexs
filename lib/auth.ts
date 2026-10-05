@@ -70,6 +70,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  secret: process.env.NEXTAUTH_SECRET || "nutriflexs_secret_2026",
+  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "nutriflexs_super_secret_auth_key_2026_jwt",
 };

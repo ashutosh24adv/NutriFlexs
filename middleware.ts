@@ -13,7 +13,7 @@ export async function middleware(req: NextRequest) {
   if (isAdminPath || isKitchenPath || isTrainerPath) {
     const token = await getToken({
       req,
-      secret: process.env.NEXTAUTH_SECRET || "nutriflexs_secret_2026",
+      secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "nutriflexs_super_secret_auth_key_2026_jwt",
     });
 
     // If unauthenticated, redirect to staff login with callbackUrl

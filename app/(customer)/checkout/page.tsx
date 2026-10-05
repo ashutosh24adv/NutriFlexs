@@ -45,6 +45,19 @@ export default function CheckoutPage() {
     setDietaryError(null);
   };
 
+  // 0. Auth Loading State
+  if (status === "loading") {
+    return (
+      <div className="max-w-md mx-auto py-12 space-y-6">
+        <Card className="p-8 bg-white border border-nutri-border rounded-3xl shadow-sm space-y-4 text-center animate-pulse">
+          <div className="w-12 h-12 rounded-full bg-nutri-green-light mx-auto" />
+          <div className="h-5 bg-nutri-border-light rounded-md w-3/4 mx-auto" />
+          <div className="h-4 bg-nutri-border-light rounded-md w-1/2 mx-auto" />
+        </Card>
+      </div>
+    );
+  }
+
   // 1. Guest Authentication Intercept Card
   if (status === "unauthenticated") {
     return (

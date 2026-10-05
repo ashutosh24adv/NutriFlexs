@@ -125,28 +125,26 @@ export function BmiRecommendations() {
   };
 
   return (
-    <section className="bg-white rounded-3xl border border-nutri-border p-5 sm:p-7 shadow-sm space-y-6">
+    <div className="bg-white rounded-3xl border border-nutri-border p-6 sm:p-8 shadow-xs space-y-6">
       {/* Header */}
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-2">
-          <Badge variant="gold" className="bg-nutri-green-light text-nutri-green border-nutri-green-soft font-bold text-xs px-3 py-0.5">
-            <Sparkles className="w-3.5 h-3.5 mr-1 fill-nutri-green" /> PERSONALIZED FUEL
-          </Badge>
-        </div>
-        <h2 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
+      <div className="space-y-2">
+        <Badge variant="gold" className="bg-nutri-green-light text-nutri-green border-nutri-green-soft font-bold text-xs px-3.5 py-1 inline-flex items-center">
+          <Sparkles className="w-3.5 h-3.5 mr-1.5 fill-nutri-green shrink-0" /> PERSONALIZED FUEL
+        </Badge>
+        <h2 className="text-2xl sm:text-3xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
           Find What&apos;s Right For You
         </h2>
-        <p className="text-xs sm:text-sm text-nutri-muted">
+        <p className="text-xs sm:text-sm text-nutri-muted leading-relaxed">
           Enter your height and weight to get NutriFlexs recommendations.
         </p>
       </div>
 
       {/* Input Form */}
-      <form onSubmit={handleCalculate} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <form onSubmit={handleCalculate} className="space-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           {/* Height Input */}
           <div className="space-y-1.5">
-            <label htmlFor="bmi-height" className="block text-xs font-bold text-nutri-charcoal">
+            <label htmlFor="bmi-height" className="block text-xs font-bold text-nutri-charcoal uppercase tracking-wider">
               Height (cm)
             </label>
             <div className="relative">
@@ -159,10 +157,10 @@ export function BmiRecommendations() {
                 value={heightCm}
                 onChange={(e) => setHeightCm(e.target.value)}
                 placeholder="175"
-                className="w-full bg-nutri-bg border border-nutri-border focus:border-nutri-green focus:bg-white rounded-2xl px-4 py-3 text-sm font-bold text-nutri-charcoal outline-hidden transition-all pl-10"
+                className="w-full h-12 bg-nutri-bg border border-nutri-border focus:border-nutri-green focus:bg-white rounded-2xl px-4 text-sm font-bold text-nutri-charcoal outline-hidden transition-all pl-10 pr-12"
               />
-              <Ruler className="w-4 h-4 text-nutri-muted absolute left-3.5 top-3.5" />
-              <span className="absolute right-3.5 top-3.5 text-xs font-semibold text-nutri-muted">
+              <Ruler className="w-4 h-4 text-nutri-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-nutri-muted">
                 cm
               </span>
             </div>
@@ -170,7 +168,7 @@ export function BmiRecommendations() {
 
           {/* Weight Input */}
           <div className="space-y-1.5">
-            <label htmlFor="bmi-weight" className="block text-xs font-bold text-nutri-charcoal">
+            <label htmlFor="bmi-weight" className="block text-xs font-bold text-nutri-charcoal uppercase tracking-wider">
               Weight (kg)
             </label>
             <div className="relative">
@@ -183,10 +181,10 @@ export function BmiRecommendations() {
                 value={weightKg}
                 onChange={(e) => setWeightKg(e.target.value)}
                 placeholder="68"
-                className="w-full bg-nutri-bg border border-nutri-border focus:border-nutri-green focus:bg-white rounded-2xl px-4 py-3 text-sm font-bold text-nutri-charcoal outline-hidden transition-all pl-10"
+                className="w-full h-12 bg-nutri-bg border border-nutri-border focus:border-nutri-green focus:bg-white rounded-2xl px-4 text-sm font-bold text-nutri-charcoal outline-hidden transition-all pl-10 pr-12"
               />
-              <Scale className="w-4 h-4 text-nutri-muted absolute left-3.5 top-3.5" />
-              <span className="absolute right-3.5 top-3.5 text-xs font-semibold text-nutri-muted">
+              <Scale className="w-4 h-4 text-nutri-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-nutri-muted">
                 kg
               </span>
             </div>
@@ -202,23 +200,23 @@ export function BmiRecommendations() {
         )}
 
         {/* Submit button */}
-        <div className="pt-1 flex justify-center sm:justify-start">
+        <div className="pt-1 flex justify-start">
           <Button
             type="submit"
             disabled={loading}
             size="lg"
             variant="primary"
-            className="w-full sm:w-auto font-bold text-sm px-6 rounded-full shadow-md shadow-nutri-green/15"
+            className="w-full sm:w-auto h-12 font-bold text-sm px-7 rounded-full shadow-md shadow-nutri-green/15 inline-flex items-center justify-center gap-2 cursor-pointer"
           >
             {loading ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" />
                 Calculating Recommendations...
               </>
             ) : (
               <>
                 Get My Recommendations
-                <ArrowRight className="w-4 h-4 ml-2" />
+                <ArrowRight className="w-4 h-4" />
               </>
             )}
           </Button>
@@ -295,6 +293,6 @@ export function BmiRecommendations() {
           onAddToCart={(p, qty) => addToCart(p, qty)}
         />
       )}
-    </section>
+    </div>
   );
 }

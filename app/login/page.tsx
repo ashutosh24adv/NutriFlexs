@@ -3,22 +3,30 @@
 import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { NutriFlexsLogo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Lock, Mail, ArrowRight } from "lucide-react";
+import { PublicHeader } from "@/components/customer/public-header";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/home";
   const isStaff = searchParams.get("staff") === "true";
+  const { status } = useSession();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (status === "authenticated") {
+      router.push(callbackUrl);
+    }
+  }, [status, callbackUrl, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,10 +186,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-nutri-bg flex flex-col justify-center items-center p-4">
-      <Suspense fallback={<div className="text-xs font-bold text-nutri-green">Loading Sign In...</div>}>
-        <LoginForm />
-      </Suspense>
+    <div className="min-h-screen flex flex-col bg-nutri-bg">
+      <PublicHeader />
+      <main className="flex-1 flex flex-col justify-center items-center p-4 py-8 sm:py-12">
+        <Suspense fallback={<div className="text-xs font-bold text-nutri-green">Loading Sign In...</div>}>
+          <LoginForm />
+        </Suspense>
+      </main>
     </div>
   );
 }
