@@ -1,5 +1,8 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 interface LogoProps {
   size?: "sm" | "md" | "lg";
@@ -9,11 +12,21 @@ interface LogoProps {
   href?: string;
 }
 
-export function NutriFlexsLogo({ size = "md", showTagline = false, showIcon = true, className = "", href = "/" }: LogoProps) {
+export function NutriFlexsLogo({ size = "md", showTagline = false, showIcon = true, className = "", href }: LogoProps) {
+  const { status } = useSession();
+  const isAuthenticated = status === "authenticated";
+  const targetHref = href ?? (isAuthenticated ? "/home" : "/");
+
   const iconDimensions = {
     sm: "w-6 h-6",
     md: "w-8 h-8",
     lg: "w-10 h-10",
+  }[size];
+
+  const iconPixelSize = {
+    sm: 24,
+    md: 32,
+    lg: 40,
   }[size];
 
   const textSizes = {
@@ -23,10 +36,21 @@ export function NutriFlexsLogo({ size = "md", showTagline = false, showIcon = tr
   }[size];
 
   return (
-    <Link href={href} className={`inline-flex items-center gap-2 group cursor-pointer ${className}`}>
+    <Link href={targetHref} className={`inline-flex items-center gap-2 group cursor-pointer ${className}`}>
       {showIcon && (
-        <div className={`relative ${iconDimensions} bg-nutri-green text-white rounded-xl flex items-center justify-center shadow-sm group-hover:bg-nutri-green-hover transition-colors p-1.5 shrink-0`}>
-          <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <div
+          style={{ width: iconPixelSize, height: iconPixelSize, minWidth: iconPixelSize, minHeight: iconPixelSize }}
+          className={`relative ${iconDimensions} bg-nutri-green text-white rounded-xl flex items-center justify-center shadow-sm group-hover:bg-nutri-green-hover transition-colors p-1.5 shrink-0 overflow-hidden`}
+        >
+          <svg
+            viewBox="0 0 36 36"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            width={iconPixelSize}
+            height={iconPixelSize}
+            style={{ width: "100%", height: "100%", display: "block" }}
+            className="w-full h-full"
+          >
             <path
               d="M18 31.5C18 31.5 5 23 5 13.5C5 9.35786 8.35786 6 12.5 6C15.0252 6 17.2514 7.24765 18 9.16781C18.7486 7.24765 20.9748 6 23.5 6C27.6421 6 31 9.35786 31 13.5C31 23 18 31.5 18 31.5Z"
               fill="currentColor"

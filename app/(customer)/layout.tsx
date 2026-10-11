@@ -1,11 +1,7 @@
 "use client";
 
 import React from "react";
-import { DesktopNav } from "@/components/customer/desktop-nav";
-import { MobileHeader } from "@/components/customer/mobile-header";
-import { MobileNav } from "@/components/customer/mobile-nav";
-import { CartDrawer } from "@/components/customer/cart-drawer";
-import { useCart } from "@/components/customer/cart-context";
+import { PublicHeader } from "@/components/customer/public-header";
 import { useDietary } from "@/components/customer/dietary-context";
 import { Leaf, X } from "lucide-react";
 
@@ -38,52 +34,14 @@ function DietaryAlertBanner() {
   );
 }
 
-function CustomerLayoutContent({ children }: { children: React.ReactNode }) {
-  const {
-    cartItems,
-    isCartOpen,
-    setIsCartOpen,
-    updateQuantity,
-    removeItem,
-    clearCart,
-    totalItemCount,
-  } = useCart();
-
+export default function CustomerLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col pb-20 md:pb-6 bg-nutri-bg">
+    <div className="min-h-screen flex flex-col bg-nutri-bg">
       <DietaryAlertBanner />
-
-      <MobileHeader
-        cartCount={totalItemCount}
-        onOpenCart={() => setIsCartOpen(true)}
-      />
-      
-      <DesktopNav
-        cartCount={totalItemCount}
-        onOpenCart={() => setIsCartOpen(true)}
-      />
-
+      <PublicHeader />
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         {children}
       </main>
-
-      <MobileNav
-        cartCount={totalItemCount}
-        onOpenCart={() => setIsCartOpen(true)}
-      />
-
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        items={cartItems}
-        onUpdateQuantity={updateQuantity}
-        onRemoveItem={removeItem}
-        onClearCart={clearCart}
-      />
     </div>
   );
-}
-
-export default function CustomerLayout({ children }: { children: React.ReactNode }) {
-  return <CustomerLayoutContent>{children}</CustomerLayoutContent>;
 }

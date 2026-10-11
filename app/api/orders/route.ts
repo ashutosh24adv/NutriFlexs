@@ -11,12 +11,20 @@ export async function GET(request: Request) {
   const outletId = searchParams.get("outletId") || undefined;
 
   try {
+    const session = await getServerSession(authOptions);
+    const userRole = (session?.user as any)?.role;
+
     if (view === "kitchen" || view === "admin") {
+      if (!session || (userRole !== "KITCHEN" && userRole !== "ADMIN")) {
+        return NextResponse.json(
+          { success: false, error: "Unauthorized. Kitchen staff or Admin role required." },
+          { status: 403 }
+        );
+      }
       const orders = await getKitchenOrders(outletId);
       return NextResponse.json({ success: true, orders });
     }
 
-    const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ success: true, orders: [] });
     }

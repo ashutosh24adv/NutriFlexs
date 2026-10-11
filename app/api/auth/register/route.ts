@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { hashPassword } from "@/lib/password";
 
 export async function POST(request: Request) {
   try {
@@ -10,6 +11,13 @@ export async function POST(request: Request) {
     if (!name || !email || !password) {
       return NextResponse.json(
         { success: false, error: "Name, email, and password are required" },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < 6) {
+      return NextResponse.json(
+        { success: false, error: "Password must be at least 6 characters long" },
         { status: 400 }
       );
     }
@@ -31,13 +39,13 @@ export async function POST(request: Request) {
     // Default to the first available gym and outlet
     const defaultOutlet = await prisma.outlet.findFirst();
 
-    // Create user strictly with CUSTOMER role
+    // Create user strictly with CUSTOMER role and hashed password
     const newUser = await prisma.user.create({
       data: {
         name: name.trim(),
         email: normalizedEmail,
         phone: phone ? phone.trim() : null,
-        passwordHash: password, // In production, hash with bcrypt
+        passwordHash: hashPassword(password),
         role: Role.CUSTOMER,
         selectedGymId: defaultOutlet?.gymId || null,
         selectedOutletId: defaultOutlet?.id || null,

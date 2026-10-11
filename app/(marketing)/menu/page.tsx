@@ -2,11 +2,40 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, Leaf, Zap, RefreshCw } from "lucide-react";
+import { Search, Leaf, Zap, RefreshCw, X } from "lucide-react";
 import { FoodCard } from "@/components/customer/food-card";
 import { ProductModal } from "@/components/customer/product-modal";
 import { useCart } from "@/components/customer/cart-context";
 import { useDietary } from "@/components/customer/dietary-context";
+
+function DietaryAlertBanner() {
+  const { nonVegRemovedAlert, clearNonVegAlert } = useDietary();
+
+  if (!nonVegRemovedAlert) return null;
+
+  return (
+    <div className="fixed top-20 right-4 left-4 sm:left-auto sm:right-6 sm:w-96 z-50 animate-slide-down">
+      <div className="bg-nutri-green text-white p-3.5 sm:p-4 rounded-2xl shadow-xl border border-nutri-green-dark flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <div className="p-1 rounded-full bg-white/20 text-white shrink-0 mt-0.5">
+            <Leaf className="w-4 h-4 fill-white" />
+          </div>
+          <div>
+            <p className="text-xs font-bold font-heading">Vegetarian Mode Active</p>
+            <p className="text-[11px] text-white/95 mt-0.5 leading-snug">{nonVegRemovedAlert}</p>
+          </div>
+        </div>
+        <button
+          onClick={clearNonVegAlert}
+          className="p-1 text-white/80 hover:text-white rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+          aria-label="Dismiss alert"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function MenuContent() {
   const { addToCart } = useCart();
@@ -87,7 +116,9 @@ function MenuContent() {
   });
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-10">
+    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16">
+      <DietaryAlertBanner />
+
       {/* Menu Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-nutri-border pb-4">
         <div>
@@ -146,12 +177,12 @@ function MenuContent() {
             className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 cursor-pointer ${
               isVegetarian
                 ? "bg-nutri-green text-white border-nutri-green-deep shadow-xs"
-                : "bg-white border-nutri-border text-nutri-secondary hover:text-nutri-charcoal"
+                : "bg-white border-nutri-border text-nutri-secondary hover:text-nutri-charcoal hover:border-nutri-green"
             }`}
             title={isVegetarian ? "Click to disable Vegetarian Mode" : "Click to enable Vegetarian Mode"}
           >
-            <Leaf className={`w-3.5 h-3.5 ${isVegetarian ? "fill-white text-white" : "text-nutri-green"}`} />
-            <span>100% Veg {isVegetarian ? "ON" : "OFF"}</span>
+            <Leaf className={`w-3.5 h-3.5 ${isVegetarian ? "fill-white text-white" : "text-nutri-secondary"}`} />
+            <span>Veg {isVegetarian ? "ON" : "OFF"}</span>
           </button>
 
           <button

@@ -1,6 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
+import { verifyPassword, hashPassword } from "@/lib/password";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -11,7 +12,9 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
 
         const email = credentials.email.toLowerCase().trim();
 
@@ -20,13 +23,26 @@ export const authOptions: NextAuthOptions = {
           where: { email },
         });
 
-        if (!user) {
+        if (!user || !user.passwordHash) {
           return null;
         }
 
-        // If user has a passwordHash, verify it matches
-        if (user.passwordHash && user.passwordHash !== credentials.password) {
+        // Verify password with timing safety & scrypt
+        const isValid = verifyPassword(credentials.password, user.passwordHash);
+        if (!isValid) {
           return null;
+        }
+
+        // Seamlessly upgrade legacy plaintext password to scrypt hash if applicable
+        if (!user.passwordHash.startsWith("scrypt:")) {
+          try {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { passwordHash: hashPassword(credentials.password) },
+            });
+          } catch (err) {
+            console.error("Non-fatal: Failed to upgrade legacy password hash", err);
+          }
         }
 
         return {

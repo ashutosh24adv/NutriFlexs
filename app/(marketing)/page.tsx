@@ -96,7 +96,7 @@ export default function MarketingLandingPage() {
             </p>
 
             <div className="flex flex-wrap items-center gap-4 pt-1">
-              <Link href="/#menu">
+              <Link href="/menu">
                 <Button size="lg" variant="primary" className="font-bold text-base shadow-lg shadow-nutri-green/20">
                   EXPLORE MENU <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>

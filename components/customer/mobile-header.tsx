@@ -40,9 +40,9 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
             <Menu className="w-6 h-6 stroke-[2.2]" />
           </button>
 
-          {/* Centered NutriFlexs Logo & Tagline */}
+          {/* Centered NutriFlexs Logo (No Tagline) */}
           <div className="flex-1 flex justify-center">
-            <NutriFlexsLogo size="sm" showTagline={true} showIcon={false} href={isAuthenticated ? "/home" : "/"} />
+            <NutriFlexsLogo size="sm" showTagline={false} showIcon={false} href={isAuthenticated ? "/home" : "/"} />
           </div>
 
           {/* Right Actions: Veg Toggle + Cart */}
@@ -77,7 +77,7 @@ export function MobileHeader({ cartCount = 0, onOpenCart, showStaffPortal = fals
           <div className="relative w-4/5 max-w-xs bg-white h-full shadow-2xl p-6 flex flex-col justify-between z-10 animate-slide-left overflow-y-auto">
             <div>
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-nutri-border">
-                <NutriFlexsLogo size="md" showTagline={true} href={isAuthenticated ? "/home" : "/"} />
+                <NutriFlexsLogo size="md" showTagline={false} href={isAuthenticated ? "/home" : "/"} />
                 <button
                   onClick={() => setIsMenuOpen(false)}
                   className="p-2 rounded-full text-nutri-secondary hover:bg-nutri-border-light cursor-pointer"
