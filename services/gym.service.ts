@@ -43,13 +43,13 @@ export function formatDistance(distanceKm: number): string {
   return `${distanceKm.toFixed(1)} km away`;
 }
 
-function getGymCoordinates(
+export function getGymCoordinates(
   gym: { name: string; latitude?: number | null; longitude?: number | null },
   outlet?: { latitude?: number | null; longitude?: number | null }
 ): {
   lat: number;
   lng: number;
-} {
+} | null {
   if (
     typeof gym.latitude === "number" &&
     !isNaN(gym.latitude) &&
@@ -69,15 +69,7 @@ function getGymCoordinates(
     return { lat: outlet.latitude, lng: outlet.longitude };
   }
 
-  const lowerName = gym.name.toLowerCase();
-  for (const [key, coords] of Object.entries(DEFAULT_GYM_COORDS)) {
-    if (lowerName.includes(key)) {
-      return coords;
-    }
-  }
-
-  // Default fallback if coordinates cannot be determined
-  return { lat: 12.9716, lng: 77.5946 };
+  return null;
 }
 
 export interface NearbyGymResult {
@@ -153,26 +145,32 @@ export async function getNearbyGyms(
     if (!gym.outlets || gym.outlets.length === 0) continue;
 
     const gymCoords = getGymCoordinates(gym);
+    if (!gymCoords) continue;
 
-    const computedOutlets = gym.outlets.map((outlet) => {
-      const outletCoords = getGymCoordinates(gym, outlet);
-      const outletDistKm = calculateHaversineDistance(
-        userLat,
-        userLng,
-        outletCoords.lat,
-        outletCoords.lng
-      );
+    const computedOutlets = gym.outlets
+      .map((outlet) => {
+        const outletCoords = getGymCoordinates(gym, outlet) || gymCoords;
+        if (!outletCoords) return null;
+        const outletDistKm = calculateHaversineDistance(
+          userLat,
+          userLng,
+          outletCoords.lat,
+          outletCoords.lng
+        );
 
-      return {
-        id: outlet.id,
-        name: outlet.name,
-        address: outlet.address,
-        phone: outlet.phone,
-        isAvailable: outlet.isAvailable,
-        distanceKm: outletDistKm,
-        formattedDistance: formatDistance(outletDistKm),
-      };
-    });
+        return {
+          id: outlet.id,
+          name: outlet.name,
+          address: outlet.address,
+          phone: outlet.phone,
+          isAvailable: outlet.isAvailable,
+          distanceKm: outletDistKm,
+          formattedDistance: formatDistance(outletDistKm),
+        };
+      })
+      .filter((o): o is NonNullable<typeof o> => o !== null);
+
+    if (computedOutlets.length === 0) continue;
 
     // Sort outlets of this gym nearest first
     computedOutlets.sort((a, b) => a.distanceKm - b.distanceKm);
@@ -270,14 +268,16 @@ export async function getAllActiveGyms(search?: string) {
         name: gym.name,
         address: gym.address,
         city: gym.city,
-        latitude: coords.lat,
-        longitude: coords.lng,
+        latitude: coords ? coords.lat : (gym.latitude ?? undefined),
+        longitude: coords ? coords.lng : (gym.longitude ?? undefined),
         outlets: gym.outlets.map((o) => ({
           id: o.id,
           name: o.name,
           address: o.address,
           phone: o.phone,
           isAvailable: o.isAvailable,
+          latitude: o.latitude ?? undefined,
+          longitude: o.longitude ?? undefined,
         })),
       };
     });

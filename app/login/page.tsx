@@ -283,9 +283,21 @@ function LoginForm() {
           </Button>
         </form>
 
-        {/* Customer Signup Link (only shown for non-staff or customer context) */}
-        {!isStaff && (
-          <div className="pt-2 border-t border-nutri-border-light text-center">
+        {/* Navigation to Sign Up */}
+        <div className="pt-2 border-t border-nutri-border-light text-center">
+          {isStaff ? (
+            <p className="text-xs text-nutri-secondary">
+              Need a {portalBadge?.label ? portalBadge.label : "staff"} account?{" "}
+              <Link
+                href={`/signup?portal=${targetPortal || ""}&callbackUrl=${encodeURIComponent(
+                  callbackUrl
+                )}&staff=true`}
+                className="font-bold text-nutri-green hover:underline cursor-pointer"
+              >
+                Sign up here
+              </Link>
+            </p>
+          ) : (
             <p className="text-xs text-nutri-secondary">
               Don&apos;t have an account?{" "}
               <Link
@@ -295,8 +307,8 @@ function LoginForm() {
                 Sign up
               </Link>
             </p>
-          </div>
-        )}
+          )}
+        </div>
       </Card>
     </div>
   );

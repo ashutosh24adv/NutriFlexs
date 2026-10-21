@@ -8,6 +8,7 @@ import { X, Trash2, Plus, Minus, Zap, Flame, ShieldCheck, Ticket, Dumbbell, Arro
 import { Button } from "@/components/ui/button";
 import { formatPrice, formatMacro } from "@/lib/utils";
 import { useDietary } from "@/components/customer/dietary-context";
+import { useGym } from "@/components/customer/gym-context";
 
 export interface CartItemType {
   product: any;
@@ -33,6 +34,7 @@ export function CartDrawer({
 }: CartDrawerProps) {
   const router = useRouter();
   const { isVegetarian } = useDietary();
+  const { selectedGym, selectedOutlet } = useGym();
   const [couponCode, setCouponCode] = useState("");
   const [trainerCode, setTrainerCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
@@ -115,7 +117,13 @@ export function CartDrawer({
               </div>
               <div>
                 <h3 className="font-bold text-nutri-charcoal font-heading">Your Refuel Order</h3>
-                <p className="text-[11px] text-nutri-muted">Indiranagar Express Kiosk (50m away)</p>
+                <p className="text-[11px] text-nutri-muted truncate max-w-[220px]">
+                  {selectedOutlet
+                    ? `${selectedOutlet.name}${selectedOutlet.formattedDistance ? ` (${selectedOutlet.formattedDistance})` : ""}`
+                    : selectedGym
+                    ? selectedGym.name
+                    : "Express Kiosk (5 min pickup)"}
+                </p>
               </div>
             </div>
             <button

@@ -7,12 +7,28 @@ import { useSession, signOut } from "next-auth/react";
 import { NutriFlexsLogo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { Lock, ChefHat, Dumbbell, Shield, ShoppingBag, LogOut, User } from "lucide-react";
+import {
+  Lock,
+  ShoppingBag,
+  LogOut,
+  User,
+  Menu as MenuIcon,
+  X,
+  MapPin,
+  Clock,
+  Utensils,
+  ArrowUpRight,
+} from "lucide-react";
 import { useCart } from "@/components/customer/cart-context";
 import { CartDrawer } from "@/components/customer/cart-drawer";
 import { VegetarianToggle } from "@/components/customer/vegetarian-toggle";
 import { openNutriFlexsApp } from "@/lib/mobile-app";
 import { OpenAppModal } from "@/components/customer/app-modal";
+import { GymSelector } from "@/components/customer/gym-selector";
+import {
+  StaffPortalDropdown,
+  STAFF_PORTALS,
+} from "@/components/customer/staff-portal-dropdown";
 import { cn } from "@/lib/utils";
 
 export function PublicHeader() {
@@ -23,12 +39,14 @@ export function PublicHeader() {
   const user = session?.user as any;
   const userRole = (user?.role as string) || (isAuthenticated ? "CUSTOMER" : "GUEST");
   const isCustomer = isAuthenticated && userRole === "CUSTOMER";
-  const isPublicLanding = pathname === "/" || pathname === "";
-  const showStaffPortalButton = !isCustomer && (!isAuthenticated ? isPublicLanding : userRole === "ADMIN");
+  // Staff Portal visibility rule:
+  // Visible to guests (!isAuthenticated) and staff operators, but strictly hidden for logged-in customers.
+  const showStaffPortalButton = !isCustomer;
   const userName = user?.name || "Customer";
 
   const [showStaffPortal, setShowStaffPortal] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isOpenAppModalOpen, setIsOpenAppModalOpen] = useState(false);
 
   const {
@@ -67,42 +85,53 @@ export function PublicHeader() {
   return (
     <>
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-nutri-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          {/* Left: Logo */}
-          <div className="flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 lg:gap-4 flex-nowrap">
+          {/* Left: Mobile Menu Trigger + Brand Logo + Compact Gym Selector */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="lg:hidden p-1.5 -ml-1 text-nutri-charcoal hover:text-nutri-green hover:bg-nutri-green-light rounded-xl transition-colors cursor-pointer shrink-0"
+              aria-label="Open navigation menu"
+            >
+              <MenuIcon className="w-5 h-5 stroke-[2.2]" />
+            </button>
             <NutriFlexsLogo size="md" showTagline={false} href={isAuthenticated ? "/home" : "/"} />
+            <div className="hidden sm:block border-l border-nutri-border pl-2.5 sm:pl-3 shrink-0">
+              <GymSelector />
+            </div>
           </div>
 
-          {/* Center Links */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-nutri-secondary">
+          {/* Center Links (Visible on desktop large screens >= 1024px, completely on one line) */}
+          <nav className="hidden lg:flex items-center gap-3.5 xl:gap-6 text-sm font-semibold text-nutri-secondary whitespace-nowrap flex-nowrap shrink-0">
             <Link
               href="/#find-fuel"
               onClick={(e) => handleNavClick(e, "find-fuel")}
-              className="hover:text-nutri-green transition-colors cursor-pointer"
+              className="hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 border-transparent whitespace-nowrap"
             >
               Find Your Fuel
             </Link>
             <Link
               href="/#why-nutriflexs"
               onClick={(e) => handleNavClick(e, "why-nutriflexs")}
-              className="hover:text-nutri-green transition-colors cursor-pointer"
+              className="hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 border-transparent whitespace-nowrap"
             >
               Why NutriFlexs
             </Link>
             <Link
               href="/#how-it-works"
               onClick={(e) => handleNavClick(e, "how-it-works")}
-              className="hover:text-nutri-green transition-colors cursor-pointer"
+              className="hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 border-transparent whitespace-nowrap"
             >
               How It Works
             </Link>
             <Link
               href="/menu"
               className={cn(
-                "hover:text-nutri-green transition-colors cursor-pointer",
+                "hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 whitespace-nowrap",
                 pathname.startsWith("/menu")
-                  ? "text-nutri-green font-bold border-b-2 border-nutri-green pb-0.5"
-                  : ""
+                  ? "text-nutri-green font-bold border-nutri-green"
+                  : "border-transparent"
               )}
             >
               Menu
@@ -110,10 +139,10 @@ export function PublicHeader() {
             <Link
               href="/pass"
               className={cn(
-                "hover:text-nutri-green transition-colors cursor-pointer",
+                "hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 whitespace-nowrap",
                 pathname.startsWith("/pass")
-                  ? "text-nutri-green font-bold border-b-2 border-nutri-green pb-0.5"
-                  : ""
+                  ? "text-nutri-green font-bold border-nutri-green"
+                  : "border-transparent"
               )}
             >
               NutriFlexs Pass
@@ -121,64 +150,43 @@ export function PublicHeader() {
           </nav>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-3">
-            {/* Staff Portal Dropdown (visible on public landing page for guests, hidden for logged-in customers) */}
+          <div className="flex items-center gap-2 sm:gap-2.5 lg:gap-3 shrink-0 flex-nowrap">
+            {/* Staff Portal Dropdown (visible to guests, hidden for logged-in customers) */}
             {showStaffPortalButton && (
-              <div className="relative">
+              <div className="relative shrink-0">
                 <button
+                  id="staff-portal-btn"
                   type="button"
+                  aria-expanded={showStaffPortal}
+                  aria-haspopup="true"
                   onClick={() => setShowStaffPortal(!showStaffPortal)}
-                  className="text-xs bg-nutri-green-soft hover:bg-nutri-green-light text-nutri-green font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-nutri-border cursor-pointer transition-colors"
+                  className="text-xs bg-nutri-green-soft hover:bg-nutri-green-light text-nutri-green font-bold px-2.5 sm:px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-nutri-border cursor-pointer transition-colors whitespace-nowrap shrink-0"
                   title="Staff & Operator Portals"
                 >
                   <Lock className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span className="hidden sm:inline">Staff Portal</span>
+                  <span className="hidden sm:inline whitespace-nowrap">Staff Portal</span>
                 </button>
 
-                {showStaffPortal && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowStaffPortal(false)} />
-                    <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl p-2.5 shadow-md border border-nutri-border z-50 animate-slide-up text-xs space-y-1">
-                      <div className="px-3 py-1 font-bold text-nutri-secondary uppercase tracking-wider text-[10px] border-b border-nutri-border-light pb-1 mb-1">
-                        Internal Staff Portals
-                      </div>
-                      <Link
-                        href="/kitchen"
-                        onClick={() => setShowStaffPortal(false)}
-                        className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-amber-50 text-amber-900 font-bold transition-colors"
-                      >
-                        <ChefHat className="w-4 h-4 text-amber-600" /> Kitchen Display Kiosk
-                      </Link>
-                      <Link
-                        href="/trainer"
-                        onClick={() => setShowStaffPortal(false)}
-                        className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-indigo-50 text-indigo-900 font-bold transition-colors"
-                      >
-                        <Dumbbell className="w-4 h-4 text-indigo-600" /> Trainer Partner Portal
-                      </Link>
-                      <Link
-                        href="/admin"
-                        onClick={() => setShowStaffPortal(false)}
-                        className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-rose-50 text-rose-900 font-bold transition-colors"
-                      >
-                        <Shield className="w-4 h-4 text-rose-600" /> Super Admin Operations
-                      </Link>
-                    </div>
-                  </>
-                )}
+                <StaffPortalDropdown
+                  isOpen={showStaffPortal}
+                  onClose={() => setShowStaffPortal(false)}
+                  align="right"
+                />
               </div>
             )}
 
             {/* Vegetarian Toggle (authenticated customer only, beside cart icon) */}
             {isAuthenticated && (
-              <VegetarianToggle variant="header" />
+              <div className="shrink-0">
+                <VegetarianToggle variant="header" />
+              </div>
             )}
 
-            {/* Cart Icon Button */}
+            {/* Cart Icon Button with live badge */}
             <button
               type="button"
               onClick={() => setIsCartOpen(true)}
-              className="relative p-2 rounded-full bg-nutri-green-light text-nutri-green hover:bg-nutri-green-soft transition-colors cursor-pointer"
+              className="relative p-2 rounded-full bg-nutri-green-light text-nutri-green hover:bg-nutri-green-soft transition-colors cursor-pointer shrink-0"
               aria-label="View Cart"
             >
               <ShoppingBag className="w-5 h-5 stroke-[2.2]" />
@@ -193,7 +201,7 @@ export function PublicHeader() {
             {status === "loading" ? (
               <div className="w-8 h-8 rounded-full bg-nutri-green/20 animate-pulse shrink-0" />
             ) : isAuthenticated ? (
-              <div className="relative">
+              <div className="relative shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -262,7 +270,7 @@ export function PublicHeader() {
             ) : (
               <Link
                 href="/login"
-                className={`hidden sm:inline-block text-xs font-bold text-nutri-charcoal hover:text-nutri-green px-2 py-1 transition-colors ${
+                className={`hidden sm:inline-block text-xs font-bold text-nutri-charcoal hover:text-nutri-green px-2 py-1 transition-colors whitespace-nowrap shrink-0 ${
                   pathname === "/login" ? "text-nutri-green" : ""
                 }`}
               >
@@ -274,13 +282,231 @@ export function PublicHeader() {
             <Button
               size="sm"
               onClick={handleOpenAppClick}
-              className="bg-nutri-green text-white hover:bg-nutri-green-dark font-extrabold text-xs px-4 py-2 rounded-full cursor-pointer shadow-xs"
+              className="bg-nutri-green text-white hover:bg-nutri-green-dark font-extrabold text-xs px-3 sm:px-4 py-2 rounded-full cursor-pointer shadow-xs whitespace-nowrap shrink-0"
             >
               OPEN APP →
             </Button>
           </div>
         </div>
       </header>
+
+      {/* Slide-out Mobile Navigation Drawer */}
+      <div className={cn("fixed inset-0 z-50 lg:hidden", isMobileMenuOpen ? "flex" : "hidden")}>
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs animate-fade-in"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+
+        {/* Drawer Panel */}
+        <div className="relative w-4/5 max-w-xs bg-white h-full shadow-2xl p-6 flex flex-col justify-between z-10 animate-slide-left overflow-y-auto">
+          <div>
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-nutri-border mb-4">
+              <NutriFlexsLogo size="sm" showTagline={false} href={isAuthenticated ? "/home" : "/"} />
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-1.5 rounded-full text-nutri-secondary hover:bg-nutri-border-light cursor-pointer"
+                aria-label="Close menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Compact Gym Selector inside Mobile Drawer */}
+            <div className="mb-4 pb-3 border-b border-nutri-border-light">
+              <p className="text-[10px] font-bold text-nutri-secondary uppercase tracking-wider mb-2">
+                Pickup Gym Kiosk
+              </p>
+              <GymSelector className="w-full max-w-none" />
+            </div>
+
+            {/* Vegetarian Toggle in Drawer (authenticated) */}
+            {isAuthenticated && (
+              <div className="mb-4 pb-3 border-b border-nutri-border-light">
+                <VegetarianToggle variant="drawer" />
+              </div>
+            )}
+
+            {/* Main Links */}
+            <nav className="space-y-1">
+              <Link
+                href="/#find-fuel"
+                onClick={(e) => {
+                  setIsMobileMenuOpen(false);
+                  handleNavClick(e, "find-fuel");
+                }}
+                className="flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green transition-colors"
+              >
+                <Utensils className="w-4 h-4 text-nutri-green" /> Find Your Fuel
+              </Link>
+              <Link
+                href="/#why-nutriflexs"
+                onClick={(e) => {
+                  setIsMobileMenuOpen(false);
+                  handleNavClick(e, "why-nutriflexs");
+                }}
+                className="flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green transition-colors"
+              >
+                <Utensils className="w-4 h-4 text-nutri-green" /> Why NutriFlexs
+              </Link>
+              <Link
+                href="/#how-it-works"
+                onClick={(e) => {
+                  setIsMobileMenuOpen(false);
+                  handleNavClick(e, "how-it-works");
+                }}
+                className="flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green transition-colors"
+              >
+                <Utensils className="w-4 h-4 text-nutri-green" /> How It Works
+              </Link>
+              <Link
+                href="/menu"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold transition-colors",
+                  pathname.startsWith("/menu")
+                    ? "bg-nutri-green-light text-nutri-green"
+                    : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
+                )}
+              >
+                <Utensils className="w-4 h-4 text-nutri-green" /> Menu
+              </Link>
+              <Link
+                href="/pass"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold transition-colors",
+                  pathname.startsWith("/pass")
+                    ? "bg-nutri-green-light text-nutri-green"
+                    : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
+                )}
+              >
+                <Clock className="w-4 h-4 text-nutri-green" /> NutriFlexs Pass
+              </Link>
+              <Link
+                href="/gyms"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold transition-colors",
+                  pathname.startsWith("/gyms")
+                    ? "bg-nutri-green-light text-nutri-green"
+                    : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
+                )}
+              >
+                <MapPin className="w-4 h-4 text-nutri-green" /> Nearby Gyms
+              </Link>
+
+              {/* Customer Account Links (if authenticated) */}
+              {isAuthenticated && (
+                <div className="pt-2 mt-2 border-t border-nutri-border-light">
+                  <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-nutri-secondary">
+                    Account
+                  </p>
+                  <Link
+                    href="/orders"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold transition-colors",
+                      pathname.startsWith("/orders")
+                        ? "bg-nutri-green-light text-nutri-green"
+                        : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
+                    )}
+                  >
+                    <ShoppingBag className="w-4 h-4 text-nutri-green" /> Orders
+                  </Link>
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold transition-colors",
+                      pathname.startsWith("/profile")
+                        ? "bg-nutri-green-light text-nutri-green"
+                        : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
+                    )}
+                  >
+                    <User className="w-4 h-4 text-nutri-green" /> Profile ({userName})
+                  </Link>
+                </div>
+              )}
+            </nav>
+
+            {/* Staff Portals Section for Guests */}
+            {showStaffPortalButton && (
+              <div className="pt-4 border-t border-nutri-border space-y-2 mt-3">
+                <div className="flex items-center justify-between px-1">
+                  <p className="text-[10px] font-extrabold text-nutri-secondary uppercase tracking-wider flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-nutri-green" /> Staff Portals
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  {STAFF_PORTALS.map((portal) => (
+                    <div
+                      key={portal.id}
+                      className={cn(
+                        "p-2 rounded-xl border flex items-center justify-between text-xs",
+                        portal.bgTint,
+                        portal.borderColor
+                      )}
+                    >
+                      <span className={cn("font-bold truncate text-[11px]", portal.textColor)}>
+                        {portal.name}
+                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Link
+                          href={portal.loginHref}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className={cn(
+                            "px-2 py-0.5 rounded-md font-bold text-[10px]",
+                            portal.loginBtnClass
+                          )}
+                        >
+                          Login
+                        </Link>
+                        <Link
+                          href={portal.signupHref}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className={cn(
+                            "px-2 py-0.5 rounded-md font-bold text-[10px] flex items-center gap-0.5",
+                            portal.signupBtnClass
+                          )}
+                        >
+                          Sign Up <ArrowUpRight className="w-2.5 h-2.5" />
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Actions */}
+          <div className="pt-4 border-t border-nutri-border">
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  signOut({ callbackUrl: "/" });
+                }}
+                className="w-full flex items-center gap-2 p-2.5 rounded-xl hover:bg-rose-50 text-rose-600 font-bold text-xs transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" /> Sign Out ({userName})
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="w-full flex items-center justify-center p-2.5 rounded-xl bg-nutri-green text-white font-bold text-xs shadow-xs"
+              >
+                Sign In / Create Account
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Shared Cart Drawer & Mobile App Launcher Modal */}
       <CartDrawer

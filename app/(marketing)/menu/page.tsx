@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, Leaf, Zap, RefreshCw, X } from "lucide-react";
+import Link from "next/link";
+import { Search, Leaf, Zap, RefreshCw, X, MapPin } from "lucide-react";
 import { FoodCard } from "@/components/customer/food-card";
 import { ProductModal } from "@/components/customer/product-modal";
 import { useCart } from "@/components/customer/cart-context";
 import { useDietary } from "@/components/customer/dietary-context";
+import { useGym } from "@/components/customer/gym-context";
 
 function DietaryAlertBanner() {
   const { nonVegRemovedAlert, clearNonVegAlert } = useDietary();
@@ -40,6 +42,7 @@ function DietaryAlertBanner() {
 function MenuContent() {
   const { addToCart } = useCart();
   const { isVegetarian, toggleVegetarian } = useDietary();
+  const { selectedGym, selectedOutlet } = useGym();
   const searchParams = useSearchParams();
   const initialCategoryParam = searchParams.get("category");
 
@@ -141,6 +144,28 @@ function MenuContent() {
             className="w-full bg-white border border-nutri-border rounded-full pl-9 pr-4 py-2 text-xs font-medium placeholder:text-nutri-muted text-nutri-charcoal focus:outline-none focus:border-nutri-green transition-colors"
           />
         </div>
+      </div>
+
+      {/* Active Pickup Location Strip */}
+      <div className="bg-white border border-nutri-border rounded-2xl px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs text-xs">
+        <div className="flex items-center gap-2 text-nutri-charcoal font-medium truncate">
+          <MapPin className="w-4 h-4 text-nutri-green shrink-0" />
+          <span>Pickup Location:</span>
+          <strong className="text-nutri-green font-bold truncate">
+            {selectedOutlet?.name || selectedGym?.name || "Indiranagar Cult Kiosk (50m from Gym)"}
+          </strong>
+          {selectedGym && (
+            <span className="text-nutri-secondary text-[11px] hidden md:inline">
+              ({selectedGym.name}, {selectedGym.city})
+            </span>
+          )}
+        </div>
+        <Link
+          href="/gyms"
+          className="text-nutri-green font-bold hover:underline shrink-0 text-xs flex items-center gap-1 cursor-pointer"
+        >
+          Change Gym / Kiosk →
+        </Link>
       </div>
 
       {/* Category Tabs & Quick Filter Pills */}

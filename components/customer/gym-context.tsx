@@ -36,8 +36,9 @@ interface GymContextType {
   isLocating: boolean;
   locationError: string | null;
   isModalOpen: boolean;
+  activeModalId: string | null;
   setIsModalOpen: (open: boolean) => void;
-  openGymModal: () => void;
+  openGymModal: (id?: string) => void;
   closeGymModal: () => void;
   selectGymAndOutlet: (gymId: string, outletId: string) => Promise<void>;
   detectLocationAndFindNearby: () => Promise<GymInfo[] | null>;
@@ -60,17 +61,20 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [activeModalId, setActiveModalId] = useState<string | null>(null);
 
   const clearLocationError = useCallback(() => {
     setLocationError(null);
   }, []);
 
-  const openGymModal = useCallback(() => {
+  const openGymModal = useCallback((id?: string) => {
     setLocationError(null);
+    setActiveModalId(id || "default");
     setIsModalOpen(true);
   }, []);
 
   const closeGymModal = useCallback(() => {
+    setActiveModalId(null);
     setIsModalOpen(false);
   }, []);
 
@@ -339,6 +343,7 @@ function UrlGymListener({ onTrigger }: { onTrigger: () => void }) {
         isLocating,
         locationError,
         isModalOpen,
+        activeModalId,
         setIsModalOpen,
         openGymModal,
         closeGymModal,

@@ -236,6 +236,210 @@ async function runTests() {
     `Customer denied access to /trainer (redirect status ${customerTrainerRes.status})`
   );
 
+  // 8. Staff Portal Registration Security & Enforcement
+  console.log("\n--- 8. Staff Portal Registration Security & Access Code Enforcement ---");
+  const timestamp = Date.now();
+
+  // Test 8.1: Super Admin registration without invitation code -> MUST be 403
+  const adminNoCodeRes = await request("http://localhost:3000/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "Attacker Admin",
+      email: `attacker_admin_${timestamp}@nutriflexs.com`,
+      password: "Password123!",
+      portal: "admin",
+      // No inviteCode
+    }),
+  });
+  assert(
+    adminNoCodeRes.status === 403,
+    `Admin signup without invite code is rejected with 403 (got ${adminNoCodeRes.status})`
+  );
+
+  // Test 8.2: Super Admin registration with wrong code -> MUST be 403
+  const adminWrongCodeRes = await request("http://localhost:3000/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "Attacker Admin 2",
+      email: `attacker_admin2_${timestamp}@nutriflexs.com`,
+      password: "Password123!",
+      portal: "admin",
+      inviteCode: "WRONG_ADMIN_CODE_123",
+    }),
+  });
+  assert(
+    adminWrongCodeRes.status === 403,
+    `Admin signup with invalid code is rejected with 403 (got ${adminWrongCodeRes.status})`
+  );
+
+  // Test 8.3: Kitchen registration with wrong code -> MUST be 403
+  const kitchenWrongCodeRes = await request("http://localhost:3000/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "Attacker Kitchen",
+      email: `attacker_kitchen_${timestamp}@nutriflexs.com`,
+      password: "Password123!",
+      portal: "kitchen",
+      inviteCode: "WRONG_KITCHEN_CODE",
+    }),
+  });
+  assert(
+    kitchenWrongCodeRes.status === 403,
+    `Kitchen signup with invalid code is rejected with 403 (got ${kitchenWrongCodeRes.status})`
+  );
+
+  // Test 8.4: Trainer registration with wrong code -> MUST be 403
+  const trainerWrongCodeRes = await request("http://localhost:3000/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "Attacker Trainer",
+      email: `attacker_trainer_${timestamp}@nutriflexs.com`,
+      password: "Password123!",
+      portal: "trainer",
+      inviteCode: "WRONG_TRAINER_CODE",
+    }),
+  });
+  assert(
+    trainerWrongCodeRes.status === 403,
+    `Trainer signup with invalid code is rejected with 403 (got ${trainerWrongCodeRes.status})`
+  );
+
+  // 9. Legitimate Staff Portal Signups & Immediate Session Access
+  console.log("\n--- 9. Legitimate Staff Portal Registrations & Access ---");
+
+  // Test 9.1: Register new Kitchen staff member
+  const newKitchenEmail = `new_chef_${timestamp}@nutriflexs.com`;
+  const newKitchenPass = "ChefPass1234!";
+  const kitchenRegRes = await request("http://localhost:3000/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "Chef Maya",
+      email: newKitchenEmail,
+      password: newKitchenPass,
+      portal: "kitchen",
+      inviteCode: "NF-KITCHEN-2026",
+    }),
+  });
+  const kitchenRegJson = JSON.parse(kitchenRegRes.body);
+  assert(
+    kitchenRegRes.status === 200 && kitchenRegJson.success === true && kitchenRegJson.user.role === "KITCHEN",
+    `Kitchen staff successfully registered with Role.KITCHEN (role: ${kitchenRegJson.user?.role})`
+  );
+
+  // Login with newly registered kitchen staff
+  const newKitchenLogin = await login(newKitchenEmail, newKitchenPass);
+  assert(
+    newKitchenLogin.sessionCookie.includes("next-auth.session-token"),
+    "New kitchen staff successfully authenticated"
+  );
+  const newKitchenAccess = await request("http://localhost:3000/kitchen", {
+    headers: { Cookie: newKitchenLogin.sessionCookie },
+  });
+  assert(
+    newKitchenAccess.status === 200,
+    `New kitchen staff accesses /kitchen with status 200 (got ${newKitchenAccess.status})`
+  );
+
+  // Test 9.2: Register new Trainer partner
+  const newTrainerEmail = `new_coach_${timestamp}@nutriflexs.com`;
+  const newTrainerPass = "CoachPass1234!";
+  const trainerRegRes = await request("http://localhost:3000/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "Coach Rahul",
+      email: newTrainerEmail,
+      phone: "+91 91234 56789",
+      password: newTrainerPass,
+      portal: "trainer",
+      inviteCode: "NF-TRAINER-2026",
+      referralCode: `NUTRI-RAHUL-${timestamp % 1000}`,
+    }),
+  });
+  const trainerRegJson = JSON.parse(trainerRegRes.body);
+  assert(
+    trainerRegRes.status === 200 && trainerRegJson.success === true && trainerRegJson.user.role === "TRAINER",
+    `Trainer partner successfully registered with Role.TRAINER (role: ${trainerRegJson.user?.role})`
+  );
+
+  // Login with newly registered trainer partner
+  const newTrainerLogin = await login(newTrainerEmail, newTrainerPass);
+  assert(
+    newTrainerLogin.sessionCookie.includes("next-auth.session-token"),
+    "New trainer partner successfully authenticated"
+  );
+  const newTrainerAccess = await request("http://localhost:3000/trainer", {
+    headers: { Cookie: newTrainerLogin.sessionCookie },
+  });
+  assert(
+    newTrainerAccess.status === 200,
+    `New trainer accesses /trainer with status 200 (got ${newTrainerAccess.status})`
+  );
+
+  // Test 9.3: Register new Super Admin
+  const newAdminEmail = `new_admin_${timestamp}@nutriflexs.com`;
+  const newAdminPass = "AdminPass1234!";
+  const adminRegRes = await request("http://localhost:3000/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "Admin Priya",
+      email: newAdminEmail,
+      password: newAdminPass,
+      portal: "admin",
+      inviteCode: "NF-ADMIN-2026-SECURE",
+    }),
+  });
+  const adminRegJson = JSON.parse(adminRegRes.body);
+  assert(
+    adminRegRes.status === 200 && adminRegJson.success === true && adminRegJson.user.role === "ADMIN",
+    `Super admin successfully registered with Role.ADMIN (role: ${adminRegJson.user?.role})`
+  );
+
+  // Login with newly registered super admin
+  const newAdminLogin = await login(newAdminEmail, newAdminPass);
+  assert(
+    newAdminLogin.sessionCookie.includes("next-auth.session-token"),
+    "New super admin successfully authenticated"
+  );
+  const newAdminAccess = await request("http://localhost:3000/admin", {
+    headers: { Cookie: newAdminLogin.sessionCookie },
+  });
+  assert(
+    newAdminAccess.status === 200,
+    `New admin accesses /admin with status 200 (got ${newAdminAccess.status})`
+  );
+
+  // 10. Staff Portal Navigation & Pages Verification
+  console.log("\n--- 10. Staff Portal Navigation & Pages Verification ---");
+  const landingRes = await request("http://localhost:3000/");
+  assert(landingRes.status === 200, `Landing page returns 200 (got ${landingRes.status})`);
+  assert(
+    landingRes.body.includes("Staff Portal"),
+    "Landing page contains Staff Portal trigger button"
+  );
+
+  const loginKitchenRes = await request("http://localhost:3000/login?portal=kitchen&staff=true");
+  assert(loginKitchenRes.status === 200, `Kitchen login page returns 200 (got ${loginKitchenRes.status})`);
+  assert(loginKitchenRes.body.includes("Kitchen Display Kiosk"), "Kitchen login page renders Kitchen badge");
+
+  const signupKitchenRes = await request("http://localhost:3000/signup?portal=kitchen&staff=true");
+  assert(signupKitchenRes.status === 200, `Kitchen signup page returns 200 (got ${signupKitchenRes.status})`);
+  assert(signupKitchenRes.body.includes("Kitchen Display Kiosk"), "Kitchen signup page renders Kitchen badge");
+
+  const signupTrainerRes = await request("http://localhost:3000/signup?portal=trainer&staff=true");
+  assert(signupTrainerRes.status === 200, `Trainer signup page returns 200 (got ${signupTrainerRes.status})`);
+  assert(signupTrainerRes.body.includes("Trainer Partner Portal"), "Trainer signup page renders Trainer badge");
+
+  const signupAdminRes = await request("http://localhost:3000/signup?portal=admin&staff=true");
+  assert(signupAdminRes.status === 200, `Admin signup page returns 200 (got ${signupAdminRes.status})`);
+  assert(signupAdminRes.body.includes("Super Admin Operations"), "Admin signup page renders Admin badge");
+
   console.log(`\n================================`);
   console.log(`Results: ${passed} Passed, ${failed} Failed`);
   console.log(`================================`);
