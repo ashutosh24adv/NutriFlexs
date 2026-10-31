@@ -20,6 +20,8 @@ import {
   Lock,
   UserCheck,
   X,
+  Apple,
+  UtensilsCrossed,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -383,6 +385,33 @@ export default function CustomerHomePage() {
               </div>
             )}
           </Card>
+
+          {/* Daily Nutrition Tracker Banner */}
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-nutri-green text-white flex items-center justify-center shrink-0 shadow-sm">
+                <UtensilsCrossed className="w-5 h-5 stroke-[2.2]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-extrabold font-heading text-nutri-charcoal text-sm sm:text-base">
+                    Daily Nutrition Tracker &amp; Food Diary
+                  </h4>
+                  <span className="text-[10px] font-extrabold bg-nutri-green text-white px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    New
+                  </span>
+                </div>
+                <p className="text-xs text-nutri-secondary mt-0.5 max-w-md">
+                  Log your daily calories &amp; macros — NutriFlexs kiosk meals, homemade food, and custom dishes across 4 daily meals.
+                </p>
+              </div>
+            </div>
+            <Link href="/nutrition" className="shrink-0 w-full sm:w-auto">
+              <Button size="sm" className="bg-nutri-green text-white hover:bg-nutri-green-dark font-bold text-xs px-4 py-2 rounded-xl w-full sm:w-auto flex items-center justify-center gap-1.5 shadow-xs">
+                Open Food Diary <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </Link>
+          </div>
 
           {/* Featured Post-Workout Hero Card (Loaded from PostgreSQL Product table) */}
           {recommendedProduct && (

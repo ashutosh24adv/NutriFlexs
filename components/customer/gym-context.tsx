@@ -9,9 +9,13 @@ export interface OutletInfo {
   name: string;
   address: string;
   phone?: string | null;
+  operatingHours?: string | null;
   isAvailable: boolean;
+  isActive?: boolean;
   distanceKm?: number;
   formattedDistance?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface GymInfo {
@@ -19,8 +23,13 @@ export interface GymInfo {
   name: string;
   address: string;
   city: string;
-  latitude?: number;
-  longitude?: number;
+  area?: string | null;
+  phone?: string | null;
+  imageUrl?: string | null;
+  operatingHours?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  isActive?: boolean;
   outlets?: OutletInfo[];
   distanceKm?: number;
   formattedDistance?: string;
@@ -32,9 +41,11 @@ interface GymContextType {
   selectedOutlet: OutletInfo | null;
   allGyms: GymInfo[];
   nearbyGyms: GymInfo[];
+  availableCities: string[];
   isLoading: boolean;
   isLocating: boolean;
   locationError: string | null;
+  userCoords: { lat: number; lng: number } | null;
   isModalOpen: boolean;
   activeModalId: string | null;
   setIsModalOpen: (open: boolean) => void;
@@ -42,7 +53,8 @@ interface GymContextType {
   closeGymModal: () => void;
   selectGymAndOutlet: (gymId: string, outletId: string) => Promise<void>;
   detectLocationAndFindNearby: () => Promise<GymInfo[] | null>;
-  fetchAllGyms: (search?: string) => Promise<GymInfo[]>;
+  resetLocation: () => void;
+  fetchAllGyms: (search?: string, city?: string) => Promise<GymInfo[]>;
   clearLocationError: () => void;
 }
 
@@ -57,13 +69,21 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
   const [selectedOutlet, setSelectedOutlet] = useState<OutletInfo | null>(null);
   const [allGyms, setAllGyms] = useState<GymInfo[]>([]);
   const [nearbyGyms, setNearbyGyms] = useState<GymInfo[]>([]);
+  const [availableCities, setAvailableCities] = useState<string[]>(["all", "Bengaluru", "Mumbai"]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [activeModalId, setActiveModalId] = useState<string | null>(null);
 
   const clearLocationError = useCallback(() => {
+    setLocationError(null);
+  }, []);
+
+  const resetLocation = useCallback(() => {
+    setUserCoords(null);
+    setNearbyGyms([]);
     setLocationError(null);
   }, []);
 
@@ -78,26 +98,39 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
     setIsModalOpen(false);
   }, []);
 
-  // Fetch all active gyms from API
-  const fetchAllGyms = useCallback(async (search?: string): Promise<GymInfo[]> => {
-    try {
-      const url = search ? `/api/gyms?search=${encodeURIComponent(search)}` : "/api/gyms";
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.success && Array.isArray(data.gyms)) {
-        if (!search) {
-          setAllGyms(data.gyms);
+  // Fetch all active gyms from API with optional search or city filter
+  const fetchAllGyms = useCallback(
+    async (search?: string, city?: string): Promise<GymInfo[]> => {
+      try {
+        const params = new URLSearchParams();
+        if (search?.trim()) params.set("search", search.trim());
+        if (city && city !== "all") params.set("city", city);
+        if (userCoords) {
+          params.set("lat", String(userCoords.lat));
+          params.set("lng", String(userCoords.lng));
         }
-        return data.gyms;
-      }
-      return [];
-    } catch (err) {
-      console.error("Failed to fetch active gyms:", err);
-      return [];
-    }
-  }, []);
 
-  // Initial load: Fetch gyms and sync user selection
+        const res = await fetch(`/api/gyms?${params.toString()}`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.gyms)) {
+          if (!search && (!city || city === "all")) {
+            setAllGyms(data.gyms);
+            if (Array.isArray(data.cities) && data.cities.length > 0) {
+              setAvailableCities(data.cities);
+            }
+          }
+          return data.gyms;
+        }
+        return [];
+      } catch (err) {
+        console.error("Failed to fetch active gyms:", err);
+        return [];
+      }
+    },
+    [userCoords]
+  );
+
+  // Initial load: Fetch gyms and reconcile user selection
   useEffect(() => {
     let isMounted = true;
 
@@ -106,14 +139,23 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
       try {
         const gymsRes = await fetch("/api/gyms");
         const gymsData = await gymsRes.json();
-        const gymsList: GymInfo[] = gymsData.success && Array.isArray(gymsData.gyms) ? gymsData.gyms : [];
+        const gymsList: GymInfo[] =
+          gymsData.success && Array.isArray(gymsData.gyms) ? gymsData.gyms : [];
 
         if (isMounted) {
           setAllGyms(gymsList);
+          if (Array.isArray(gymsData.cities) && gymsData.cities.length > 0) {
+            setAvailableCities(gymsData.cities);
+          }
         }
 
         let chosenGymId: string | null = null;
         let chosenOutletId: string | null = null;
+        let guestSelectedInLocalStorage = false;
+
+        // Check localStorage first
+        const localGymId = typeof window !== "undefined" ? localStorage.getItem(STORAGE_GYM_KEY) : null;
+        const localOutletId = typeof window !== "undefined" ? localStorage.getItem(STORAGE_OUTLET_KEY) : null;
 
         // Check authenticated user profile if logged in
         if (session?.user?.email) {
@@ -123,6 +165,11 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
             if (userData.success && userData.selectedGymId && userData.selectedOutletId) {
               chosenGymId = userData.selectedGymId;
               chosenOutletId = userData.selectedOutletId;
+            } else if (localGymId && localOutletId) {
+              // User logged in but had no DB gym yet: reconcile guest selection to DB
+              chosenGymId = localGymId;
+              chosenOutletId = localOutletId;
+              guestSelectedInLocalStorage = true;
             }
           } catch (e) {
             console.warn("Failed to load user gym preference:", e);
@@ -131,8 +178,8 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
 
         // Fallback to localStorage for guest or unset users
         if (!chosenGymId || !chosenOutletId) {
-          chosenGymId = localStorage.getItem(STORAGE_GYM_KEY);
-          chosenOutletId = localStorage.getItem(STORAGE_OUTLET_KEY);
+          chosenGymId = localGymId;
+          chosenOutletId = localOutletId;
         }
 
         // Find matching gym and outlet in loaded list
@@ -146,7 +193,7 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // Default to first available gym & outlet if no valid saved state
+        // Default to first available gym & kiosk if no valid saved state
         if ((!matchedGym || !matchedOutlet) && gymsList.length > 0) {
           for (const g of gymsList) {
             const avail = g.outlets?.find((o) => o.isAvailable);
@@ -161,8 +208,19 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
         if (isMounted && matchedGym && matchedOutlet) {
           setSelectedGym(matchedGym);
           setSelectedOutlet(matchedOutlet);
-          localStorage.setItem(STORAGE_GYM_KEY, matchedGym.id);
-          localStorage.setItem(STORAGE_OUTLET_KEY, matchedOutlet.id);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(STORAGE_GYM_KEY, matchedGym.id);
+            localStorage.setItem(STORAGE_OUTLET_KEY, matchedOutlet.id);
+          }
+
+          // If guest selection needs to be persisted upon login, sync with backend
+          if (guestSelectedInLocalStorage && session?.user?.email) {
+            fetch("/api/gyms/select", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ gymId: matchedGym.id, outletId: matchedOutlet.id }),
+            }).catch((err) => console.warn("Failed to sync guest gym upon login:", err));
+          }
         }
       } catch (err) {
         console.error("Error initializing gym context:", err);
@@ -182,53 +240,48 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
     };
   }, [session, status]);
 
-function UrlGymListener({ onTrigger }: { onTrigger: () => void }) {
-  const searchParams = useSearchParams();
-  useEffect(() => {
-    if (searchParams) {
-      const action = searchParams.get("action");
-      const findGym = searchParams.get("findGym");
-      if (action === "find-gym" || findGym === "true") {
-        onTrigger();
-      }
-    }
-  }, [searchParams, onTrigger]);
-  return null;
-}
-
-  // Select Gym & Outlet handler
+  // Select Gym & Outlet handler with server-side validation
   const selectGymAndOutlet = useCallback(
     async (gymId: string, outletId: string) => {
-      // Find from allGyms or nearbyGyms
+      // 1. Call server API to validate gym and outlet
+      const res = await fetch("/api/gyms/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gymId, outletId }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Unable to select this kiosk. Please choose another location.");
+      }
+
+      // 2. Find from current pool
       const lookupPool = [...allGyms, ...nearbyGyms];
-      const targetGym = lookupPool.find((g) => g.id === gymId);
+      let targetGym = lookupPool.find((g) => g.id === gymId);
       let targetOutlet: OutletInfo | null = null;
 
       if (targetGym && targetGym.outlets) {
         targetOutlet = targetGym.outlets.find((o) => o.id === outletId) || null;
       }
 
+      // If not in client pool, use the verified server response
+      if (!targetGym) {
+        targetGym = data.gym;
+      }
+      if (!targetOutlet) {
+        targetOutlet = data.outlet;
+      }
+
       if (targetGym && targetOutlet) {
         setSelectedGym(targetGym);
         setSelectedOutlet(targetOutlet);
-        localStorage.setItem(STORAGE_GYM_KEY, targetGym.id);
-        localStorage.setItem(STORAGE_OUTLET_KEY, targetOutlet.id);
-      }
-
-      // If authenticated, sync with database
-      if (session?.user?.email) {
-        try {
-          await fetch("/api/user/gym", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ gymId, outletId }),
-          });
-        } catch (e) {
-          console.error("Failed to sync gym selection with user profile:", e);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_GYM_KEY, targetGym.id);
+          localStorage.setItem(STORAGE_OUTLET_KEY, targetOutlet.id);
         }
       }
     },
-    [allGyms, nearbyGyms, session]
+    [allGyms, nearbyGyms]
   );
 
   // Browser Geolocation Detection
@@ -260,9 +313,10 @@ function UrlGymListener({ onTrigger }: { onTrigger: () => void }) {
           isResolved = true;
           clearTimeout(geoTimeout);
           const { latitude, longitude } = position.coords;
+          setUserCoords({ lat: latitude, lng: longitude });
 
           try {
-            const res = await fetch(`/api/gyms/nearby?lat=${latitude}&lng=${longitude}`);
+            const res = await fetch(`/api/gyms?lat=${latitude}&lng=${longitude}`);
             const data = await res.json();
 
             if (data.success && Array.isArray(data.gyms)) {
@@ -273,22 +327,9 @@ function UrlGymListener({ onTrigger }: { onTrigger: () => void }) {
                 return;
               }
 
-              const mappedGyms: GymInfo[] = data.gyms.map((g: any) => ({
-                id: g.gymId,
-                name: g.gymName,
-                address: g.gymAddress,
-                city: g.city,
-                latitude: g.latitude,
-                longitude: g.longitude,
-                distanceKm: g.distanceKm,
-                formattedDistance: g.formattedDistance,
-                outlets: g.outlets,
-                nearestOutlet: g.nearestOutlet,
-              }));
-
-              setNearbyGyms(mappedGyms);
+              setNearbyGyms(data.gyms);
               setIsLocating(false);
-              resolve(mappedGyms);
+              resolve(data.gyms);
             } else {
               setIsLocating(false);
               setLocationError(data.error || "Unable to detect your location. Please choose your gym manually.");
@@ -296,7 +337,7 @@ function UrlGymListener({ onTrigger }: { onTrigger: () => void }) {
             }
           } catch (err: any) {
             setIsLocating(false);
-            setLocationError("Failed to fetch nearby gyms from server. Please choose your gym manually.");
+            setLocationError("Failed to fetch nearby gyms from database. Please choose your gym manually.");
             resolve(null);
           }
         },
@@ -308,11 +349,11 @@ function UrlGymListener({ onTrigger }: { onTrigger: () => void }) {
           switch (err.code) {
             case err.PERMISSION_DENIED:
               setLocationError(
-                "Location access is disabled. Please allow location access in your browser or choose a gym manually."
+                "Location access was denied. Please allow location access in your browser or select a gym manually."
               );
               break;
             case err.POSITION_UNAVAILABLE:
-              setLocationError("Unable to detect your location. Please choose your gym manually.");
+              setLocationError("Location information is unavailable. Please select your gym manually.");
               break;
             case err.TIMEOUT:
               setLocationError("Location request timed out. Please try again or choose your gym manually.");
@@ -339,9 +380,11 @@ function UrlGymListener({ onTrigger }: { onTrigger: () => void }) {
         selectedOutlet,
         allGyms,
         nearbyGyms,
+        availableCities,
         isLoading,
         isLocating,
         locationError,
+        userCoords,
         isModalOpen,
         activeModalId,
         setIsModalOpen,
@@ -349,6 +392,7 @@ function UrlGymListener({ onTrigger }: { onTrigger: () => void }) {
         closeGymModal,
         selectGymAndOutlet,
         detectLocationAndFindNearby,
+        resetLocation,
         fetchAllGyms,
         clearLocationError,
       }}
@@ -359,6 +403,20 @@ function UrlGymListener({ onTrigger }: { onTrigger: () => void }) {
       {children}
     </GymContext.Provider>
   );
+}
+
+function UrlGymListener({ onTrigger }: { onTrigger: () => void }) {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams) {
+      const action = searchParams.get("action");
+      const findGym = searchParams.get("findGym");
+      if (action === "find-gym" || findGym === "true") {
+        onTrigger();
+      }
+    }
+  }, [searchParams, onTrigger]);
+  return null;
 }
 
 export function useGym() {

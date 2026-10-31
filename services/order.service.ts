@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { OrderStatus, PaymentStatus } from "@/types/enums";
 import { createRazorpayOrder } from "@/lib/razorpay";
+import { syncCompletedOrderToNutritionDiary } from "@/services/nutrition.service";
 
 export interface CreateOrderParams {
   userId: string;
@@ -162,7 +163,7 @@ export async function createOrder(params: CreateOrderParams) {
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
-  return await prisma.order.update({
+  const updatedOrder = await prisma.order.update({
     where: { id: orderId },
     data: { status },
     include: {
@@ -173,6 +174,17 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
       outlet: true,
     },
   });
+
+  // Automatically record nutrition diary entries when order reaches COMPLETED status
+  if (status === OrderStatus.COMPLETED) {
+    try {
+      await syncCompletedOrderToNutritionDiary(orderId);
+    } catch (err) {
+      console.error("Non-fatal: Failed to sync completed order to customer nutrition diary:", err);
+    }
+  }
+
+  return updatedOrder;
 }
 
 export async function getOrderById(orderId: string) {

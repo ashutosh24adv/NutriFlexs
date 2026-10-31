@@ -21,7 +21,43 @@ export async function GET(request: Request) {
           { status: 403 }
         );
       }
-      const orders = await getKitchenOrders(outletId);
+
+      let targetOutletId = outletId;
+
+      // Kitchen staff can ONLY access orders for their assigned outlet
+      if (userRole === "KITCHEN") {
+        let staffOutletId = (session.user as any)?.selectedOutletId;
+
+        if (!staffOutletId) {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: session.user?.email?.toLowerCase().trim() },
+            select: { selectedOutletId: true },
+          });
+          staffOutletId = dbUser?.selectedOutletId;
+        }
+
+        if (!staffOutletId) {
+          return NextResponse.json(
+            { success: false, error: "Unauthorized: Kitchen operator has no assigned outlet." },
+            { status: 403 }
+          );
+        }
+
+        // If kitchen operator attempts to query a different outlet, block with 403 Forbidden
+        if (outletId && outletId !== staffOutletId) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Unauthorized: Kitchen operators can only view orders for their assigned outlet.",
+            },
+            { status: 403 }
+          );
+        }
+
+        targetOutletId = staffOutletId;
+      }
+
+      const orders = await getKitchenOrders(targetOutletId);
       return NextResponse.json({ success: true, orders });
     }
 

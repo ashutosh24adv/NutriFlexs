@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ChefHat, Clock, Check, Zap, AlertCircle, ArrowRight, RefreshCw, Volume2, Shield } from "lucide-react";
+import { signOut } from "next-auth/react";
+import { ChefHat, Clock, Check, Zap, AlertCircle, ArrowRight, RefreshCw, Volume2, Shield, LogOut } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -91,6 +92,14 @@ export default function KitchenDashboard() {
           >
             Customer App View →
           </Link>
+          <button
+            onClick={() => signOut({ callbackUrl: "/" })}
+            className="text-xs bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 hover:text-rose-100 px-3 py-2 rounded-xl border border-rose-800/80 font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+            title="Sign Out of Kitchen Kiosk"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Sign Out</span>
+          </button>
         </div>
       </div>
 

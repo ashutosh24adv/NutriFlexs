@@ -2,11 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Shield, ShoppingBag, Box, BarChart3, Tag, Check, RefreshCw, ChevronLeft, Plus } from "lucide-react";
+import { signOut } from "next-auth/react";
+import { Shield, ShoppingBag, Box, BarChart3, Tag, Check, RefreshCw, ChevronLeft, Plus, LogOut, KeyRound, Building2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
+import { AccessCodesTab } from "@/components/admin/access-codes-tab";
+import { GymsTab } from "@/components/admin/gyms-tab";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -100,6 +103,14 @@ export default function AdminDashboard() {
           <Badge variant="protein" className="bg-rose-50 text-rose-800 border-rose-200 text-xs px-3 py-1 font-bold">
             <Shield className="w-3.5 h-3.5 mr-1 text-rose-600" /> SUPER ADMIN ACCESS
           </Badge>
+          <button
+            onClick={() => signOut({ callbackUrl: "/" })}
+            className="p-2 px-3 rounded-xl bg-white border border-nutri-border hover:bg-rose-50 text-rose-700 hover:border-rose-200 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+            title="Sign Out & Return to NutriFlexs Home"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Sign Out</span>
+          </button>
         </div>
       </div>
 
@@ -107,6 +118,8 @@ export default function AdminDashboard() {
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
         {[
           { id: "overview", label: "Overview & Analytics", icon: BarChart3 },
+          { id: "gyms", label: "Partner Gyms & Kiosks", icon: Building2 },
+          { id: "access-codes", label: "Staff Access Codes", icon: KeyRound },
           { id: "products", label: "Product Catalog", icon: ShoppingBag },
           { id: "coupons", label: "Coupons & Offers", icon: Tag },
           { id: "inventory", label: "Kiosk Inventory", icon: Box },
@@ -231,7 +244,10 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* 2. PRODUCTS CATALOG TAB (Loaded from PostgreSQL Product Table) */}
+      {/* 2. PARTNER GYMS & KIOSKS TAB */}
+      {activeTab === "gyms" && <GymsTab />}
+
+      {/* 3. PRODUCTS CATALOG TAB (Loaded from PostgreSQL Product Table) */}
       {activeTab === "products" && (
         <AdminProductsCatalog
           products={adminData.products}
@@ -309,6 +325,9 @@ export default function AdminDashboard() {
           </div>
         </Card>
       )}
+
+      {/* 5. STAFF ACCESS CODES TAB */}
+      {activeTab === "access-codes" && <AccessCodesTab />}
     </div>
   );
 }

@@ -124,7 +124,10 @@ export default function MarketingLandingPage() {
           </div>
 
           {/* Hero Visual Image Showcase */}
-          <div className="relative w-full h-[360px] sm:h-[440px] lg:h-[480px] rounded-3xl overflow-hidden shadow-float border border-nutri-border bg-white">
+          <div 
+            className="relative w-full h-[360px] sm:h-[440px] lg:h-[480px] rounded-3xl overflow-hidden shadow-float border border-nutri-border bg-white"
+            style={{ position: "relative", overflow: "hidden", minHeight: "360px" }}
+          >
             <Image
               src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1000&q=80"
               alt="NutriFlexs High Protein Fuel Bowl"

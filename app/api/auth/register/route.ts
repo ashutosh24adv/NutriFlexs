@@ -2,15 +2,45 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { hashPassword } from "@/lib/password";
-
-// Secure staff invitation passcodes (configured via .env or secure fallbacks)
-const ADMIN_INVITE_CODE = process.env.ADMIN_INVITE_CODE || "NF-ADMIN-2026-SECURE";
-const KITCHEN_INVITE_CODE = process.env.KITCHEN_INVITE_CODE || "NF-KITCHEN-2026";
-const TRAINER_INVITE_CODE = process.env.TRAINER_INVITE_CODE || "NF-TRAINER-2026";
+import { validateAndConsumeStaffCode } from "@/lib/staff-access-codes";
+import { registerSchema } from "@/lib/validations/auth.schema";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  const clientIp = getClientIp(request);
+
+  // 1. Rate limiting: Max 20 registration attempts per IP per 15 minutes
+  const rateLimit = checkRateLimit({
+    key: `register:${clientIp}`,
+    maxRequests: 20,
+    windowMs: 15 * 60 * 1000,
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Too many registration attempts. Please try again later.",
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": Math.ceil(rateLimit.resetMs / 1000).toString(),
+        },
+      }
+    );
+  }
+
   try {
-    const body = await request.json();
+    const rawBody = await request.json();
+
+    // 2. Strict Zod validation
+    const parsed = registerSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0]?.message || "Invalid input data";
+      return NextResponse.json({ success: false, error: firstError }, { status: 400 });
+    }
+
     const {
       name,
       email,
@@ -18,35 +48,14 @@ export async function POST(request: Request) {
       password,
       portal,
       inviteCode,
+      accessCode,
       outletId,
       referralCode,
-    } = body;
-
-    // 1. Basic validation
-    if (!name || !name.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Full name is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!email || !email.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Email address is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!password || password.length < 6) {
-      return NextResponse.json(
-        { success: false, error: "Password must be at least 6 characters long" },
-        { status: 400 }
-      );
-    }
+    } = parsed.data;
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // 2. Check if user already exists
+    // 3. Prevent duplicate email registration
     const existingUser = await prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
@@ -58,89 +67,93 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Normalize portal selection
+    // 4. Normalize portal selection
     const normalizedPortal = (portal || "").toLowerCase().trim();
+    const providedCode = (accessCode || inviteCode || "").trim();
 
-    // 4. Role Authorization & Strict Security Verification
-    let assignedRole: Role = Role.CUSTOMER;
-    let targetOutletId: string | null = null;
-    let targetGymId: string | null = null;
-
-    if (normalizedPortal === "admin") {
-      // Super Admin: Strictly requires authorized admin invite code
-      const trimmedCode = (inviteCode || "").trim();
-      if (!trimmedCode || trimmedCode !== ADMIN_INVITE_CODE) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Invalid or missing Administrator Invitation Code. Super Admin registration requires an authorized administrator invitation.",
-          },
-          { status: 403 }
-        );
-      }
-      assignedRole = Role.ADMIN;
-    } else if (normalizedPortal === "kitchen") {
-      // Kitchen Display Kiosk: Strictly requires authorized kiosk access code
-      const trimmedCode = (inviteCode || "").trim();
-      if (!trimmedCode || trimmedCode !== KITCHEN_INVITE_CODE) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Invalid or missing Kitchen Access Code. Kitchen staff registration requires an authorized outlet access code.",
-          },
-          { status: 403 }
-        );
-      }
-      assignedRole = Role.KITCHEN;
-
-      // Assign specified outlet or default first available outlet
-      if (outletId) {
-        const foundOutlet = await prisma.outlet.findUnique({
-          where: { id: outletId },
-        });
-        if (foundOutlet) {
-          targetOutletId = foundOutlet.id;
-          targetGymId = foundOutlet.gymId;
-        }
-      }
-
-      if (!targetOutletId) {
-        const defaultOutlet = await prisma.outlet.findFirst();
-        if (defaultOutlet) {
-          targetOutletId = defaultOutlet.id;
-          targetGymId = defaultOutlet.gymId;
-        }
-      }
-    } else if (normalizedPortal === "trainer") {
-      // Trainer Partner: Strictly requires authorized partner passcode
-      const trimmedCode = (inviteCode || "").trim();
-      if (!trimmedCode || trimmedCode !== TRAINER_INVITE_CODE) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Invalid or missing Trainer Partner Passcode. Trainer registration requires an authorized partner passcode.",
-          },
-          { status: 403 }
-        );
-      }
-      assignedRole = Role.TRAINER;
-    } else {
-      // Default: Public self-registration is strictly CUSTOMER only
-      assignedRole = Role.CUSTOMER;
-      const defaultOutlet = await prisma.outlet.findFirst();
-      if (defaultOutlet) {
-        targetOutletId = defaultOutlet.id;
-        targetGymId = defaultOutlet.gymId;
-      }
-    }
-
-    // 5. Create user in database (with transaction for trainer profile)
+    // 5. Staff Role Security & Registration Handling
     const hashedPassword = hashPassword(password);
 
-    if (assignedRole === Role.TRAINER) {
+    // KITCHEN STAFF REGISTRATION
+    if (normalizedPortal === "kitchen") {
+      if (!providedCode) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Kitchen Access Code is required. Kitchen staff registration requires an authorized outlet access code.",
+          },
+          { status: 403 }
+        );
+      }
+
+      // Execute code consumption and user creation atomically in transaction
+      const result = await prisma.$transaction(async (tx) => {
+        // Validate and atomically consume code
+        const validation = await validateAndConsumeStaffCode({
+          code: providedCode,
+          requiredRole: Role.KITCHEN,
+          requestedOutletId: outletId,
+          tx,
+        });
+
+        if (!validation.valid || !validation.outletId) {
+          throw new Error(validation.error || "Invalid or unauthorized staff access code.");
+        }
+
+        // Verify authorized outlet
+        const foundOutlet = await tx.outlet.findUnique({
+          where: { id: validation.outletId },
+        });
+
+        if (!foundOutlet) {
+          throw new Error("Assigned kitchen outlet could not be found.");
+        }
+
+        const newUser = await tx.user.create({
+          data: {
+            name: name.trim(),
+            email: normalizedEmail,
+            phone: phone ? phone.trim() : null,
+            passwordHash: hashedPassword,
+            role: Role.KITCHEN,
+            selectedOutletId: foundOutlet.id,
+            selectedGymId: foundOutlet.gymId,
+            streakDays: 1,
+            proteinGoalGrams: 120,
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            selectedOutletId: true,
+          },
+        });
+
+        return newUser;
+      });
+
+      return NextResponse.json({
+        success: true,
+        user: result,
+        portal: "kitchen",
+      });
+    }
+
+    // TRAINER PARTNER REGISTRATION
+    if (normalizedPortal === "trainer") {
+      if (!providedCode) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Trainer Partner Passcode is required. Trainer registration requires an authorized partner passcode.",
+          },
+          { status: 403 }
+        );
+      }
+
       // Generate unique referral code for trainer
       const rawHandle = (referralCode || name)
         .replace(/[^A-Za-z0-9]/g, "")
@@ -150,7 +163,6 @@ export async function POST(request: Request) {
         ? rawHandle
         : `NUTRI-${rawHandle || "PARTNER"}`;
 
-      // Check collision
       let existingTrainer = await prisma.trainer.findUnique({
         where: { referralCode: candidateCode },
       });
@@ -159,6 +171,16 @@ export async function POST(request: Request) {
       }
 
       const result = await prisma.$transaction(async (tx) => {
+        const validation = await validateAndConsumeStaffCode({
+          code: providedCode,
+          requiredRole: Role.TRAINER,
+          tx,
+        });
+
+        if (!validation.valid) {
+          throw new Error(validation.error || "Invalid or unauthorized staff access code.");
+        }
+
         const newUser = await tx.user.create({
           data: {
             name: name.trim(),
@@ -198,16 +220,70 @@ export async function POST(request: Request) {
       });
     }
 
-    // Non-trainer user creation (CUSTOMER, KITCHEN, ADMIN)
+    // SUPER ADMIN REGISTRATION
+    if (normalizedPortal === "admin") {
+      if (!providedCode) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Administrator Invitation Key is required. Super Admin registration requires an authorized administrator invitation.",
+          },
+          { status: 403 }
+        );
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        const validation = await validateAndConsumeStaffCode({
+          code: providedCode,
+          requiredRole: Role.ADMIN,
+          tx,
+        });
+
+        if (!validation.valid) {
+          throw new Error(validation.error || "Invalid or unauthorized staff access code.");
+        }
+
+        const newUser = await tx.user.create({
+          data: {
+            name: name.trim(),
+            email: normalizedEmail,
+            phone: phone ? phone.trim() : null,
+            passwordHash: hashedPassword,
+            role: Role.ADMIN,
+            streakDays: 1,
+            proteinGoalGrams: 120,
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        });
+
+        return newUser;
+      });
+
+      return NextResponse.json({
+        success: true,
+        user: result,
+        portal: "admin",
+      });
+    }
+
+    // CUSTOMER REGISTRATION (Public, strictly CUSTOMER role only)
+    const defaultOutlet = await prisma.outlet.findFirst();
+
     const newUser = await prisma.user.create({
       data: {
         name: name.trim(),
         email: normalizedEmail,
         phone: phone ? phone.trim() : null,
         passwordHash: hashedPassword,
-        role: assignedRole,
-        selectedGymId: targetGymId,
-        selectedOutletId: targetOutletId,
+        role: Role.CUSTOMER, // Strict: never allows privileged role in public registration
+        selectedGymId: defaultOutlet?.gymId || null,
+        selectedOutletId: defaultOutlet?.id || null,
         streakDays: 1,
         proteinGoalGrams: 120,
       },
@@ -223,10 +299,21 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       user: newUser,
-      portal: normalizedPortal || "customer",
+      portal: "customer",
     });
   } catch (error: any) {
     console.error("User registration error:", error);
+
+    // If an error came from access code validation during transaction, return 403
+    if (
+      error.message &&
+      (error.message.includes("access code") ||
+        error.message.includes("authorized") ||
+        error.message.includes("outlet"))
+    ) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 });
+    }
+
     return NextResponse.json(
       { success: false, error: error.message || "Failed to create account" },
       { status: 500 }

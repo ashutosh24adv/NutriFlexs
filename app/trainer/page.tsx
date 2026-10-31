@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 import { QRCodeSVG } from "qrcode.react";
-import { Dumbbell, Copy, Check, Trophy, ChevronLeft, RefreshCw } from "lucide-react";
+import { Dumbbell, Copy, Check, Trophy, ChevronLeft, RefreshCw, LogOut } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +94,14 @@ export default function TrainerDashboard() {
           <Badge variant="protein" className="text-xs px-3 py-1 bg-indigo-50 text-indigo-800 border-indigo-200 font-bold">
             <Dumbbell className="w-3.5 h-3.5 mr-1 text-indigo-600" /> CERTIFIED TRAINER PARTNER
           </Badge>
+          <button
+            onClick={() => signOut({ callbackUrl: "/" })}
+            className="p-2 px-3 rounded-xl bg-white border border-nutri-border hover:bg-rose-50 text-rose-700 hover:border-rose-200 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+            title="Sign Out of Trainer Partner Portal"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Sign Out</span>
+          </button>
         </div>
       </div>
 

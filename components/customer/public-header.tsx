@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -18,7 +18,11 @@ import {
   Clock,
   Utensils,
   ArrowUpRight,
+  Apple,
+  ChevronDown,
+  Loader2,
 } from "lucide-react";
+import { useGym } from "@/components/customer/gym-context";
 import { useCart } from "@/components/customer/cart-context";
 import { CartDrawer } from "@/components/customer/cart-drawer";
 import { VegetarianToggle } from "@/components/customer/vegetarian-toggle";
@@ -59,6 +63,21 @@ export function PublicHeader() {
     totalItemCount,
   } = useCart();
 
+  const { allGyms, selectedGym, selectGymAndOutlet, isLoading: isGymsLoading } = useGym();
+  const [isGymsDropdownOpen, setIsGymsDropdownOpen] = useState(false);
+  const gymsDropdownTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handleGymMouseEnter = () => {
+    if (gymsDropdownTimer.current) clearTimeout(gymsDropdownTimer.current);
+    setIsGymsDropdownOpen(true);
+  };
+
+  const handleGymMouseLeave = () => {
+    gymsDropdownTimer.current = setTimeout(() => {
+      setIsGymsDropdownOpen(false);
+    }, 200);
+  };
+
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => {
     if (pathname === "/" || pathname === "") {
       e.preventDefault();
@@ -84,87 +103,208 @@ export function PublicHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-nutri-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 lg:gap-4 flex-nowrap">
-          {/* Left: Mobile Menu Trigger + Brand Logo + Compact Gym Selector */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-nutri-border w-full">
+        <div className="w-full max-w-none px-4 sm:px-6 lg:px-7 h-16 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-4">
+          {/* 1. LEFT — Brand: NutriFlexs logo and wordmark anchored to the extreme left */}
+          <div className="flex items-center shrink-0 justify-self-start">
+            <NutriFlexsLogo size="md" showTagline={false} href={isAuthenticated ? "/home" : "/"} />
+          </div>
+
+          {/* 2. CENTER — Navigation: Find Your Fuel, Why NutriFlexs, How It Works, Nearby Gyms, Menu, and NutriFlexs Pass */}
+          <nav className="hidden lg:flex items-center justify-center min-w-0 px-2 xl:px-4">
+            <div className="flex items-center justify-center gap-3 min-[1140px]:gap-4 xl:gap-6 text-xs min-[1140px]:text-[13px] xl:text-sm font-semibold text-nutri-secondary whitespace-nowrap">
+              <Link
+                href="/#find-fuel"
+                onClick={(e) => handleNavClick(e, "find-fuel")}
+                className="hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 border-transparent whitespace-nowrap"
+              >
+                Find Your Fuel
+              </Link>
+              <Link
+                href="/#why-nutriflexs"
+                onClick={(e) => handleNavClick(e, "why-nutriflexs")}
+                className="hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 border-transparent whitespace-nowrap"
+              >
+                Why NutriFlexs
+              </Link>
+              <Link
+                href="/#how-it-works"
+                onClick={(e) => handleNavClick(e, "how-it-works")}
+                className="hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 border-transparent whitespace-nowrap"
+              >
+                How It Works
+              </Link>
+              {/* Nearby Gyms with Interactive Database-Driven Dropdown */}
+              <div
+                className="relative"
+                onMouseEnter={handleGymMouseEnter}
+                onMouseLeave={handleGymMouseLeave}
+              >
+                <Link
+                  href="/gyms"
+                  onClick={() => setIsGymsDropdownOpen(false)}
+                  className={cn(
+                    "hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 whitespace-nowrap flex items-center gap-1",
+                    pathname.startsWith("/gyms")
+                      ? "text-nutri-green font-bold border-nutri-green"
+                      : "border-transparent"
+                  )}
+                >
+                  <span>Nearby Gyms</span>
+                  <ChevronDown
+                    className={cn(
+                      "w-3.5 h-3.5 transition-transform text-nutri-secondary",
+                      isGymsDropdownOpen && "rotate-180 text-nutri-green"
+                    )}
+                  />
+                </Link>
+
+                {/* Dropdown Menu on Desktop */}
+                {isGymsDropdownOpen && (
+                  <div
+                    className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-80 bg-white rounded-2xl p-2.5 shadow-xl border border-nutri-border z-50 animate-slide-up text-xs space-y-1.5"
+                    onMouseEnter={handleGymMouseEnter}
+                    onMouseLeave={handleGymMouseLeave}
+                  >
+                    <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-nutri-border-light">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-nutri-secondary">
+                        Partner Gyms &amp; Kiosks
+                      </span>
+                      <span className="text-[10px] font-bold text-nutri-green">
+                        {allGyms.length} Locations
+                      </span>
+                    </div>
+
+                    <div className="max-h-64 overflow-y-auto space-y-1 divide-y divide-nutri-border-light">
+                      {isGymsLoading && allGyms.length === 0 ? (
+                        <div className="py-6 flex items-center justify-center text-nutri-secondary gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin text-nutri-green" />
+                          <span>Loading partner gyms...</span>
+                        </div>
+                      ) : allGyms.length === 0 ? (
+                        <div className="py-4 text-center text-nutri-secondary text-xs">
+                          No active gyms found.
+                        </div>
+                      ) : (
+                        allGyms.map((gym) => {
+                          const isSelected = selectedGym?.id === gym.id;
+                          const primaryOutlet = gym.outlets?.[0];
+
+                          return (
+                            <div
+                              key={gym.id}
+                              onClick={async () => {
+                                if (primaryOutlet) {
+                                  await selectGymAndOutlet(gym.id, primaryOutlet.id);
+                                }
+                                setIsGymsDropdownOpen(false);
+                              }}
+                              className={cn(
+                                "p-2 rounded-xl transition-colors cursor-pointer flex items-start justify-between gap-2 pt-2",
+                                isSelected ? "bg-nutri-green-light" : "hover:bg-nutri-bg"
+                              )}
+                            >
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-bold text-nutri-charcoal truncate">
+                                    {gym.name}
+                                  </span>
+                                  {isSelected && (
+                                    <span className="text-[9px] font-extrabold bg-nutri-green text-white px-1.5 py-0.2 rounded-full shrink-0">
+                                      Active
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-nutri-secondary truncate">
+                                  {gym.city}{gym.area ? ` • ${gym.area}` : ""}
+                                </p>
+                                {primaryOutlet && (
+                                  <p className="text-[10px] text-nutri-green font-medium truncate mt-0.5">
+                                    Kiosk: {primaryOutlet.name}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="text-right shrink-0">
+                                {gym.formattedDistance ? (
+                                  <span className="text-[10px] font-bold text-nutri-green block">
+                                    {gym.formattedDistance}
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full block">
+                                    Live
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    <div className="pt-1.5 border-t border-nutri-border-light">
+                      <Link
+                        href="/gyms"
+                        onClick={() => setIsGymsDropdownOpen(false)}
+                        className="block w-full py-1.5 text-center text-xs font-bold text-nutri-green hover:underline cursor-pointer"
+                      >
+                        View All Partner Gyms →
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <Link
+                href="/menu"
+                className={cn(
+                  "hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 whitespace-nowrap",
+                  pathname.startsWith("/menu")
+                    ? "text-nutri-green font-bold border-nutri-green"
+                    : "border-transparent"
+                )}
+              >
+                Menu
+              </Link>
+              <Link
+                href="/pass"
+                className={cn(
+                  "hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 whitespace-nowrap",
+                  pathname.startsWith("/pass")
+                    ? "text-nutri-green font-bold border-nutri-green"
+                    : "border-transparent"
+                )}
+              >
+                NutriFlexs Pass
+              </Link>
+            </div>
+          </nav>
+
+          {/* 3. RIGHT — User actions: Hamburger (< lg), Staff Portal, Cart, Sign In/Profile, OPEN APP */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 lg:gap-3 shrink-0 justify-self-end col-start-3">
+            {/* Hamburger button for mobile & intermediate widths when center nav is collapsed */}
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen(true)}
-              className="lg:hidden p-1.5 -ml-1 text-nutri-charcoal hover:text-nutri-green hover:bg-nutri-green-light rounded-xl transition-colors cursor-pointer shrink-0"
+              className="lg:hidden p-1.5 sm:p-2 text-nutri-charcoal hover:text-nutri-green hover:bg-nutri-green-light rounded-xl transition-colors cursor-pointer shrink-0"
               aria-label="Open navigation menu"
             >
               <MenuIcon className="w-5 h-5 stroke-[2.2]" />
             </button>
-            <NutriFlexsLogo size="md" showTagline={false} href={isAuthenticated ? "/home" : "/"} />
-            <div className="hidden sm:block border-l border-nutri-border pl-2.5 sm:pl-3 shrink-0">
-              <GymSelector />
-            </div>
-          </div>
 
-          {/* Center Links (Visible on desktop large screens >= 1024px, completely on one line) */}
-          <nav className="hidden lg:flex items-center gap-3.5 xl:gap-6 text-sm font-semibold text-nutri-secondary whitespace-nowrap flex-nowrap shrink-0">
-            <Link
-              href="/#find-fuel"
-              onClick={(e) => handleNavClick(e, "find-fuel")}
-              className="hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 border-transparent whitespace-nowrap"
-            >
-              Find Your Fuel
-            </Link>
-            <Link
-              href="/#why-nutriflexs"
-              onClick={(e) => handleNavClick(e, "why-nutriflexs")}
-              className="hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 border-transparent whitespace-nowrap"
-            >
-              Why NutriFlexs
-            </Link>
-            <Link
-              href="/#how-it-works"
-              onClick={(e) => handleNavClick(e, "how-it-works")}
-              className="hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 border-transparent whitespace-nowrap"
-            >
-              How It Works
-            </Link>
-            <Link
-              href="/menu"
-              className={cn(
-                "hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 whitespace-nowrap",
-                pathname.startsWith("/menu")
-                  ? "text-nutri-green font-bold border-nutri-green"
-                  : "border-transparent"
-              )}
-            >
-              Menu
-            </Link>
-            <Link
-              href="/pass"
-              className={cn(
-                "hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 whitespace-nowrap",
-                pathname.startsWith("/pass")
-                  ? "text-nutri-green font-bold border-nutri-green"
-                  : "border-transparent"
-              )}
-            >
-              NutriFlexs Pass
-            </Link>
-          </nav>
-
-          {/* Right Actions */}
-          <div className="flex items-center gap-2 sm:gap-2.5 lg:gap-3 shrink-0 flex-nowrap">
             {/* Staff Portal Dropdown (visible to guests, hidden for logged-in customers) */}
             {showStaffPortalButton && (
-              <div className="relative shrink-0">
+              <div className="relative shrink-0 hidden sm:block">
                 <button
                   id="staff-portal-btn"
                   type="button"
                   aria-expanded={showStaffPortal}
                   aria-haspopup="true"
                   onClick={() => setShowStaffPortal(!showStaffPortal)}
-                  className="text-xs bg-nutri-green-soft hover:bg-nutri-green-light text-nutri-green font-bold px-2.5 sm:px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-nutri-border cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                  className="text-xs bg-nutri-green-soft hover:bg-nutri-green-light text-nutri-green font-bold px-2 sm:px-2.5 lg:px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-nutri-border cursor-pointer transition-colors whitespace-nowrap shrink-0"
                   title="Staff & Operator Portals"
                 >
                   <Lock className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span className="hidden sm:inline whitespace-nowrap">Staff Portal</span>
+                  <span className="hidden min-[1140px]:inline whitespace-nowrap">Staff Portal</span>
                 </button>
 
                 <StaffPortalDropdown
@@ -177,7 +317,7 @@ export function PublicHeader() {
 
             {/* Vegetarian Toggle (authenticated customer only, beside cart icon) */}
             {isAuthenticated && (
-              <div className="shrink-0">
+              <div className="shrink-0 hidden md:block">
                 <VegetarianToggle variant="header" />
               </div>
             )}
@@ -186,7 +326,7 @@ export function PublicHeader() {
             <button
               type="button"
               onClick={() => setIsCartOpen(true)}
-              className="relative p-2 rounded-full bg-nutri-green-light text-nutri-green hover:bg-nutri-green-soft transition-colors cursor-pointer shrink-0"
+              className="relative p-1.5 sm:p-2 rounded-full bg-nutri-green-light text-nutri-green hover:bg-nutri-green-soft transition-colors cursor-pointer shrink-0"
               aria-label="View Cart"
             >
               <ShoppingBag className="w-5 h-5 stroke-[2.2]" />
@@ -199,13 +339,13 @@ export function PublicHeader() {
 
             {/* Auth Section: Profile Avatar with Dropdown (authenticated) OR Sign In (guest) */}
             {status === "loading" ? (
-              <div className="w-8 h-8 rounded-full bg-nutri-green/20 animate-pulse shrink-0" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-nutri-green/20 animate-pulse shrink-0" />
             ) : isAuthenticated ? (
               <div className="relative shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="w-8 h-8 rounded-full bg-nutri-green text-white flex items-center justify-center font-extrabold text-xs shadow-xs hover:ring-2 hover:ring-nutri-green/40 hover:ring-offset-1 transition-all cursor-pointer focus:outline-none overflow-hidden shrink-0"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-nutri-green text-white flex items-center justify-center font-extrabold text-xs shadow-xs hover:ring-2 hover:ring-nutri-green/40 hover:ring-offset-1 transition-all cursor-pointer focus:outline-none overflow-hidden shrink-0"
                   aria-label="User Account Menu"
                   title={userName}
                 >
@@ -239,6 +379,13 @@ export function PublicHeader() {
                           </p>
                         )}
                       </div>
+                      <Link
+                        href="/nutrition"
+                        onClick={() => setShowProfileMenu(false)}
+                        className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-nutri-bg text-nutri-charcoal font-semibold transition-colors"
+                      >
+                        <Apple className="w-4 h-4 text-nutri-green" /> My Nutrition
+                      </Link>
                       <Link
                         href="/profile"
                         onClick={() => setShowProfileMenu(false)}
@@ -278,11 +425,11 @@ export function PublicHeader() {
               </Link>
             )}
 
-            {/* Open App button */}
+            {/* OPEN APP button: Must be the last element and aligned to the extreme RIGHT */}
             <Button
               size="sm"
               onClick={handleOpenAppClick}
-              className="bg-nutri-green text-white hover:bg-nutri-green-dark font-extrabold text-xs px-3 sm:px-4 py-2 rounded-full cursor-pointer shadow-xs whitespace-nowrap shrink-0"
+              className="bg-nutri-green text-white hover:bg-nutri-green-dark font-extrabold text-xs px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full cursor-pointer shadow-xs whitespace-nowrap shrink-0"
             >
               OPEN APP →
             </Button>
@@ -362,6 +509,18 @@ export function PublicHeader() {
                 <Utensils className="w-4 h-4 text-nutri-green" /> How It Works
               </Link>
               <Link
+                href="/gyms"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold transition-colors",
+                  pathname.startsWith("/gyms")
+                    ? "bg-nutri-green-light text-nutri-green"
+                    : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
+                )}
+              >
+                <MapPin className="w-4 h-4 text-nutri-green" /> Nearby Gyms
+              </Link>
+              <Link
                 href="/menu"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={cn(
@@ -385,18 +544,6 @@ export function PublicHeader() {
               >
                 <Clock className="w-4 h-4 text-nutri-green" /> NutriFlexs Pass
               </Link>
-              <Link
-                href="/gyms"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold transition-colors",
-                  pathname.startsWith("/gyms")
-                    ? "bg-nutri-green-light text-nutri-green"
-                    : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
-                )}
-              >
-                <MapPin className="w-4 h-4 text-nutri-green" /> Nearby Gyms
-              </Link>
 
               {/* Customer Account Links (if authenticated) */}
               {isAuthenticated && (
@@ -404,6 +551,18 @@ export function PublicHeader() {
                   <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-nutri-secondary">
                     Account
                   </p>
+                  <Link
+                    href="/nutrition"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold transition-colors",
+                      pathname.startsWith("/nutrition")
+                        ? "bg-nutri-green-light text-nutri-green"
+                        : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
+                    )}
+                  >
+                    <Apple className="w-4 h-4 text-nutri-green" /> My Nutrition
+                  </Link>
                   <Link
                     href="/orders"
                     onClick={() => setIsMobileMenuOpen(false)}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
   MapPin,
@@ -13,16 +13,15 @@ import {
   Phone,
   AlertCircle,
   Loader2,
-  RefreshCw,
   ArrowRight,
   Sparkles,
   ChevronRight,
   Filter,
+  RotateCcw,
 } from "lucide-react";
 import { useGym, GymInfo, OutletInfo } from "@/components/customer/gym-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export default function GymDiscoveryPage() {
@@ -31,12 +30,14 @@ export default function GymDiscoveryPage() {
     selectedOutlet,
     allGyms,
     nearbyGyms,
-    isLoading,
+    availableCities,
+    isLoading: isGlobalLoading,
     isLocating,
     locationError,
+    userCoords,
     selectGymAndOutlet,
     detectLocationAndFindNearby,
-    fetchAllGyms,
+    resetLocation,
     clearLocationError,
   } = useGym();
 
@@ -44,15 +45,55 @@ export default function GymDiscoveryPage() {
   const [selectedCity, setSelectedCity] = useState<string>("all");
   const [isSortedByDistance, setIsSortedByDistance] = useState(false);
   const [justSelectedOutletId, setJustSelectedOutletId] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<GymInfo[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
 
-  // Available cities computed dynamically from database gyms
-  const cities = useMemo(() => {
-    const citySet = new Set<string>();
-    allGyms.forEach((gym) => {
-      if (gym.city) citySet.add(gym.city);
-    });
-    return ["all", ...Array.from(citySet)];
-  }, [allGyms]);
+  // Debounced server search & city filter query
+  useEffect(() => {
+    // If no search and no city filter and no distance sort, default to allGyms
+    if (!searchQuery.trim() && selectedCity === "all" && !isSortedByDistance) {
+      setSearchResults(null);
+      setIsSearching(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setIsSearching(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams();
+        if (searchQuery.trim()) params.set("search", searchQuery.trim());
+        if (selectedCity && selectedCity !== "all") params.set("city", selectedCity);
+        if (isSortedByDistance && userCoords) {
+          params.set("lat", String(userCoords.lat));
+          params.set("lng", String(userCoords.lng));
+        }
+
+        const res = await fetch(`/api/gyms?${params.toString()}`, {
+          signal: controller.signal,
+        });
+        const data = await res.json();
+        if (data.success && Array.isArray(data.gyms)) {
+          setSearchResults(data.gyms);
+        } else {
+          setSearchResults([]);
+        }
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          console.error("Failed to query gyms:", err);
+        }
+      } finally {
+        setIsSearching(false);
+      }
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery, selectedCity, isSortedByDistance, userCoords]);
 
   // Handle location discovery
   const handleUseLocation = async () => {
@@ -63,51 +104,41 @@ export default function GymDiscoveryPage() {
     }
   };
 
-  // Switch between distance-sorted nearby gyms and all gyms
-  const currentPool = useMemo(() => {
+  // Reset distance sorting
+  const handleResetDistanceSort = () => {
+    setIsSortedByDistance(false);
+    resetLocation();
+  };
+
+  // Display pool: searchResults if set, otherwise nearbyGyms if sorted by distance, otherwise allGyms
+  const displayedGyms = useMemo(() => {
+    if (searchResults !== null) {
+      return searchResults;
+    }
     if (isSortedByDistance && nearbyGyms.length > 0) {
       return nearbyGyms;
     }
     return allGyms;
-  }, [isSortedByDistance, nearbyGyms, allGyms]);
+  }, [searchResults, isSortedByDistance, nearbyGyms, allGyms]);
 
-  // Filtered gyms based on search query and city
-  const filteredGyms = useMemo(() => {
-    return currentPool.filter((gym) => {
-      // City filter
-      if (selectedCity !== "all" && gym.city.toLowerCase() !== selectedCity.toLowerCase()) {
-        return false;
-      }
-
-      // Search query filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const gymMatches =
-          gym.name.toLowerCase().includes(q) ||
-          gym.address.toLowerCase().includes(q) ||
-          gym.city.toLowerCase().includes(q);
-        const outletMatches = gym.outlets?.some(
-          (o) =>
-            o.name.toLowerCase().includes(q) ||
-            o.address.toLowerCase().includes(q)
-        );
-        return gymMatches || outletMatches;
-      }
-
-      return true;
-    });
-  }, [currentPool, selectedCity, searchQuery]);
-
+  // Handle kiosk selection with server validation
   const handleSelect = async (gymId: string, outletId: string) => {
-    await selectGymAndOutlet(gymId, outletId);
-    setJustSelectedOutletId(outletId);
-    setTimeout(() => {
-      setJustSelectedOutletId(null);
-    }, 4000);
+    setSelectionError(null);
+    try {
+      await selectGymAndOutlet(gymId, outletId);
+      setJustSelectedOutletId(outletId);
+      setTimeout(() => {
+        setJustSelectedOutletId(null);
+      }, 5000);
+    } catch (err: any) {
+      setSelectionError(err.message || "Unable to select this kiosk. Please choose another location.");
+    }
   };
 
+  const isLoading = isGlobalLoading || isSearching;
+
   return (
-    <div className="min-h-screen bg-nutri-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-8 space-y-8 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-nutri-bg py-8 sm:py-12 px-4 sm:px-6 lg:px-8 space-y-8 max-w-[1200px] mx-auto">
       {/* 1. BREADCRUMBS & HERO HEADER */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-nutri-secondary">
@@ -115,7 +146,7 @@ export default function GymDiscoveryPage() {
             Home
           </Link>
           <ChevronRight className="w-3.5 h-3.5 text-nutri-muted" />
-          <span className="text-nutri-charcoal font-bold">Partner Gyms & Kiosks</span>
+          <span className="text-nutri-charcoal font-bold">Partner Gyms &amp; Kiosks</span>
         </div>
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-nutri-border pb-6">
@@ -125,7 +156,7 @@ export default function GymDiscoveryPage() {
               <span>50–100M FROM GYM FOOTFALLS • 5 MINUTE PICKUP</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-              Find Your Partner Gym & Express Kiosk
+              Find Your Partner Gym &amp; Express Kiosk
             </h1>
             <p className="text-sm text-nutri-secondary leading-relaxed">
               Order cold-pressed organic juices and freshly prepared warm protein meals for pickup
@@ -161,7 +192,7 @@ export default function GymDiscoveryPage() {
                 <MapPin className="w-4 h-4 text-nutri-green shrink-0" />
                 <span>{selectedGym.name}</span>
                 <span className="text-xs font-normal text-nutri-secondary">
-                  ({selectedGym.city})
+                  ({selectedGym.city}{selectedGym.area ? ` • ${selectedGym.area}` : ""})
                 </span>
               </h2>
               <p className="text-xs text-nutri-secondary font-medium">
@@ -182,6 +213,23 @@ export default function GymDiscoveryPage() {
             </div>
           </div>
         </Card>
+      )}
+
+      {/* Selection Error Notice */}
+      {selectionError && (
+        <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center justify-between gap-3 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{selectionError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectionError(null)}
+            className="text-xs font-bold underline cursor-pointer text-rose-700"
+          >
+            Dismiss
+          </button>
+        </div>
       )}
 
       {/* 3. DISCOVERY CONTROLS: GEOLOCATION + MANUAL SEARCH */}
@@ -216,10 +264,10 @@ export default function GymDiscoveryPage() {
             {isSortedByDistance && (
               <button
                 type="button"
-                onClick={() => setIsSortedByDistance(false)}
-                className="text-xs font-bold text-nutri-secondary hover:text-nutri-charcoal underline cursor-pointer"
+                onClick={handleResetDistanceSort}
+                className="text-xs font-bold text-nutri-secondary hover:text-nutri-charcoal underline cursor-pointer flex items-center gap-1"
               >
-                Reset Distance Sort
+                <RotateCcw className="w-3 h-3" /> Reset Distance Sort
               </button>
             )}
           </div>
@@ -229,16 +277,17 @@ export default function GymDiscoveryPage() {
             <Search className="w-4 h-4 text-nutri-secondary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search gym, city, or area..."
+              placeholder="Search gym, city, area or kiosk..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-xs pl-10 pr-4 py-2.5 bg-nutri-bg/60 rounded-full border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white text-nutri-charcoal font-medium transition-colors"
+              className="w-full text-xs pl-10 pr-8 py-2.5 bg-nutri-bg/60 rounded-full border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white text-nutri-charcoal font-medium transition-colors"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-nutri-secondary hover:text-nutri-charcoal text-xs font-bold"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-nutri-secondary hover:text-nutri-charcoal text-xs font-bold cursor-pointer"
+                title="Clear search"
               >
                 ✕
               </button>
@@ -251,14 +300,14 @@ export default function GymDiscoveryPage() {
           <span className="text-xs font-bold text-nutri-secondary flex items-center gap-1 shrink-0 mr-1">
             <Filter className="w-3.5 h-3.5" /> City:
           </span>
-          {cities.map((city) => (
+          {availableCities.map((city) => (
             <button
               key={city}
               type="button"
               onClick={() => setSelectedCity(city)}
               className={cn(
                 "text-xs px-3 py-1 rounded-full font-bold capitalize transition-colors shrink-0 cursor-pointer",
-                selectedCity === city
+                selectedCity.toLowerCase() === city.toLowerCase()
                   ? "bg-nutri-green text-white shadow-2xs"
                   : "bg-nutri-bg text-nutri-secondary hover:text-nutri-charcoal border border-nutri-border"
               )}
@@ -295,7 +344,7 @@ export default function GymDiscoveryPage() {
           <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center gap-2">
             <Check className="w-4 h-4 text-emerald-600 shrink-0" />
             <span className="font-semibold">
-              Showing partner gyms sorted by distance calculated from your device coordinates.
+              Showing partner gyms sorted by distance calculated from your device coordinates using Haversine formula.
             </span>
           </div>
         )}
@@ -330,13 +379,19 @@ export default function GymDiscoveryPage() {
               ? `Partner Gyms in ${selectedCity.charAt(0).toUpperCase() + selectedCity.slice(1)}`
               : "All Partner Gym Locations"}
             <span className="text-xs font-semibold text-nutri-secondary ml-2">
-              ({filteredGyms.length} available)
+              ({displayedGyms.length} available)
             </span>
           </h2>
+          {isSearching && (
+            <div className="flex items-center gap-1.5 text-xs text-nutri-secondary font-medium">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-nutri-green" />
+              <span>Updating results...</span>
+            </div>
+          )}
         </div>
 
         {/* Loading State */}
-        {isLoading && (
+        {isLoading && displayedGyms.length === 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map((n) => (
               <Card
@@ -353,14 +408,14 @@ export default function GymDiscoveryPage() {
         )}
 
         {/* Empty State */}
-        {!isLoading && filteredGyms.length === 0 && (
+        {!isLoading && displayedGyms.length === 0 && (
           <Card className="p-10 text-center bg-white border border-nutri-border rounded-3xl space-y-4 max-w-lg mx-auto">
             <div className="w-12 h-12 rounded-full bg-nutri-green-light text-nutri-green flex items-center justify-center mx-auto">
               <Building2 className="w-6 h-6" />
             </div>
             <div className="space-y-1">
               <h3 className="text-base font-bold font-heading text-nutri-charcoal">
-                No Gyms Found
+                No Partner Gyms Found
               </h3>
               <p className="text-xs text-nutri-secondary leading-relaxed">
                 We couldn&apos;t find any partner gyms matching &quot;{searchQuery}&quot; in{" "}
@@ -374,8 +429,9 @@ export default function GymDiscoveryPage() {
                 onClick={() => {
                   setSearchQuery("");
                   setSelectedCity("all");
+                  handleResetDistanceSort();
                 }}
-                className="bg-nutri-green text-white font-bold text-xs px-4 py-2 rounded-full"
+                className="bg-nutri-green text-white font-bold text-xs px-4 py-2 rounded-full cursor-pointer"
               >
                 Show All Gyms
               </Button>
@@ -384,9 +440,9 @@ export default function GymDiscoveryPage() {
         )}
 
         {/* Gym Cards Grid */}
-        {!isLoading && filteredGyms.length > 0 && (
+        {displayedGyms.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredGyms.map((gym) => {
+            {displayedGyms.map((gym) => {
               const isCurrentGym = selectedGym?.id === gym.id;
 
               return (
@@ -405,7 +461,7 @@ export default function GymDiscoveryPage() {
                       <div>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-nutri-bg text-nutri-secondary border border-nutri-border">
-                            {gym.city}
+                            {gym.city}{gym.area ? ` • ${gym.area}` : ""}
                           </span>
                           {gym.formattedDistance && (
                             <span className="text-[10px] font-extrabold text-nutri-green bg-nutri-green-light px-2 py-0.5 rounded-full border border-nutri-green/20 flex items-center gap-1">
@@ -427,6 +483,12 @@ export default function GymDiscoveryPage() {
                     <p className="text-xs text-nutri-secondary leading-relaxed">
                       {gym.address}
                     </p>
+
+                    {/* Operating Hours */}
+                    <div className="flex items-center gap-1.5 text-[11px] text-nutri-secondary font-medium pt-1">
+                      <Clock className="w-3.5 h-3.5 text-nutri-green shrink-0" />
+                      <span>Hours: {gym.operatingHours || "6:00 AM – 10:00 PM"}</span>
+                    </div>
 
                     {/* Associated Kiosk Outlets */}
                     <div className="space-y-2 pt-2 border-t border-nutri-border-light">
@@ -503,7 +565,7 @@ export default function GymDiscoveryPage() {
                                         : "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
                                     )}
                                   >
-                                    Select This Kiosk →
+                                    {outlet.isAvailable ? "Select This Kiosk →" : "Temporarily Closed"}
                                   </button>
                                 )}
                               </div>

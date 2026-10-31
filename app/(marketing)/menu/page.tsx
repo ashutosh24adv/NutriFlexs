@@ -119,7 +119,7 @@ function MenuContent() {
   });
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16">
+    <div className="space-y-6 max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16">
       <DietaryAlertBanner />
 
       {/* Menu Header */}

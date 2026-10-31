@@ -11,6 +11,7 @@
     "db:push": "prisma db push",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "ts-node prisma/seed.ts",
+    "db:seed-codes": "node scripts/seed-staff-codes.js",
     "postinstall": "prisma generate"
   },
   "prisma": {

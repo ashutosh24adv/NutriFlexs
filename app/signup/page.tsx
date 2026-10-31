@@ -81,6 +81,7 @@ function SignupForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
+  const [showCode, setShowCode] = useState(false);
   const [referralCode, setReferralCode] = useState("");
   const [outletId, setOutletId] = useState("");
 
@@ -146,6 +147,7 @@ function SignupForm() {
           phone: phone ? phone.trim() : undefined,
           password,
           portal: targetPortal,
+          accessCode: inviteCode.trim(),
           inviteCode: inviteCode.trim(),
           outletId: outletId || undefined,
           referralCode: referralCode.trim() || undefined,
@@ -190,7 +192,7 @@ function SignupForm() {
       title: "Super Admin Registration",
       subtitle: "Restricted administrative onboarding. Valid invitation key required.",
       codeLabel: "Administrator Invitation Key",
-      codePlaceholder: "e.g., NF-ADMIN-2026-SECURE",
+      codePlaceholder: "e.g., NF-TEST-ADMIN-2026",
       codeHint: "Confidential master administrative invite key",
     },
     kitchen: {
@@ -200,7 +202,7 @@ function SignupForm() {
       title: "Kitchen Staff Registration",
       subtitle: "Kiosk operator registration for real-time kitchen order fulfillment.",
       codeLabel: "Kitchen Access Code",
-      codePlaceholder: "e.g., NF-KITCHEN-2026",
+      codePlaceholder: "e.g., NF-TEST-KITCHEN-2026",
       codeHint: "Authorized outlet security access code",
     },
     trainer: {
@@ -210,7 +212,7 @@ function SignupForm() {
       title: "Trainer Partner Registration",
       subtitle: "Join the partner network to refer gym clients and earn commissions.",
       codeLabel: "Partner Invitation Passcode",
-      codePlaceholder: "e.g., NF-TRAINER-2026",
+      codePlaceholder: "e.g., NF-TEST-TRAINER-2026",
       codeHint: "NutriFlexs gym partner invitation passcode",
     },
   }[targetPortal || ""];
@@ -469,13 +471,22 @@ function SignupForm() {
                 <KeyRound className="w-4 h-4 text-amber-600 absolute left-3.5 top-3 pointer-events-none" />
                 <input
                   id="reg-code"
-                  type="text"
+                  type={showCode ? "text" : "password"}
                   required
                   placeholder={portalBadge.codePlaceholder}
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value)}
-                  className="w-full text-xs pl-10 pr-3.5 py-2.5 bg-white rounded-xl border border-amber-200 focus:outline-none focus:border-amber-500 text-nutri-charcoal font-semibold tracking-wider transition-colors"
+                  className="w-full text-xs pl-10 pr-10 py-2.5 bg-white rounded-xl border border-amber-200 focus:outline-none focus:border-amber-500 text-nutri-charcoal font-semibold tracking-wider transition-colors"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowCode(!showCode)}
+                  className="absolute right-3 top-2.5 p-0.5 text-nutri-secondary hover:text-nutri-charcoal transition-colors cursor-pointer"
+                  title={showCode ? "Hide access code" : "Show access code"}
+                  aria-label={showCode ? "Hide access code" : "Show access code"}
+                >
+                  {showCode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
               <p className="text-[10px] text-amber-900/80 leading-snug">
                 {portalBadge.codeHint}. Unrestricted public self-registration is strictly

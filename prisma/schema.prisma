@@ -50,6 +50,13 @@ enum InventoryTxType {
   ADJUSTMENT
 }
 
+enum MealType {
+  BREAKFAST
+  LUNCH
+  SNACKS
+  DINNER
+}
+
 model User {
   id               String         @id @default(uuid())
   name             String
@@ -75,38 +82,55 @@ model User {
 
   selectedGym      Gym?           @relation(fields: [selectedGymId], references: [id])
   selectedOutlet   Outlet?        @relation(fields: [selectedOutletId], references: [id])
+  createdStaffAccessCodes StaffAccessCode[] @relation("CreatedAccessCodes")
+  nutritionGoal    NutritionGoal?
+  foodLogs         FoodLog[]
+  customFoods      FoodItem[]     @relation("CustomFoodItems")
 }
 
 model Gym {
-  id        String   @id @default(uuid())
-  name      String
-  address   String
-  city      String
-  latitude  Float?
-  longitude Float?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(uuid())
+  name           String
+  address        String
+  city           String
+  area           String?
+  imageUrl       String?
+  phone          String?
+  operatingHours String?  @default("6:00 AM – 10:00 PM")
+  latitude       Float?
+  longitude      Float?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   outlets   Outlet[]
   users     User[]
+
+  @@index([city, isActive])
+  @@index([name])
 }
 
 model Outlet {
-  id          String   @id @default(uuid())
-  name        String
-  gymId       String
-  address     String
-  phone       String?
-  latitude    Float?
-  longitude   Float?
-  isAvailable Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(uuid())
+  name           String
+  gymId          String
+  address        String
+  phone          String?
+  operatingHours String?  @default("6:00 AM – 10:00 PM")
+  latitude       Float?
+  longitude      Float?
+  isAvailable    Boolean  @default(true)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   gym            Gym             @relation(fields: [gymId], references: [id])
   orders         Order[]
   inventoryItems InventoryItem[]
   users          User[]
+  staffAccessCodes StaffAccessCode[]
+
+  @@index([gymId, isAvailable])
 }
 
 model Trainer {
@@ -160,6 +184,7 @@ model Product {
   category               Category            @relation(fields: [categoryId], references: [id])
   ingredients            ProductIngredient[]
   orderItems             OrderItem[]
+  foodLogs               FoodLog[]
 
   @@index([categoryId, isAvailable])
   @@index([isPopular, isAvailable])
@@ -229,6 +254,7 @@ model OrderItem {
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
+  foodLogs FoodLog[]
 
   @@index([orderId])
   @@index([productId])
@@ -346,4 +372,95 @@ model InventoryTransaction {
   createdAt       DateTime        @default(now())
 
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+}
+
+model StaffAccessCode {
+  id          String    @id @default(uuid())
+  codeHash    String    @unique
+  codePrefix  String?
+  role        Role
+  outletId    String?
+  isActive    Boolean   @default(true)
+  expiresAt   DateTime?
+  maxUses     Int       @default(1)
+  usedCount   Int       @default(0)
+  description String?
+  isDevSeed   Boolean   @default(false)
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  outlet    Outlet? @relation(fields: [outletId], references: [id], onDelete: SetNull)
+  createdBy User?   @relation("CreatedAccessCodes", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([role, isActive])
+  @@index([codeHash])
+}
+
+model FoodItem {
+  id                 String   @id @default(uuid())
+  name               String
+  description        String?
+  category           String
+  caloriesPer100g    Float    @default(0)
+  protein            Float    @default(0)
+  carbohydrates      Float    @default(0)
+  fat                Float    @default(0)
+  defaultServingSize Float    @default(100)
+  defaultServingUnit String   @default("g")
+  servingWeightGrams Float?   @default(100)
+  isCustom           Boolean  @default(false)
+  createdById        String?
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  createdBy User?     @relation("CustomFoodItems", fields: [createdById], references: [id], onDelete: SetNull)
+  foodLogs  FoodLog[]
+
+  @@index([name])
+  @@index([category, isActive])
+  @@index([isCustom, createdById])
+}
+
+model FoodLog {
+  id               String   @id @default(uuid())
+  userId           String
+  foodItemId       String?
+  orderItemId      String?
+  productId        String?
+  foodNameSnapshot String
+  mealType         MealType
+  quantity         Float
+  unit             String
+  calories         Float
+  protein          Float
+  carbohydrates    Float
+  fat              Float
+  loggedAt         DateTime @default(now())
+  dateKey          String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foodItem  FoodItem?  @relation(fields: [foodItemId], references: [id], onDelete: SetNull)
+  orderItem OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  product   Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([userId, dateKey])
+  @@index([userId, mealType, dateKey])
+  @@index([orderItemId])
+}
+
+model NutritionGoal {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  dailyCalorieGoal Int?
+  proteinGoal      Float?
+  carbohydrateGoal Float?
+  fatGoal          Float?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
