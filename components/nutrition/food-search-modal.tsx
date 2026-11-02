@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { calculateItemNutrition } from "@/services/nutrition.service";
+import { addGuestLog, getGuestCustomFoods } from "@/lib/guest-nutrition";
 
 interface FoodItem {
   id: string;
@@ -42,6 +43,7 @@ interface FoodSearchModalProps {
   initialMealType: "BREAKFAST" | "LUNCH" | "SNACKS" | "DINNER";
   dateKey: string;
   onOpenCustomFood: () => void;
+  isGuest?: boolean;
 }
 
 export function FoodSearchModal({
@@ -51,6 +53,7 @@ export function FoodSearchModal({
   initialMealType,
   dateKey,
   onOpenCustomFood,
+  isGuest = false,
 }: FoodSearchModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -118,7 +121,39 @@ export function FoodSearchModal({
         const data = await res.json();
 
         if (data.success) {
+          let customGuestFoods: FoodItem[] = [];
+          if (isGuest) {
+            const guestCustom = getGuestCustomFoods();
+            const q = searchQuery.trim().toLowerCase();
+            const filteredGuest = guestCustom.filter((g) => {
+              const matchQ =
+                !q ||
+                g.name.toLowerCase().includes(q) ||
+                (g.category && g.category.toLowerCase().includes(q));
+              const matchCat =
+                !selectedCategory ||
+                selectedCategory === "All" ||
+                (g.category && g.category.toLowerCase() === selectedCategory.toLowerCase());
+              return matchQ && matchCat;
+            });
+            customGuestFoods = filteredGuest.map((g) => ({
+              id: g.id,
+              name: g.name,
+              description: g.description,
+              category: g.category || "Custom foods",
+              caloriesPer100g: g.caloriesPer100g,
+              protein: g.protein,
+              carbohydrates: g.carbohydrates,
+              fat: g.fat,
+              defaultServingSize: g.defaultServingSize,
+              defaultServingUnit: g.defaultServingUnit,
+              servingWeightGrams: g.servingWeightGrams,
+              isCustom: true,
+            }));
+          }
+
           const combined = [
+            ...customGuestFoods,
             ...(data.nutriflexsProducts || []),
             ...(data.foods || []),
           ];
@@ -214,6 +249,27 @@ export function FoodSearchModal({
     setSubmitError(null);
 
     try {
+      if (isGuest) {
+        addGuestLog({
+          name: selectedFood.name,
+          mealType: targetMealType,
+          quantity: Math.max(0.1, quantity),
+          unit,
+          dateKey,
+          calories: computedNutrition.calories,
+          protein: computedNutrition.protein,
+          carbohydrates: computedNutrition.carbohydrates,
+          fat: computedNutrition.fat,
+          foodItemId: selectedFood.productId ? null : selectedFood.id,
+          productId: selectedFood.productId || null,
+        });
+
+        onFoodAdded();
+        setSelectedFood(null);
+        onClose();
+        return;
+      }
+
       const payload: any = {
         foodName: selectedFood.name,
         mealType: targetMealType,

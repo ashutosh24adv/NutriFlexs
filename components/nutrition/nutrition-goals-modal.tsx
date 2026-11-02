@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from "react";
 import { X, Target, Loader2, AlertCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { saveGuestGoals } from "@/lib/guest-nutrition";
 
 interface NutritionGoalsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onGoalsUpdated: () => void;
+  isGuest?: boolean;
   currentGoals: {
     dailyCalorieGoal: number | null;
     proteinGoal: number | null;
@@ -20,6 +22,7 @@ export function NutritionGoalsModal({
   isOpen,
   onClose,
   onGoalsUpdated,
+  isGuest = false,
   currentGoals,
 }: NutritionGoalsModalProps) {
   const [calorieGoal, setCalorieGoal] = useState<string>("");
@@ -69,6 +72,18 @@ export function NutritionGoalsModal({
     setLoading(true);
 
     try {
+      if (isGuest) {
+        saveGuestGoals({
+          dailyCalorieGoal: cals,
+          proteinGoal: prot,
+          carbohydrateGoal: carbs,
+          fatGoal: fat,
+        });
+        onGoalsUpdated();
+        onClose();
+        return;
+      }
+
       const res = await fetch("/api/nutrition/goals", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -101,6 +116,18 @@ export function NutritionGoalsModal({
     setLoading(true);
     setError(null);
     try {
+      if (isGuest) {
+        saveGuestGoals({
+          dailyCalorieGoal: null,
+          proteinGoal: null,
+          carbohydrateGoal: null,
+          fatGoal: null,
+        });
+        onGoalsUpdated();
+        onClose();
+        return;
+      }
+
       await fetch("/api/nutrition/goals", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },

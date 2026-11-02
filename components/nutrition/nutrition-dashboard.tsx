@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Flame,
   Target,
@@ -33,6 +34,13 @@ import { FoodSearchModal } from "@/components/nutrition/food-search-modal";
 import { CustomFoodModal } from "@/components/nutrition/custom-food-modal";
 import { EditLogModal } from "@/components/nutrition/edit-log-modal";
 import { NutritionGoalsModal } from "@/components/nutrition/nutrition-goals-modal";
+import {
+  getGuestDailyNutritionSummary,
+  hasGuestDataToMigrate,
+  getGuestDataForMigration,
+  clearGuestData,
+  dismissGuestMigration,
+} from "@/lib/guest-nutrition";
 
 const MEAL_ICONS: Record<string, any> = {
   BREAKFAST: Sunrise,
@@ -97,11 +105,17 @@ function formatHumanDate(dateKey: string): { label: string; sublabel: string; is
 export function NutritionDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const isAuthenticated = status === "authenticated";
 
   const [currentDateKey, setCurrentDateKey] = useState<string>(getLocalTodayDateKey());
   const [diary, setDiary] = useState<DailyNutritionSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Guest migration state
+  const [hasGuestData, setHasGuestData] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+  const [migrationNotice, setMigrationNotice] = useState<string | null>(null);
 
   // Modals state
   const [searchModalOpen, setSearchModalOpen] = useState(false);
@@ -111,35 +125,104 @@ export function NutritionDashboard() {
   const [selectedLogItem, setSelectedLogItem] = useState<any | null>(null);
   const [goalsModalOpen, setGoalsModalOpen] = useState(false);
 
+  // Check for guest data when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      setHasGuestData(hasGuestDataToMigrate());
+    }
+  }, [isAuthenticated]);
+
+  // Initial mount: load guest diary immediately so guests see their meals instantly
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const initialSummary = getGuestDailyNutritionSummary(currentDateKey);
+        setDiary(initialSummary);
+      } catch {
+        // Ignore initial SSR read
+      }
+    }
+  }, [currentDateKey]);
+
   // Fetch diary data for currentDateKey
   const fetchDiary = useCallback(async (targetDateKey: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/nutrition/diary?date=${targetDateKey}`);
-      const data = await res.json();
-      if (data.success && data.diary) {
-        setDiary(data.diary);
-      } else {
-        setError(data.error || "Failed to load nutrition diary.");
+    // Authenticated users: fetch from PostgreSQL API
+    if (isAuthenticated) {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/nutrition/diary?date=${targetDateKey}`);
+        const data = await res.json();
+        if (data.success && data.diary) {
+          setDiary(data.diary);
+        } else {
+          setError(data.error || "Failed to load nutrition diary.");
+        }
+      } catch (err: any) {
+        console.error("Diary fetch error", err);
+        setError("Network error fetching food diary.");
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      console.error("Diary fetch error", err);
-      setError("Network error fetching food diary.");
+      return;
+    }
+
+    // Guest mode: Read directly from localStorage with zero unauthorized API calls
+    try {
+      const guestSummary = getGuestDailyNutritionSummary(targetDateKey);
+      setDiary(guestSummary);
+    } catch (err) {
+      console.error("Guest diary error", err);
+      setError("Failed to load local food diary.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login?callbackUrl=/nutrition");
-      return;
-    }
-    if (status === "authenticated") {
+    if (status !== "loading") {
       fetchDiary(currentDateKey);
     }
-  }, [currentDateKey, status, router, fetchDiary]);
+  }, [currentDateKey, status, fetchDiary]);
+
+  // Migration handlers
+  const handleMigrateGuestData = async () => {
+    setMigrating(true);
+    setError(null);
+    setMigrationNotice(null);
+    try {
+      const dataToMigrate = getGuestDataForMigration();
+      const res = await fetch("/api/nutrition/migrate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dataToMigrate),
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || "Failed to sync guest data");
+      }
+
+      clearGuestData();
+      setHasGuestData(false);
+      setMigrationNotice(
+        `Successfully merged ${data.migratedLogsCount || 0} meal log(s)${
+          data.skippedDuplicatesCount ? ` (${data.skippedDuplicatesCount} duplicate(s) skipped)` : ""
+        } and your goals into your account!`
+      );
+      fetchDiary(currentDateKey);
+    } catch (err: any) {
+      console.error("Migration error", err);
+      setError(err.message || "Failed to sync guest food logs.");
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  const handleDismissMigration = () => {
+    dismissGuestMigration();
+    setHasGuestData(false);
+  };
 
   const handlePrevDay = () => setCurrentDateKey((prev) => shiftDateKey(prev, -1));
   const handleNextDay = () => setCurrentDateKey((prev) => shiftDateKey(prev, 1));
@@ -174,6 +257,93 @@ export function NutritionDashboard() {
 
   return (
     <div className="space-y-6 pb-16">
+      {/* Migration Success Notice */}
+      {migrationNotice && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm rounded-2xl flex items-center justify-between animate-fade-in shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span>{migrationNotice}</span>
+          </div>
+          <button
+            onClick={() => setMigrationNotice(null)}
+            className="text-xs font-bold text-emerald-700 hover:text-emerald-900 cursor-pointer px-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Guest Data Sync Banner for Logged-In User */}
+      {isAuthenticated && hasGuestData && (
+        <div className="p-4 sm:p-5 bg-nutri-green-light border border-nutri-green/30 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-nutri-green text-white rounded-2xl shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-heading font-extrabold text-sm sm:text-base text-nutri-charcoal">
+                Sync Guest Calorie &amp; Meal Data
+              </h4>
+              <p className="text-xs text-nutri-secondary mt-0.5">
+                We detected locally stored food logs and goals from your guest browsing session. Would you like to merge them with your account?
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={handleMigrateGuestData}
+              disabled={migrating}
+              className="bg-nutri-green hover:bg-nutri-green-dark text-white font-bold text-xs rounded-xl shadow-xs"
+            >
+              {migrating ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+              )}
+              Sync to Account
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleDismissMigration}
+              disabled={migrating}
+              className="bg-white border-nutri-border text-nutri-secondary hover:text-nutri-charcoal font-semibold text-xs rounded-xl"
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Guest Mode Informative Notice */}
+      {!isAuthenticated && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-3 bg-amber-50/90 border border-amber-200/90 rounded-2xl text-xs text-amber-900 shadow-xs">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Guest Mode Active:</strong> Meals &amp; goals are saved locally in this browser. Clearing browser data or switching devices will reset this history.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+            <Link
+              href="/login?callbackUrl=/nutrition"
+              className="text-[11px] font-bold text-nutri-secondary hover:text-nutri-charcoal underline"
+            >
+              Sign In
+            </Link>
+            <span>·</span>
+            <Link
+              href="/signup?callbackUrl=/nutrition"
+              className="text-[11px] font-bold text-nutri-green hover:underline"
+            >
+              Create Account to Sync →
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Top Banner & Date Selector */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-4 sm:p-6 rounded-3xl border border-nutri-border shadow-xs">
         <div>
@@ -593,6 +763,7 @@ export function NutritionDashboard() {
         initialMealType={searchModalMealType}
         dateKey={currentDateKey}
         onOpenCustomFood={() => setCustomFoodModalOpen(true)}
+        isGuest={!isAuthenticated}
       />
 
       <CustomFoodModal
@@ -601,6 +772,7 @@ export function NutritionDashboard() {
         onCustomFoodCreated={() => fetchDiary(currentDateKey)}
         targetMealType={searchModalMealType}
         dateKey={currentDateKey}
+        isGuest={!isAuthenticated}
       />
 
       <EditLogModal
@@ -611,6 +783,7 @@ export function NutritionDashboard() {
         }}
         onLogUpdated={() => fetchDiary(currentDateKey)}
         item={selectedLogItem}
+        isGuest={!isAuthenticated}
       />
 
       <NutritionGoalsModal
@@ -623,6 +796,7 @@ export function NutritionDashboard() {
           carbohydrateGoal: goals.carbohydrateGoal,
           fatGoal: goals.fatGoal,
         }}
+        isGuest={!isAuthenticated}
       />
     </div>
   );

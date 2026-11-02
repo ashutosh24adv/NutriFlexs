@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, Sparkles, AlertCircle, Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { addGuestCustomFood, addGuestLog } from "@/lib/guest-nutrition";
 
 interface CustomFoodModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface CustomFoodModalProps {
   onCustomFoodCreated: (createdFood: any) => void;
   targetMealType?: "BREAKFAST" | "LUNCH" | "SNACKS" | "DINNER";
   dateKey: string;
+  isGuest?: boolean;
 }
 
 export function CustomFoodModal({
@@ -18,6 +20,7 @@ export function CustomFoodModal({
   onCustomFoodCreated,
   targetMealType = "LUNCH",
   dateKey,
+  isGuest = false,
 }: CustomFoodModalProps) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Custom foods");
@@ -62,6 +65,40 @@ export function CustomFoodModal({
     setLoading(true);
 
     try {
+      if (isGuest) {
+        const createdFood = addGuestCustomFood({
+          name: name.trim(),
+          category: category.trim() || "Custom foods",
+          description: description.trim() || "User created dish",
+          caloriesPer100g: calNum,
+          protein: protNum,
+          carbohydrates: carbNum,
+          fat: fatNum,
+          defaultServingSize: servSize,
+          defaultServingUnit: servingUnit.trim() || "serving",
+          servingWeightGrams: 100,
+        });
+
+        if (addToDiaryNow) {
+          addGuestLog({
+            foodItemId: createdFood.id,
+            name: createdFood.name,
+            mealType,
+            quantity: servSize,
+            unit: servingUnit.trim() || "serving",
+            dateKey,
+            calories: calNum,
+            protein: protNum,
+            carbohydrates: carbNum,
+            fat: fatNum,
+          });
+        }
+
+        onCustomFoodCreated(createdFood);
+        onClose();
+        return;
+      }
+
       // 1. Create custom food in database
       const res = await fetch("/api/nutrition/foods/custom", {
         method: "POST",

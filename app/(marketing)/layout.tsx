@@ -24,9 +24,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 text-xs">
               <div>
-                <h4 className="font-bold font-heading text-white mb-3 uppercase tracking-wider">Product</h4>
+                <h4 className="font-bold font-heading text-white mb-3 uppercase tracking-wider">Product &amp; Story</h4>
                 <ul className="space-y-2 text-nutri-secondary">
-                  <li><Link href="/menu" className="hover:text-white transition-colors">Juices & Shakes</Link></li>
+                  <li><Link href="/about" className="hover:text-white transition-colors">About Us</Link></li>
+                  <li><Link href="/menu" className="hover:text-white transition-colors">Juices &amp; Shakes</Link></li>
                   <li><Link href="/menu" className="hover:text-white transition-colors">Protein Bowls</Link></li>
                   <li><Link href="/pass" className="hover:text-white transition-colors">NutriFlexs Pass</Link></li>
                   <li><Link href="/trainer" className="hover:text-white transition-colors">Trainer Program</Link></li>

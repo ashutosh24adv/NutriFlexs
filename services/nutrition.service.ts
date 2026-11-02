@@ -643,3 +643,199 @@ export async function syncCompletedOrderToNutritionDiary(orderId: string) {
   return { synced, skipped };
 }
 
+export interface GuestMigrationPayload {
+  goals?: {
+    dailyCalorieGoal?: number | null;
+    proteinGoal?: number | null;
+    carbohydrateGoal?: number | null;
+    fatGoal?: number | null;
+  };
+  logs?: Array<{
+    foodItemId?: string | null;
+    productId?: string | null;
+    name: string;
+    quantity: number;
+    unit: string;
+    mealType: MealType;
+    dateKey: string;
+    calories: number;
+    protein: number;
+    carbohydrates: number;
+    fat: number;
+    loggedAt?: string;
+  }>;
+  customFoods?: Array<{
+    name: string;
+    category?: string;
+    description?: string;
+    caloriesPer100g: number;
+    protein: number;
+    carbohydrates: number;
+    fat: number;
+    defaultServingSize?: number;
+    defaultServingUnit?: string;
+    servingWeightGrams?: number;
+  }>;
+}
+
+/**
+ * Migrates locally-stored guest nutrition logs, goals, and custom dishes into user database records.
+ * Carefully avoids duplicates and never overwrites existing account goals without confirmation.
+ */
+export async function migrateGuestNutritionData(
+  userId: string,
+  payload: GuestMigrationPayload
+) {
+  // 1. Migrate custom foods first
+  const customFoodIdMap = new Map<string, string>();
+  if (payload.customFoods && payload.customFoods.length > 0) {
+    for (const cf of payload.customFoods) {
+      if (!cf.name || !cf.name.trim()) continue;
+      const existing = await prisma.foodItem.findFirst({
+        where: {
+          createdById: userId,
+          name: { equals: cf.name.trim(), mode: "insensitive" },
+        },
+      });
+      if (!existing) {
+        const created = await prisma.foodItem.create({
+          data: {
+            name: cf.name.trim(),
+            category: cf.category || "Custom foods",
+            description: cf.description || "Migrated custom food",
+            caloriesPer100g: cf.caloriesPer100g,
+            protein: cf.protein,
+            carbohydrates: cf.carbohydrates,
+            fat: cf.fat,
+            defaultServingSize: cf.defaultServingSize || 1,
+            defaultServingUnit: cf.defaultServingUnit || "serving",
+            servingWeightGrams: cf.servingWeightGrams || 100,
+            isCustom: true,
+            createdById: userId,
+            isActive: true,
+          },
+        });
+        customFoodIdMap.set(cf.name.trim().toLowerCase(), created.id);
+      } else {
+        customFoodIdMap.set(cf.name.trim().toLowerCase(), existing.id);
+      }
+    }
+  }
+
+  // 2. Migrate goals carefully (do not overwrite existing non-null user goals)
+  let goalsMigrated = false;
+  if (payload.goals) {
+    const existingGoal = await prisma.nutritionGoal.findUnique({
+      where: { userId },
+    });
+
+    if (!existingGoal) {
+      if (
+        payload.goals.dailyCalorieGoal ||
+        payload.goals.proteinGoal ||
+        payload.goals.carbohydrateGoal ||
+        payload.goals.fatGoal
+      ) {
+        await prisma.nutritionGoal.create({
+          data: {
+            userId,
+            dailyCalorieGoal: payload.goals.dailyCalorieGoal || null,
+            proteinGoal: payload.goals.proteinGoal || null,
+            carbohydrateGoal: payload.goals.carbohydrateGoal || null,
+            fatGoal: payload.goals.fatGoal || null,
+          },
+        });
+        goalsMigrated = true;
+      }
+    } else {
+      // Only backfill unset goals, never overwrite existing goals
+      const updates: any = {};
+      if (!existingGoal.dailyCalorieGoal && payload.goals.dailyCalorieGoal) {
+        updates.dailyCalorieGoal = payload.goals.dailyCalorieGoal;
+      }
+      if (!existingGoal.proteinGoal && payload.goals.proteinGoal) {
+        updates.proteinGoal = payload.goals.proteinGoal;
+      }
+      if (!existingGoal.carbohydrateGoal && payload.goals.carbohydrateGoal) {
+        updates.carbohydrateGoal = payload.goals.carbohydrateGoal;
+      }
+      if (!existingGoal.fatGoal && payload.goals.fatGoal) {
+        updates.fatGoal = payload.goals.fatGoal;
+      }
+      if (Object.keys(updates).length > 0) {
+        await prisma.nutritionGoal.update({
+          where: { userId },
+          data: updates,
+        });
+        goalsMigrated = true;
+      }
+    }
+  }
+
+  // 3. Migrate logs (deduplicate against existing logs)
+  let migratedLogsCount = 0;
+  let skippedDuplicatesCount = 0;
+
+  if (payload.logs && payload.logs.length > 0) {
+    const dateKeys = Array.from(new Set(payload.logs.map((l) => l.dateKey)));
+    const existingLogs = await prisma.foodLog.findMany({
+      where: {
+        userId,
+        dateKey: { in: dateKeys },
+      },
+    });
+
+    for (const log of payload.logs) {
+      if (!log.name || !log.dateKey || !log.mealType) continue;
+
+      // Duplicate check: same dateKey, mealType, and foodNameSnapshot (or matching productId/foodItemId)
+      const isDuplicate = existingLogs.some((el) => {
+        if (el.dateKey !== log.dateKey || el.mealType !== log.mealType) return false;
+        const nameMatch = el.foodNameSnapshot.trim().toLowerCase() === log.name.trim().toLowerCase();
+        const productMatch = log.productId && el.productId === log.productId;
+        const foodItemMatch = log.foodItemId && el.foodItemId === log.foodItemId;
+        return nameMatch || productMatch || foodItemMatch;
+      });
+
+      if (isDuplicate) {
+        skippedDuplicatesCount++;
+        continue;
+      }
+
+      // Check if foodItemId needs mapping from custom foods
+      let resolvedFoodItemId = log.foodItemId;
+      if (!resolvedFoodItemId && customFoodIdMap.has(log.name.trim().toLowerCase())) {
+        resolvedFoodItemId = customFoodIdMap.get(log.name.trim().toLowerCase());
+      }
+
+      const created = await prisma.foodLog.create({
+        data: {
+          userId,
+          foodNameSnapshot: log.name.trim(),
+          mealType: log.mealType,
+          quantity: log.quantity || 1,
+          unit: log.unit || "serving",
+          calories: log.calories,
+          protein: log.protein,
+          carbohydrates: log.carbohydrates,
+          fat: log.fat,
+          dateKey: log.dateKey,
+          foodItemId: resolvedFoodItemId || null,
+          productId: log.productId || null,
+          loggedAt: log.loggedAt ? new Date(log.loggedAt) : new Date(),
+        },
+      });
+
+      existingLogs.push(created);
+      migratedLogsCount++;
+    }
+  }
+
+  return {
+    success: true,
+    migratedLogsCount,
+    skippedDuplicatesCount,
+    goalsMigrated,
+  };
+}
+

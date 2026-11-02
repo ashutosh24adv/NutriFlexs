@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from "react";
 import { X, Trash2, Edit3, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { updateGuestLog, deleteGuestLog } from "@/lib/guest-nutrition";
 
 interface EditLogModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLogUpdated: () => void;
+  isGuest?: boolean;
   item: {
     id: string;
     name: string;
@@ -26,6 +28,7 @@ export function EditLogModal({
   isOpen,
   onClose,
   onLogUpdated,
+  isGuest = false,
   item,
 }: EditLogModalProps) {
   const [quantity, setQuantity] = useState<number>(1);
@@ -57,6 +60,17 @@ export function EditLogModal({
     setError(null);
 
     try {
+      if (isGuest) {
+        updateGuestLog(item.id, {
+          quantity,
+          unit,
+          mealType,
+        });
+        onLogUpdated();
+        onClose();
+        return;
+      }
+
       const res = await fetch(`/api/nutrition/logs/${item.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -91,6 +105,13 @@ export function EditLogModal({
     setError(null);
 
     try {
+      if (isGuest) {
+        deleteGuestLog(item.id);
+        onLogUpdated();
+        onClose();
+        return;
+      }
+
       const res = await fetch(`/api/nutrition/logs/${item.id}`, {
         method: "DELETE",
       });
