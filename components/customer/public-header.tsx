@@ -453,7 +453,7 @@ export function PublicHeader() {
             <Button
               size="sm"
               onClick={handleOpenAppClick}
-              className="bg-nutri-green text-white hover:bg-nutri-green-dark font-extrabold text-xs px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full cursor-pointer shadow-xs whitespace-nowrap shrink-0"
+              className="hidden sm:inline-flex bg-nutri-green text-white hover:bg-nutri-green-dark font-extrabold text-xs px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full cursor-pointer shadow-xs whitespace-nowrap shrink-0"
             >
               OPEN APP →
             </Button>
@@ -690,7 +690,17 @@ export function PublicHeader() {
           </div>
 
           {/* Bottom Actions */}
-          <div className="pt-4 border-t border-nutri-border">
+          <div className="pt-4 border-t border-nutri-border space-y-2">
+            <Button
+              size="sm"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                handleOpenAppClick();
+              }}
+              className="w-full bg-nutri-green text-white hover:bg-nutri-green-dark font-extrabold text-xs py-2.5 rounded-xl cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+            >
+              OPEN APP →
+            </Button>
             {isAuthenticated ? (
               <button
                 type="button"
@@ -698,7 +708,7 @@ export function PublicHeader() {
                   setIsMobileMenuOpen(false);
                   signOut({ callbackUrl: "/" });
                 }}
-                className="w-full flex items-center gap-2 p-2.5 rounded-xl hover:bg-rose-50 text-rose-600 font-bold text-xs transition-colors cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl hover:bg-rose-50 text-rose-600 font-bold text-xs transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4" /> Sign Out ({userName})
               </button>
@@ -706,7 +716,7 @@ export function PublicHeader() {
               <Link
                 href="/login"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="w-full flex items-center justify-center p-2.5 rounded-xl bg-nutri-green text-white font-bold text-xs shadow-xs"
+                className="w-full flex items-center justify-center p-2.5 rounded-xl bg-nutri-bg hover:bg-nutri-green-soft text-nutri-charcoal hover:text-nutri-green border border-nutri-border font-bold text-xs transition-colors"
               >
                 Sign In / Create Account
               </Link>

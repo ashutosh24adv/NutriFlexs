@@ -151,7 +151,9 @@ export function NutritionDashboard() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/nutrition/diary?date=${targetDateKey}`);
+        const res = await fetch(`/api/nutrition/diary?date=${targetDateKey}&_t=${Date.now()}`, {
+          cache: "no-store",
+        });
         const data = await res.json();
         if (data.success && data.diary) {
           setDiary(data.diary);
@@ -183,6 +185,27 @@ export function NutritionDashboard() {
     if (status !== "loading") {
       fetchDiary(currentDateKey);
     }
+
+    const handleSync = () => {
+      fetchDiary(currentDateKey);
+    };
+
+    window.addEventListener("nutriflexs:nutrition-updated", handleSync);
+    window.addEventListener("focus", handleSync);
+    window.addEventListener("storage", handleSync);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        handleSync();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("nutriflexs:nutrition-updated", handleSync);
+      window.removeEventListener("focus", handleSync);
+      window.removeEventListener("storage", handleSync);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [currentDateKey, status, fetchDiary]);
 
   // Migration handlers

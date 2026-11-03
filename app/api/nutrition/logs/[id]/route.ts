@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { updateFoodLogSchema } from "@/lib/validations/nutrition.schema";
 import { updateFoodLog, deleteFoodLog } from "@/services/nutrition.service";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }

@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { addFoodLogSchema } from "@/lib/validations/nutrition.schema";
 import { addFoodLog } from "@/services/nutrition.service";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

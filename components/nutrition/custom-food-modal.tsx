@@ -95,6 +95,9 @@ export function CustomFoodModal({
         }
 
         onCustomFoodCreated(createdFood);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("nutriflexs:nutrition-updated"));
+        }
         onClose();
         return;
       }
@@ -145,6 +148,9 @@ export function CustomFoodModal({
       }
 
       onCustomFoodCreated(createdFood);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("nutriflexs:nutrition-updated"));
+      }
       onClose();
     } catch (err: any) {
       console.error("Custom food error", err);

@@ -464,3 +464,27 @@ model NutritionGoal {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model BlogPost {
+  id              String   @id @default(uuid())
+  title           String
+  slug            String   @unique
+  excerpt         String
+  content         String   @db.Text
+  coverImage      String
+  category        String
+  authorName      String   @default("NutriFlexs Nutrition Team")
+  authorRole      String?  @default("Sports Nutritionist")
+  authorAvatar    String?
+  readTimeMinutes Int      @default(4)
+  isFeatured      Boolean  @default(false)
+  isPublished     Boolean  @default(true)
+  publishedAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tags            String[] @default([])
+
+  @@index([slug])
+  @@index([category, isPublished])
+  @@index([publishedAt])
+}

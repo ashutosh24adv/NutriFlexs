@@ -140,10 +140,10 @@ export function BmiRecommendations() {
       </div>
 
       {/* Input Form */}
-      <form onSubmit={handleCalculate} className="space-y-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+      <form onSubmit={handleCalculate} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
           {/* Height Input */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 lg:col-span-4">
             <label htmlFor="bmi-height" className="block text-xs font-bold text-nutri-charcoal uppercase tracking-wider">
               Height (cm)
             </label>
@@ -167,7 +167,7 @@ export function BmiRecommendations() {
           </div>
 
           {/* Weight Input */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 lg:col-span-4">
             <label htmlFor="bmi-weight" className="block text-xs font-bold text-nutri-charcoal uppercase tracking-wider">
               Weight (kg)
             </label>
@@ -189,6 +189,29 @@ export function BmiRecommendations() {
               </span>
             </div>
           </div>
+
+          {/* Submit button */}
+          <div className="sm:col-span-2 lg:col-span-4">
+            <Button
+              type="submit"
+              disabled={loading}
+              size="lg"
+              variant="primary"
+              className="w-full h-12 font-bold text-sm px-6 rounded-2xl shadow-sm inline-flex items-center justify-center gap-2 cursor-pointer bg-nutri-green hover:bg-nutri-green-dark text-white transition-colors"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Calculating Recommendations...
+                </>
+              ) : (
+                <>
+                  Get My Recommendations
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* Error message */}
@@ -198,29 +221,6 @@ export function BmiRecommendations() {
             <span>{error}</span>
           </div>
         )}
-
-        {/* Submit button */}
-        <div className="pt-1 flex justify-start">
-          <Button
-            type="submit"
-            disabled={loading}
-            size="lg"
-            variant="primary"
-            className="w-full sm:w-auto h-12 font-bold text-sm px-7 rounded-full shadow-md shadow-nutri-green/15 inline-flex items-center justify-center gap-2 cursor-pointer"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Calculating Recommendations...
-              </>
-            ) : (
-              <>
-                Get My Recommendations
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </Button>
-        </div>
       </form>
 
       {/* Results Section */}

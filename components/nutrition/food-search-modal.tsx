@@ -265,6 +265,9 @@ export function FoodSearchModal({
         });
 
         onFoodAdded();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("nutriflexs:nutrition-updated"));
+        }
         setSelectedFood(null);
         onClose();
         return;
@@ -304,6 +307,9 @@ export function FoodSearchModal({
       }
 
       onFoodAdded();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("nutriflexs:nutrition-updated"));
+      }
       setSelectedFood(null);
       onClose();
     } catch (err: any) {

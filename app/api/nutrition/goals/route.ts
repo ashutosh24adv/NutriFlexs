@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { updateNutritionGoalSchema } from "@/lib/validations/nutrition.schema";
 import { getNutritionGoals, upsertNutritionGoals } from "@/services/nutrition.service";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);

@@ -294,7 +294,7 @@ export async function createCustomFood(userId: string, input: CreateCustomFoodIn
  * Gets daily nutrition diary & goals for a given dateKey (YYYY-MM-DD).
  */
 export async function getDailyNutritionDiary(userId: string, dateKey: string): Promise<DailyNutritionSummary> {
-  const [logs, goalRecord] = await Promise.all([
+  const [logs, goalRecord, userRecord] = await Promise.all([
     prisma.foodLog.findMany({
       where: {
         userId,
@@ -307,6 +307,14 @@ export async function getDailyNutritionDiary(userId: string, dateKey: string): P
     }),
     prisma.nutritionGoal.findUnique({
       where: { userId },
+    }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        proteinGoalGrams: true,
+        customDailyProteinGoal: true,
+        weightKg: true,
+      },
     }),
   ]);
 
@@ -358,11 +366,25 @@ export async function getDailyNutritionDiary(userId: string, dateKey: string): P
     dailyTotals.fat = Math.round((dailyTotals.fat + roundedFat) * 10) / 10;
   }
 
-  // Calculate goal targets and progress
+  // Calculate unified goal targets and progress
   const calGoal = goalRecord?.dailyCalorieGoal || null;
-  const protGoal = goalRecord?.proteinGoal || null;
+  let protGoal: number | null = null;
+  if (goalRecord?.proteinGoal !== null && goalRecord?.proteinGoal !== undefined && goalRecord.proteinGoal > 0) {
+    protGoal = Math.round(goalRecord.proteinGoal * 10) / 10;
+  } else if (userRecord?.customDailyProteinGoal && userRecord.customDailyProteinGoal > 0) {
+    protGoal = userRecord.customDailyProteinGoal;
+  } else if (userRecord?.proteinGoalGrams && userRecord.proteinGoalGrams > 0) {
+    protGoal = userRecord.proteinGoalGrams;
+  } else if (userRecord?.weightKg && userRecord.weightKg > 0) {
+    protGoal = Math.round(userRecord.weightKg * 1.6);
+  }
+
   const carbGoal = goalRecord?.carbohydrateGoal || null;
   const fatGoal = goalRecord?.fatGoal || null;
+
+  const proteinProgressPercent = protGoal && protGoal > 0
+    ? Math.round((dailyTotals.protein / protGoal) * 10000) / 100
+    : 0;
 
   return {
     dateKey,
@@ -374,8 +396,8 @@ export async function getDailyNutritionDiary(userId: string, dateKey: string): P
       fatGoal: fatGoal,
       remainingCalories: calGoal !== null ? Math.round((calGoal - dailyTotals.calories) * 10) / 10 : null,
       calorieProgressPercent: calGoal ? Math.min(100, Math.round((dailyTotals.calories / calGoal) * 100)) : 0,
-      remainingProtein: protGoal !== null ? Math.round((protGoal - dailyTotals.protein) * 10) / 10 : null,
-      proteinProgressPercent: protGoal ? Math.min(100, Math.round((dailyTotals.protein / protGoal) * 100)) : 0,
+      remainingProtein: protGoal !== null ? Math.max(0, Math.round((protGoal - dailyTotals.protein) * 10) / 10) : null,
+      proteinProgressPercent,
       remainingCarbs: carbGoal !== null ? Math.round((carbGoal - dailyTotals.carbohydrates) * 10) / 10 : null,
       carbsProgressPercent: carbGoal ? Math.min(100, Math.round((dailyTotals.carbohydrates / carbGoal) * 100)) : 0,
       remainingFat: fatGoal !== null ? Math.round((fatGoal - dailyTotals.fat) * 10) / 10 : null,
@@ -558,7 +580,7 @@ export async function getNutritionGoals(userId: string) {
 }
 
 export async function upsertNutritionGoals(userId: string, input: UpdateNutritionGoalInput) {
-  return await prisma.nutritionGoal.upsert({
+  const result = await prisma.nutritionGoal.upsert({
     where: { userId },
     create: {
       userId,
@@ -574,6 +596,20 @@ export async function upsertNutritionGoals(userId: string, input: UpdateNutritio
       ...(input.fatGoal !== undefined && { fatGoal: input.fatGoal }),
     },
   });
+
+  // Keep User table synchronized with protein goal
+  if (input.proteinGoal !== undefined && input.proteinGoal !== null && input.proteinGoal > 0) {
+    const roundedProt = Math.round(input.proteinGoal);
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        customDailyProteinGoal: roundedProt,
+        proteinGoalGrams: roundedProt,
+      },
+    });
+  }
+
+  return result;
 }
 
 /**

@@ -80,6 +80,9 @@ export function NutritionGoalsModal({
           fatGoal: fat,
         });
         onGoalsUpdated();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("nutriflexs:nutrition-updated"));
+        }
         onClose();
         return;
       }
@@ -101,6 +104,9 @@ export function NutritionGoalsModal({
       }
 
       onGoalsUpdated();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("nutriflexs:nutrition-updated"));
+      }
       onClose();
     } catch (err: any) {
       console.error("Goals update error", err);
@@ -124,6 +130,9 @@ export function NutritionGoalsModal({
           fatGoal: null,
         });
         onGoalsUpdated();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("nutriflexs:nutrition-updated"));
+        }
         onClose();
         return;
       }
@@ -140,6 +149,9 @@ export function NutritionGoalsModal({
       });
 
       onGoalsUpdated();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("nutriflexs:nutrition-updated"));
+      }
       onClose();
     } catch (err: any) {
       setError(err.message || "Failed to reset goals");

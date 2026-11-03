@@ -67,6 +67,9 @@ export function EditLogModal({
           mealType,
         });
         onLogUpdated();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("nutriflexs:nutrition-updated"));
+        }
         onClose();
         return;
       }
@@ -87,6 +90,9 @@ export function EditLogModal({
       }
 
       onLogUpdated();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("nutriflexs:nutrition-updated"));
+      }
       onClose();
     } catch (err: any) {
       console.error("Update log error", err);
@@ -108,6 +114,9 @@ export function EditLogModal({
       if (isGuest) {
         deleteGuestLog(item.id);
         onLogUpdated();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("nutriflexs:nutrition-updated"));
+        }
         onClose();
         return;
       }
@@ -122,6 +131,9 @@ export function EditLogModal({
       }
 
       onLogUpdated();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("nutriflexs:nutrition-updated"));
+      }
       onClose();
     } catch (err: any) {
       console.error("Delete log error", err);

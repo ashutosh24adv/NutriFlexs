@@ -137,6 +137,10 @@ function SignupForm() {
     setError(null);
 
     try {
+      if (targetPortal === "kitchen" && !outletId) {
+        throw new Error("Please select an assigned kitchen outlet.");
+      }
+
       // 1. Submit registration to backend
       const res = await fetch("/api/auth/register", {
         method: "POST",
@@ -147,8 +151,8 @@ function SignupForm() {
           phone: phone ? phone.trim() : undefined,
           password,
           portal: targetPortal,
-          accessCode: inviteCode.trim(),
-          inviteCode: inviteCode.trim(),
+          accessCode: (targetPortal === "kitchen" || targetPortal === "trainer") ? undefined : inviteCode.trim(),
+          inviteCode: (targetPortal === "kitchen" || targetPortal === "trainer") ? undefined : inviteCode.trim(),
           outletId: outletId || undefined,
           referralCode: referralCode.trim() || undefined,
         }),
@@ -194,6 +198,7 @@ function SignupForm() {
       codeLabel: "Administrator Invitation Key",
       codePlaceholder: "e.g., NF-TEST-ADMIN-2026",
       codeHint: "Confidential master administrative invite key",
+      requiresCode: true,
     },
     kitchen: {
       label: "Kitchen Display Kiosk",
@@ -202,8 +207,9 @@ function SignupForm() {
       title: "Kitchen Staff Registration",
       subtitle: "Kiosk operator registration for real-time kitchen order fulfillment.",
       codeLabel: "Kitchen Access Code",
-      codePlaceholder: "e.g., NF-TEST-KITCHEN-2026",
-      codeHint: "Authorized outlet security access code",
+      codePlaceholder: "",
+      codeHint: "",
+      requiresCode: false,
     },
     trainer: {
       label: "Trainer Partner Portal",
@@ -212,8 +218,9 @@ function SignupForm() {
       title: "Trainer Partner Registration",
       subtitle: "Join the partner network to refer gym clients and earn commissions.",
       codeLabel: "Partner Invitation Passcode",
-      codePlaceholder: "e.g., NF-TEST-TRAINER-2026",
-      codeHint: "NutriFlexs gym partner invitation passcode",
+      codePlaceholder: "",
+      codeHint: "",
+      requiresCode: false,
     },
   }[targetPortal || ""];
 
@@ -366,15 +373,16 @@ function SignupForm() {
                 htmlFor="reg-outlet"
                 className="block text-xs font-bold text-nutri-charcoal mb-1.5"
               >
-                Assigned Kitchen Outlet
+                Assigned Kitchen Outlet <span className="text-rose-600 font-extrabold">*</span>
               </label>
               <div className="relative">
                 <Store className="w-4 h-4 text-nutri-secondary absolute left-3.5 top-3.5 pointer-events-none" />
                 <select
                   id="reg-outlet"
+                  required
                   value={outletId}
                   onChange={(e) => setOutletId(e.target.value)}
-                  className="w-full text-xs pl-10 pr-3.5 py-3 bg-nutri-bg/50 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white text-nutri-charcoal font-medium transition-colors"
+                  className="w-full text-xs pl-10 pr-3.5 py-3 bg-nutri-bg/50 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white text-nutri-charcoal font-medium transition-colors cursor-pointer"
                 >
                   {availableOutlets.length > 0 ? (
                     availableOutlets.map((outlet) => (
@@ -383,15 +391,15 @@ function SignupForm() {
                       </option>
                     ))
                   ) : (
-                    <>
-                      <option value="">Default Kiosk Outlet</option>
-                      <option value="indiranagar">Indiranagar Cult Kiosk</option>
-                      <option value="koramangala">Koramangala Gold Kiosk</option>
-                      <option value="bandra">Bandra Nitrro Kiosk</option>
-                    </>
+                    <option value="" disabled>
+                      Loading active kitchen outlets...
+                    </option>
                   )}
                 </select>
               </div>
+              <p className="text-[10px] text-nutri-secondary mt-1">
+                Select the physical express kiosk outlet you are operating.
+              </p>
             </div>
           )}
 
@@ -457,8 +465,8 @@ function SignupForm() {
             </p>
           </div>
 
-          {/* Staff Invitation / Authorization Code */}
-          {portalBadge && (
+          {/* Staff Invitation / Authorization Code (Required for Admin only; temporarily removed for Kitchen Staff and Trainer Partner) */}
+          {portalBadge?.requiresCode && (
             <div className="p-3.5 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-1.5">
               <label
                 htmlFor="reg-code"

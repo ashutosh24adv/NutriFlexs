@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getDailyNutritionDiary, syncCompletedOrderToNutritionDiary } from "@/services/nutrition.service";
 
 export interface NutritionGoalData {
   weightKg: number | null;
@@ -53,13 +54,37 @@ export function getLocalDayBounds(timeZone = "Asia/Kolkata", specificDateStr?: s
 }
 
 /**
- * Retrieves the user's weight, daily protein goal, and calculates today's completed protein.
+ * Retrieves the user's weight, daily protein goal, and calculates today's completed protein
+ * using the unified Daily Nutrition Diary aggregation (single source of truth).
  */
 export async function getUserNutritionGoal(
   userId: string,
   timeZone = "Asia/Kolkata",
   dateStr?: string
 ): Promise<NutritionGoalData> {
+  const { startOfDay, endOfDay, dateStr: targetDateKey } = getLocalDayBounds(timeZone, dateStr);
+
+  // 1. Ensure any completed NutriFlexs kiosk orders for this day are synced to FoodLog (idempotent)
+  const completedOrders = await prisma.order.findMany({
+    where: {
+      userId,
+      status: "COMPLETED",
+      createdAt: {
+        gte: startOfDay,
+        lte: endOfDay,
+      },
+    },
+    select: { id: true },
+  });
+
+  for (const order of completedOrders) {
+    await syncCompletedOrderToNutritionDiary(order.id);
+  }
+
+  // 2. Fetch daily nutrition diary (the single server-side source of truth for all logged foods)
+  const diary = await getDailyNutritionDiary(userId, targetDateKey);
+
+  // 3. Fetch user record for weight and fallback goals
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -82,70 +107,31 @@ export async function getUserNutritionGoal(
     };
   }
 
-  const { startOfDay, endOfDay } = getLocalDayBounds(timeZone, dateStr);
-
-  // Fetch only COMPLETED orders for the user placed on the target calendar day
-  const completedOrders = await prisma.order.findMany({
-    where: {
-      userId: user.id,
-      status: "COMPLETED",
-      createdAt: {
-        gte: startOfDay,
-        lte: endOfDay,
-      },
-    },
-    select: {
-      id: true,
-      items: {
-        select: {
-          quantity: true,
-          product: {
-            select: {
-              protein: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  // Calculate sum of (quantity * product.protein)
-  let totalProteinGrams = 0;
-  for (const order of completedOrders) {
-    for (const item of order.items) {
-      if (item.product && item.quantity > 0) {
-        totalProteinGrams += item.quantity * (item.product.protein || 0);
-      }
-    }
-  }
-
-  const completedProtein = Math.round(totalProteinGrams);
-
+  const completedProtein = Math.round(diary.totals.protein * 10) / 10;
   const hasWeight = typeof user.weightKg === "number" && user.weightKg > 0;
-  const hasCustomGoal =
-    typeof user.customDailyProteinGoal === "number" &&
-    user.customDailyProteinGoal > 0;
 
+  // Resolve protein goal: prefer explicit diary goal (from NutritionGoal or User), then user fields
   let proteinGoal = 0;
   let isCustomGoal = false;
 
-  if (hasCustomGoal && user.customDailyProteinGoal) {
+  if (diary.goals.proteinGoal && diary.goals.proteinGoal > 0) {
+    proteinGoal = diary.goals.proteinGoal;
+    isCustomGoal = true;
+  } else if (user.customDailyProteinGoal && user.customDailyProteinGoal > 0) {
     proteinGoal = user.customDailyProteinGoal;
     isCustomGoal = true;
-  } else if (hasWeight && user.weightKg) {
-    // Default fitness rule: weight (kg) * 1.6g
-    proteinGoal = Math.round(user.weightKg * 1.6);
+  } else if (user.proteinGoalGrams && user.proteinGoalGrams > 0) {
+    proteinGoal = user.proteinGoalGrams;
     isCustomGoal = false;
-  } else {
-    // No weight and no custom goal
-    proteinGoal = 0;
+  } else if (hasWeight && user.weightKg) {
+    proteinGoal = Math.round(user.weightKg * 1.6);
     isCustomGoal = false;
   }
 
-  const remainingProtein = Math.max(0, proteinGoal - completedProtein);
+  const remainingProtein = Math.max(0, Math.round((proteinGoal - completedProtein) * 10) / 10);
   const progressPercent =
     proteinGoal > 0
-      ? Math.min(100, Math.round((completedProtein / proteinGoal) * 100))
+      ? Math.round((completedProtein / proteinGoal) * 10000) / 100
       : 0;
 
   return {
@@ -161,19 +147,20 @@ export async function getUserNutritionGoal(
 
 /**
  * Updates the user's weight in kilograms.
- * Automatically recalculates default protein goal (weight * 1.6).
+ * Automatically recalculates default protein goal (weight * 1.6) and keeps NutritionGoal synchronized.
  */
 export async function updateUserWeight(userId: string, weightKg: number) {
   if (!weightKg || isNaN(weightKg) || weightKg <= 0 || weightKg > 500) {
     throw new Error("Invalid weight value. Please provide a positive numeric weight in kg.");
   }
 
-  const calculatedGoal = Math.round(weightKg * 1.6);
+  const roundedWeight = Math.round(weightKg * 10) / 10;
+  const calculatedGoal = Math.round(roundedWeight * 1.6);
 
   const updatedUser = await prisma.user.update({
     where: { id: userId },
     data: {
-      weightKg: Math.round(weightKg * 10) / 10,
+      weightKg: roundedWeight,
       proteinGoalGrams: calculatedGoal,
     },
     select: {
@@ -184,11 +171,26 @@ export async function updateUserWeight(userId: string, weightKg: number) {
     },
   });
 
+  // If user does not have an explicit custom goal, also sync to NutritionGoal table
+  if (!updatedUser.customDailyProteinGoal) {
+    await prisma.nutritionGoal.upsert({
+      where: { userId },
+      create: {
+        userId,
+        proteinGoal: calculatedGoal,
+      },
+      update: {
+        proteinGoal: calculatedGoal,
+      },
+    });
+  }
+
   return updatedUser;
 }
 
 /**
  * Updates the user's manual custom daily protein goal.
+ * Keeps both User and NutritionGoal tables synchronized.
  */
 export async function updateUserCustomGoal(
   userId: string,
@@ -205,19 +207,33 @@ export async function updateUserCustomGoal(
     );
   }
 
-  const updatedUser = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      customDailyProteinGoal: Math.round(customDailyProteinGoal),
-      proteinGoalGrams: Math.round(customDailyProteinGoal),
-    },
-    select: {
-      id: true,
-      weightKg: true,
-      customDailyProteinGoal: true,
-      proteinGoalGrams: true,
-    },
-  });
+  const rounded = Math.round(customDailyProteinGoal);
+
+  const [updatedUser] = await Promise.all([
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        customDailyProteinGoal: rounded,
+        proteinGoalGrams: rounded,
+      },
+      select: {
+        id: true,
+        weightKg: true,
+        customDailyProteinGoal: true,
+        proteinGoalGrams: true,
+      },
+    }),
+    prisma.nutritionGoal.upsert({
+      where: { userId },
+      create: {
+        userId,
+        proteinGoal: rounded,
+      },
+      update: {
+        proteinGoal: rounded,
+      },
+    }),
+  ]);
 
   return updatedUser;
 }

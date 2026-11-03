@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { ChefHat, Clock, Check, Zap, AlertCircle, ArrowRight, RefreshCw, Volume2, Shield, LogOut } from "lucide-react";
+import { ChefHat, RefreshCw, LogOut } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -81,17 +80,11 @@ export default function KitchenDashboard() {
         <div className="flex items-center gap-3">
           <button
             onClick={fetchKitchenOrders}
-            className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+            className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
             title="Refresh Live Orders"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
-          <Link
-            href="/home"
-            className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 rounded-xl border border-slate-700 font-semibold transition-colors"
-          >
-            Customer App View →
-          </Link>
           <button
             onClick={() => signOut({ callbackUrl: "/" })}
             className="text-xs bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 hover:text-rose-100 px-3 py-2 rounded-xl border border-rose-800/80 font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
