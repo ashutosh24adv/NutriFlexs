@@ -86,6 +86,8 @@ model User {
   nutritionGoal    NutritionGoal?
   foodLogs         FoodLog[]
   customFoods      FoodItem[]     @relation("CustomFoodItems")
+  favoriteFoods    FavoriteFood[]
+  savedMeals       SavedMeal[]
 }
 
 model Gym {
@@ -185,6 +187,8 @@ model Product {
   ingredients            ProductIngredient[]
   orderItems             OrderItem[]
   foodLogs               FoodLog[]
+  favoriteFoods          FavoriteFood[]
+  savedMealItems         SavedMealItem[]
 
   @@index([categoryId, isAvailable])
   @@index([isPopular, isAvailable])
@@ -415,8 +419,10 @@ model FoodItem {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  createdBy User?     @relation("CustomFoodItems", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy User?           @relation("CustomFoodItems", fields: [createdById], references: [id], onDelete: SetNull)
   foodLogs  FoodLog[]
+  favoriteFoods FavoriteFood[]
+  savedMealItems SavedMealItem[]
 
   @@index([name])
   @@index([category, isActive])
@@ -488,3 +494,65 @@ model BlogPost {
   @@index([category, isPublished])
   @@index([publishedAt])
 }
+
+model FavoriteFood {
+  id                 String   @id @default(uuid())
+  userId             String
+  foodItemId         String?
+  productId          String?
+  foodNameSnapshot   String
+  category           String?
+  caloriesPer100g    Float    @default(0)
+  protein            Float    @default(0)
+  carbohydrates      Float    @default(0)
+  fat                Float    @default(0)
+  defaultServingSize Float    @default(1)
+  defaultServingUnit String   @default("serving")
+  servingWeightGrams Float?   @default(100)
+  createdAt          DateTime @default(now())
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foodItem FoodItem? @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+  product  Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([foodItemId])
+  @@index([productId])
+}
+
+model SavedMeal {
+  id          String          @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items SavedMealItem[]
+
+  @@index([userId])
+}
+
+model SavedMealItem {
+  id                 String   @id @default(uuid())
+  savedMealId        String
+  foodItemId         String?
+  productId          String?
+  foodName           String
+  quantity           Float
+  unit               String
+  calories           Float
+  protein            Float
+  carbohydrates      Float
+  fat                Float
+  caloriesPer100g    Float?   @default(0)
+  servingWeightGrams Float?   @default(100)
+
+  savedMeal SavedMeal @relation(fields: [savedMealId], references: [id], onDelete: Cascade)
+  foodItem  FoodItem? @relation(fields: [foodItemId], references: [id], onDelete: SetNull)
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([savedMealId])
+}
+

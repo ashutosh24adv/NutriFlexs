@@ -33,6 +33,33 @@ import { useCart } from "@/components/customer/cart-context";
 import { useDietary } from "@/components/customer/dietary-context";
 import { getGuestDailyNutritionSummary } from "@/lib/guest-nutrition";
 
+const DEFAULT_RECOMMENDED_PRODUCT = {
+  id: "e22f04b0-a567-4261-9c90-6bfeedadb0fb",
+  name: "ABC Stamina Rebuilder",
+  slug: "abc-stamina-rebuilder",
+  description: "Organic Apple, Beetroot, Carrot with Fresh Ginger & Lemon. Ideal for nitric oxide boost & stamina.",
+  price: 160,
+  calories: 145,
+  protein: 1.8,
+  carbs: 34,
+  fats: 0.4,
+  preparationTimeMinutes: 3,
+  imageUrl: "/images/products/abc-stamina-rebuilder.webp",
+  categoryId: "juices",
+  isAvailable: true,
+  isFeatured: true,
+  isPopular: true,
+  isVeg: true,
+};
+
+function resolveProductImage(url?: string | null): string {
+  if (!url) return "/images/products/abc-stamina-rebuilder.webp";
+  if (url.includes("1613478223719-2ab802602423")) {
+    return "/images/products/abc-stamina-rebuilder.webp";
+  }
+  return url;
+}
+
 export default function CustomerHomePage() {
   const { addToCart } = useCart();
   const { isVegetarian } = useDietary();
@@ -88,7 +115,8 @@ export default function CustomerHomePage() {
   const [modalSubmitting, setModalSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
-  const [recommendedProduct, setRecommendedProduct] = useState<any | null>(null);
+  const [recommendedProduct, setRecommendedProduct] = useState<any | null>(DEFAULT_RECOMMENDED_PRODUCT);
+  const [recommendedImageLoaded, setRecommendedImageLoaded] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -97,8 +125,19 @@ export default function CustomerHomePage() {
       try {
         const clientTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
         const prodUrl = `/api/products?isPopular=true${isVegetarian ? "&isVeg=true" : ""}`;
+
+        // Fetch products immediately to update recommendations without blocking on user stats
+        fetch(prodUrl)
+          .then((r) => r.json())
+          .then((dataProds) => {
+            if (dataProds.success && dataProds.products?.length > 0) {
+              const featured = dataProds.products.find((p: any) => p.isFeatured) || dataProds.products[0];
+              setRecommendedProduct(featured);
+            }
+          })
+          .catch((err) => console.error("Error refreshing recommended product:", err));
+
         const promises: Promise<any>[] = [
-          fetch(prodUrl),
           fetch("/api/categories"),
         ];
 
@@ -108,18 +147,11 @@ export default function CustomerHomePage() {
         }
 
         const responses = await Promise.all(promises);
-        const [resProds, resCats, resStats, resDiary] = responses;
+        const resCats = responses[0];
+        const resStats = isAuthenticated ? responses[1] : null;
+        const resDiary = isAuthenticated ? responses[2] : null;
 
-        const dataProds = await resProds.json();
         const dataCats = await resCats.json();
-
-        if (dataProds.success && dataProds.products.length > 0) {
-          const featured = dataProds.products.find((p: any) => p.isFeatured) || dataProds.products[0];
-          setRecommendedProduct(featured);
-        } else if (dataProds.success && dataProds.products.length === 0) {
-          setRecommendedProduct(null);
-        }
-
         if (dataCats.success) {
           setCategories(dataCats.categories);
         }
@@ -682,13 +714,18 @@ export default function CustomerHomePage() {
 
                 {/* Food Photo */}
                 <div className="sm:col-span-5 flex flex-col items-center justify-center relative">
-                  <div className="relative w-40 h-40 sm:w-44 sm:h-44 md:w-48 md:h-48 rounded-full overflow-hidden shadow-2xl border-4 border-white/20">
+                  <div className="relative w-40 h-40 sm:w-44 sm:h-44 md:w-48 md:h-48 rounded-full overflow-hidden shadow-2xl border-4 border-white/20 bg-nutri-green-dark/60">
                     <Image
-                      src={recommendedProduct.imageUrl}
+                      src={resolveProductImage(recommendedProduct.imageUrl)}
                       alt={recommendedProduct.name}
                       fill
-                      className="object-cover"
+                      sizes="(max-width: 640px) 160px, (max-width: 768px) 176px, 192px"
+                      quality={80}
                       priority
+                      className={`object-cover transition-opacity duration-300 ease-out ${
+                        recommendedImageLoaded ? "opacity-100" : "opacity-0"
+                      }`}
+                      onLoad={() => setRecommendedImageLoaded(true)}
                     />
                   </div>
 
@@ -898,6 +935,9 @@ export default function CustomerHomePage() {
                             src={product?.imageUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80"}
                             alt={product?.name || "Order Item"}
                             fill
+                            sizes="56px"
+                            quality={75}
+                            loading="lazy"
                             className="object-cover"
                           />
                         </div>

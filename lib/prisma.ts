@@ -5,7 +5,13 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 export const prisma =
-  globalForPrisma.prisma && (globalForPrisma.prisma as any).blogPost
+  globalForPrisma.prisma &&
+  (globalForPrisma.prisma as any).foodItem &&
+  (globalForPrisma.prisma as any).foodLog &&
+  (globalForPrisma.prisma as any).nutritionGoal &&
+  (globalForPrisma.prisma as any).blogPost &&
+  (globalForPrisma.prisma as any).favoriteFood &&
+  (globalForPrisma.prisma as any).savedMeal
     ? globalForPrisma.prisma
     : new PrismaClient({
         log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],

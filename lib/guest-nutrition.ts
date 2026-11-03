@@ -51,6 +51,8 @@ const STORAGE_KEYS = {
   GOALS: "nutriflexs_guest_nutrition_goals",
   LOGS: "nutriflexs_guest_food_logs",
   CUSTOM_FOODS: "nutriflexs_guest_custom_foods",
+  FAVORITES: "nutriflexs_guest_favorites",
+  SAVED_MEALS: "nutriflexs_guest_saved_meals",
   MIGRATION_DISMISSED: "nutriflexs_guest_migration_dismissed",
 };
 
@@ -362,6 +364,8 @@ export function getGuestDataForMigration() {
     goals: getGuestGoals(),
     logs: getAllGuestLogs(),
     customFoods: getGuestCustomFoods(),
+    favorites: getGuestFavorites(),
+    savedMeals: getGuestSavedMeals(),
   };
 }
 
@@ -371,6 +375,8 @@ export function clearGuestData(): void {
     window.localStorage.removeItem(STORAGE_KEYS.LOGS);
     window.localStorage.removeItem(STORAGE_KEYS.GOALS);
     window.localStorage.removeItem(STORAGE_KEYS.CUSTOM_FOODS);
+    window.localStorage.removeItem(STORAGE_KEYS.FAVORITES);
+    window.localStorage.removeItem(STORAGE_KEYS.SAVED_MEALS);
     window.localStorage.removeItem(STORAGE_KEYS.MIGRATION_DISMISSED);
   } catch (e) {
     console.error("Failed to clear guest nutrition data", e);
@@ -393,5 +399,266 @@ export function isGuestMigrationDismissed(): boolean {
   } catch (e) {
     return false;
   }
+}
+
+// -------------------------------------------------------------
+// PHASE 3: GUEST RECENT FOODS, FAVORITES, & SAVED MEALS
+// -------------------------------------------------------------
+
+export interface GuestFavoriteFood {
+  id: string;
+  foodItemId?: string | null;
+  productId?: string | null;
+  foodNameSnapshot: string;
+  category?: string;
+  caloriesPer100g: number;
+  protein: number;
+  carbohydrates: number;
+  fat: number;
+  defaultServingSize: number;
+  defaultServingUnit: string;
+  servingWeightGrams?: number;
+  createdAt: string;
+}
+
+export interface GuestSavedMealItem {
+  id: string;
+  foodName: string;
+  foodItemId?: string | null;
+  productId?: string | null;
+  quantity: number;
+  unit: string;
+  calories: number;
+  protein: number;
+  carbohydrates: number;
+  fat: number;
+  caloriesPer100g?: number;
+  servingWeightGrams?: number;
+}
+
+export interface GuestSavedMeal {
+  id: string;
+  name: string;
+  description?: string;
+  items: GuestSavedMealItem[];
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function getGuestRecentFoods(limit = 12) {
+  const logs = getAllGuestLogs();
+  const seen = new Set<string>();
+  const recents: any[] = [];
+
+  // Sort logs by loggedAt descending
+  const sortedLogs = [...logs].sort((a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime());
+
+  for (const log of sortedLogs) {
+    const key = log.name.trim().toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      recents.push({
+        id: log.id,
+        name: log.name,
+        lastQuantity: log.quantity,
+        unit: log.unit,
+        calories: log.calories,
+        protein: log.protein,
+        carbohydrates: log.carbohydrates,
+        fat: log.fat,
+        foodItemId: log.foodItemId,
+        productId: log.productId,
+        loggedAt: log.loggedAt,
+      });
+      if (recents.length >= limit) break;
+    }
+  }
+
+  return recents;
+}
+
+export function getGuestFavorites(): GuestFavoriteFood[] {
+  return safeGetItem<GuestFavoriteFood[]>(STORAGE_KEYS.FAVORITES, []);
+}
+
+export function isGuestFavorite(foodName: string, foodItemId?: string | null, productId?: string | null): boolean {
+  const list = getGuestFavorites();
+  const nameKey = foodName.trim().toLowerCase();
+  return list.some(
+    (f) =>
+      (foodItemId && f.foodItemId === foodItemId) ||
+      (productId && f.productId === productId) ||
+      f.foodNameSnapshot.trim().toLowerCase() === nameKey
+  );
+}
+
+export function toggleGuestFavorite(food: {
+  name: string;
+  foodItemId?: string | null;
+  productId?: string | null;
+  category?: string;
+  caloriesPer100g?: number;
+  protein?: number;
+  carbohydrates?: number;
+  fat?: number;
+  defaultServingSize?: number;
+  defaultServingUnit?: string;
+  servingWeightGrams?: number;
+}): { isFavorite: boolean } {
+  const list = getGuestFavorites();
+  const nameKey = food.name.trim().toLowerCase();
+
+  const idx = list.findIndex(
+    (f) =>
+      (food.foodItemId && f.foodItemId === food.foodItemId) ||
+      (food.productId && f.productId === food.productId) ||
+      f.foodNameSnapshot.trim().toLowerCase() === nameKey
+  );
+
+  if (idx >= 0) {
+    list.splice(idx, 1);
+    safeSetItem(STORAGE_KEYS.FAVORITES, list);
+    return { isFavorite: false };
+  }
+
+  const newFav: GuestFavoriteFood = {
+    id: `guest_fav_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    foodItemId: food.foodItemId || null,
+    productId: food.productId || null,
+    foodNameSnapshot: food.name.trim(),
+    category: food.category || "General",
+    caloriesPer100g: food.caloriesPer100g || 0,
+    protein: food.protein || 0,
+    carbohydrates: food.carbohydrates || 0,
+    fat: food.fat || 0,
+    defaultServingSize: food.defaultServingSize || 1,
+    defaultServingUnit: food.defaultServingUnit || "serving",
+    servingWeightGrams: food.servingWeightGrams || 100,
+    createdAt: new Date().toISOString(),
+  };
+
+  list.unshift(newFav);
+  safeSetItem(STORAGE_KEYS.FAVORITES, list);
+  return { isFavorite: true };
+}
+
+export function removeGuestFavorite(id: string): void {
+  const list = getGuestFavorites();
+  const filtered = list.filter((f) => f.id !== id);
+  safeSetItem(STORAGE_KEYS.FAVORITES, filtered);
+}
+
+export function getGuestSavedMeals(): GuestSavedMeal[] {
+  return safeGetItem<GuestSavedMeal[]>(STORAGE_KEYS.SAVED_MEALS, []);
+}
+
+export function saveGuestMeal(meal: {
+  id?: string;
+  name: string;
+  description?: string;
+  items: Array<{
+    foodName: string;
+    foodItemId?: string | null;
+    productId?: string | null;
+    quantity: number;
+    unit: string;
+    calories: number;
+    protein: number;
+    carbohydrates: number;
+    fat: number;
+    caloriesPer100g?: number;
+    servingWeightGrams?: number;
+  }>;
+}): GuestSavedMeal {
+  const list = getGuestSavedMeals();
+  const now = new Date().toISOString();
+
+  const totalCalories = Math.round(meal.items.reduce((acc, i) => acc + i.calories, 0) * 10) / 10;
+  const totalProtein = Math.round(meal.items.reduce((acc, i) => acc + i.protein, 0) * 10) / 10;
+  const totalCarbs = Math.round(meal.items.reduce((acc, i) => acc + i.carbohydrates, 0) * 10) / 10;
+  const totalFat = Math.round(meal.items.reduce((acc, i) => acc + i.fat, 0) * 10) / 10;
+
+  if (meal.id) {
+    const idx = list.findIndex((m) => m.id === meal.id);
+    if (idx >= 0) {
+      const updated: GuestSavedMeal = {
+        ...list[idx],
+        name: meal.name.trim(),
+        description: meal.description?.trim(),
+        items: meal.items.map((it) => ({
+          id: `item_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          ...it,
+        })),
+        totalCalories,
+        totalProtein,
+        totalCarbs,
+        totalFat,
+        updatedAt: now,
+      };
+      list[idx] = updated;
+      safeSetItem(STORAGE_KEYS.SAVED_MEALS, list);
+      return updated;
+    }
+  }
+
+  const newMeal: GuestSavedMeal = {
+    id: `guest_meal_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    name: meal.name.trim(),
+    description: meal.description?.trim(),
+    items: meal.items.map((it) => ({
+      id: `item_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      ...it,
+    })),
+    totalCalories,
+    totalProtein,
+    totalCarbs,
+    totalFat,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  list.unshift(newMeal);
+  safeSetItem(STORAGE_KEYS.SAVED_MEALS, list);
+  return newMeal;
+}
+
+export function deleteGuestMeal(id: string): void {
+  const list = getGuestSavedMeals();
+  const filtered = list.filter((m) => m.id !== id);
+  safeSetItem(STORAGE_KEYS.SAVED_MEALS, filtered);
+}
+
+export function logGuestSavedMeal(mealId: string, mealType: MealType, dateKey: string) {
+  const list = getGuestSavedMeals();
+  const meal = list.find((m) => m.id === mealId);
+  if (!meal) {
+    throw new Error("Saved meal not found");
+  }
+
+  for (const it of meal.items) {
+    addGuestLog({
+      name: it.foodName,
+      mealType,
+      quantity: it.quantity,
+      unit: it.unit,
+      dateKey,
+      calories: it.calories,
+      protein: it.protein,
+      carbohydrates: it.carbohydrates,
+      fat: it.fat,
+      foodItemId: it.foodItemId || null,
+      productId: it.productId || null,
+    });
+  }
+
+  return {
+    success: true,
+    mealName: meal.name,
+    loggedItemsCount: meal.items.length,
+  };
 }
 

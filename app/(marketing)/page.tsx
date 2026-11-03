@@ -39,21 +39,21 @@ export default function MarketingLandingPage() {
       protein: "36g Protein",
       calories: "220 kcal",
       price: "₹210",
-      img: "https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=600&q=80",
+      img: "/images/products/lean-grilled-chicken-breast.webp",
     },
     {
       name: "ABC Stamina Rebuilder Juice",
       protein: "Organic Apple & Beetroot",
       calories: "145 kcal",
       price: "₹160",
-      img: "https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=600&q=80",
+      img: "/images/products/abc-stamina-rebuilder.webp",
     },
     {
       name: "Grilled Chicken & Quinoa Energy Bowl",
       protein: "32g Protein",
       calories: "430 kcal",
       price: "₹250",
-      img: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80",
+      img: "/images/products/grilled-chicken-quinoa-bowl.webp",
     },
   ];
 
@@ -129,10 +129,12 @@ export default function MarketingLandingPage() {
             style={{ position: "relative", overflow: "hidden", minHeight: "360px" }}
           >
             <Image
-              src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1000&q=80"
+              src="/images/products/grilled-chicken-quinoa-bowl.webp"
               alt="NutriFlexs High Protein Fuel Bowl"
               fill
               className="object-cover"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              quality={80}
               priority
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -263,7 +265,15 @@ export default function MarketingLandingPage() {
             <Card key={idx} className="p-5 sm:p-6 space-y-4 overflow-hidden border-nutri-border rounded-3xl hover:shadow-float transition-all bg-white h-full flex flex-col justify-between">
               <div className="space-y-3">
                 <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-nutri-bg shrink-0">
-                  <Image src={meal.img} alt={meal.name} fill className="object-cover" />
+                  <Image
+                    src={meal.img}
+                    alt={meal.name}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    quality={80}
+                    loading="lazy"
+                  />
                 </div>
                 <h3 className="font-bold font-heading text-nutri-charcoal text-base sm:text-lg min-h-[48px] flex items-center">
                   {meal.name}

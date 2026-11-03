@@ -23,6 +23,7 @@ import {
   Loader2,
   Heart,
   Flame,
+  BookOpen,
 } from "lucide-react";
 import { useGym } from "@/components/customer/gym-context";
 import { useCart } from "@/components/customer/cart-context";
@@ -112,16 +113,9 @@ export function PublicHeader() {
             <NutriFlexsLogo size="md" showTagline={false} href={isAuthenticated ? "/home" : "/"} />
           </div>
 
-          {/* 2. CENTER — Navigation: Find Your Fuel, Why NutriFlexs, How It Works, Nearby Gyms, Menu, Calorie Tracker, NutriFlexs Pass, and About Us */}
+          {/* 2. CENTER — Navigation: Why NutriFlexs, How It Works, Nearby Gyms, Menu, Calorie Tracker, NutriFlexs Pass, Blog, and About Us */}
           <nav className="hidden lg:flex items-center justify-center min-w-0 px-1 xl:px-2">
             <div className="flex items-center justify-center gap-2 min-[1180px]:gap-3 xl:gap-4.5 text-xs xl:text-[13px] font-semibold text-nutri-secondary whitespace-nowrap">
-              <Link
-                href="/#find-fuel"
-                onClick={(e) => handleNavClick(e, "find-fuel")}
-                className="hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 border-transparent whitespace-nowrap"
-              >
-                Find Your Fuel
-              </Link>
               <Link
                 href="/#why-nutriflexs"
                 onClick={(e) => handleNavClick(e, "why-nutriflexs")}
@@ -288,6 +282,17 @@ export function PublicHeader() {
                 )}
               >
                 NutriFlexs Pass
+              </Link>
+              <Link
+                href="/blog"
+                className={cn(
+                  "hover:text-nutri-green transition-colors cursor-pointer py-1 border-b-2 whitespace-nowrap",
+                  pathname.startsWith("/blog")
+                    ? "text-nutri-green font-bold border-nutri-green"
+                    : "border-transparent"
+                )}
+              >
+                Blog
               </Link>
               <Link
                 href="/about"
@@ -503,16 +508,6 @@ export function PublicHeader() {
             {/* Main Links */}
             <nav className="space-y-1">
               <Link
-                href="/#find-fuel"
-                onClick={(e) => {
-                  setIsMobileMenuOpen(false);
-                  handleNavClick(e, "find-fuel");
-                }}
-                className="flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green transition-colors"
-              >
-                <Utensils className="w-4 h-4 text-nutri-green" /> Find Your Fuel
-              </Link>
-              <Link
                 href="/#why-nutriflexs"
                 onClick={(e) => {
                   setIsMobileMenuOpen(false);
@@ -579,6 +574,18 @@ export function PublicHeader() {
                 )}
               >
                 <Clock className="w-4 h-4 text-nutri-green" /> NutriFlexs Pass
+              </Link>
+              <Link
+                href="/blog"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold transition-colors",
+                  pathname.startsWith("/blog")
+                    ? "bg-nutri-green-light text-nutri-green"
+                    : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
+                )}
+              >
+                <BookOpen className="w-4 h-4 text-nutri-green" /> Blog
               </Link>
               <Link
                 href="/about"

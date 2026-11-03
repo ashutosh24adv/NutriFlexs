@@ -45,6 +45,8 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
             src={product.imageUrl}
             alt={product.name}
             fill
+            sizes="(max-width: 640px) 100vw, 448px"
+            quality={80}
             className="object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />

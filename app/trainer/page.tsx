@@ -79,7 +79,7 @@ export default function TrainerDashboard() {
             {trainerData.name}&apos;s Partner Dashboard
           </h1>
           <p className="text-xs sm:text-sm text-nutri-secondary">
-            Transformation Partner & Affiliate Rewards Program • PostgreSQL Live Data
+            Transformation Partner & Affiliate Rewards Program
           </p>
         </div>
 

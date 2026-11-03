@@ -875,3 +875,343 @@ export async function migrateGuestNutritionData(
   };
 }
 
+/**
+ * -------------------------------------------------------------
+ * PHASE 3: RECENT FOODS, FAVOURITES AND SAVED MEALS
+ * -------------------------------------------------------------
+ */
+
+/**
+ * Get distinct recent foods logged by the user based on actual user activity.
+ */
+export async function getRecentFoods(userId: string, limit = 12) {
+  const logs = await prisma.foodLog.findMany({
+    where: { userId },
+    orderBy: { loggedAt: "desc" },
+    take: 60,
+    select: {
+      id: true,
+      foodNameSnapshot: true,
+      quantity: true,
+      unit: true,
+      calories: true,
+      protein: true,
+      carbohydrates: true,
+      fat: true,
+      foodItemId: true,
+      productId: true,
+      loggedAt: true,
+    },
+  });
+
+  const seen = new Set<string>();
+  const recentFoods: any[] = [];
+
+  for (const log of logs) {
+    const key = log.foodNameSnapshot.trim().toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      recentFoods.push({
+        id: log.id,
+        name: log.foodNameSnapshot,
+        lastQuantity: log.quantity,
+        unit: log.unit,
+        calories: Math.round(log.calories * 10) / 10,
+        protein: Math.round(log.protein * 10) / 10,
+        carbohydrates: Math.round(log.carbohydrates * 10) / 10,
+        fat: Math.round(log.fat * 10) / 10,
+        foodItemId: log.foodItemId,
+        productId: log.productId,
+        loggedAt: log.loggedAt.toISOString(),
+      });
+      if (recentFoods.length >= limit) break;
+    }
+  }
+
+  return recentFoods;
+}
+
+/**
+ * Get all favorite foods for an authenticated user.
+ */
+export async function getFavoriteFoods(userId: string) {
+  return await prisma.favoriteFood.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+/**
+ * Add or toggle favorite food item.
+ */
+export async function toggleFavoriteFood(userId: string, data: {
+  foodName: string;
+  foodItemId?: string | null;
+  productId?: string | null;
+  category?: string | null;
+  caloriesPer100g?: number;
+  protein?: number;
+  carbohydrates?: number;
+  fat?: number;
+  defaultServingSize?: number;
+  defaultServingUnit?: string;
+  servingWeightGrams?: number;
+}) {
+  const name = data.foodName.trim();
+
+  // Check if exists
+  const existing = await prisma.favoriteFood.findFirst({
+    where: {
+      userId,
+      OR: [
+        ...(data.foodItemId ? [{ foodItemId: data.foodItemId }] : []),
+        ...(data.productId ? [{ productId: data.productId }] : []),
+        { foodNameSnapshot: { equals: name, mode: "insensitive" } },
+      ],
+    },
+  });
+
+  if (existing) {
+    await prisma.favoriteFood.delete({ where: { id: existing.id } });
+    return { isFavorite: false, item: null };
+  }
+
+  const created = await prisma.favoriteFood.create({
+    data: {
+      userId,
+      foodItemId: data.foodItemId || null,
+      productId: data.productId || null,
+      foodNameSnapshot: name,
+      category: data.category || "General",
+      caloriesPer100g: data.caloriesPer100g || 0,
+      protein: data.protein || 0,
+      carbohydrates: data.carbohydrates || 0,
+      fat: data.fat || 0,
+      defaultServingSize: data.defaultServingSize || 1,
+      defaultServingUnit: data.defaultServingUnit || "serving",
+      servingWeightGrams: data.servingWeightGrams || 100,
+    },
+  });
+
+  return { isFavorite: true, item: created };
+}
+
+/**
+ * Remove a favorite food by ID.
+ */
+export async function removeFavoriteFood(userId: string, favoriteId: string) {
+  const existing = await prisma.favoriteFood.findFirst({
+    where: { id: favoriteId, userId },
+  });
+
+  if (!existing) return null;
+  return await prisma.favoriteFood.delete({ where: { id: existing.id } });
+}
+
+/**
+ * Get all saved meals and recipes for a user.
+ */
+export async function getSavedMeals(userId: string) {
+  const meals = await prisma.savedMeal.findMany({
+    where: { userId },
+    include: {
+      items: true,
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  return meals.map((m) => {
+    const totalCalories = Math.round(m.items.reduce((acc, i) => acc + i.calories, 0) * 10) / 10;
+    const totalProtein = Math.round(m.items.reduce((acc, i) => acc + i.protein, 0) * 10) / 10;
+    const totalCarbs = Math.round(m.items.reduce((acc, i) => acc + i.carbohydrates, 0) * 10) / 10;
+    const totalFat = Math.round(m.items.reduce((acc, i) => acc + i.fat, 0) * 10) / 10;
+
+    return {
+      ...m,
+      totalCalories,
+      totalProtein,
+      totalCarbs,
+      totalFat,
+      itemCount: m.items.length,
+    };
+  });
+}
+
+/**
+ * Create a new saved meal with multiple individual food items.
+ */
+export async function createSavedMeal(userId: string, data: {
+  name: string;
+  description?: string;
+  items: Array<{
+    foodName: string;
+    foodItemId?: string | null;
+    productId?: string | null;
+    quantity: number;
+    unit: string;
+    calories: number;
+    protein: number;
+    carbohydrates: number;
+    fat: number;
+    caloriesPer100g?: number;
+    servingWeightGrams?: number;
+  }>;
+}) {
+  if (!data.name || !data.name.trim()) {
+    throw new Error("Meal name is required.");
+  }
+  if (!data.items || data.items.length === 0) {
+    throw new Error("A saved meal must contain at least one food item.");
+  }
+
+  return await prisma.savedMeal.create({
+    data: {
+      userId,
+      name: data.name.trim(),
+      description: data.description?.trim() || null,
+      items: {
+        create: data.items.map((it) => ({
+          foodName: it.foodName.trim(),
+          foodItemId: it.foodItemId || null,
+          productId: it.productId || null,
+          quantity: Math.max(0.1, it.quantity || 1),
+          unit: it.unit || "serving",
+          calories: Math.round(it.calories * 10) / 10,
+          protein: Math.round(it.protein * 10) / 10,
+          carbohydrates: Math.round(it.carbohydrates * 10) / 10,
+          fat: Math.round(it.fat * 10) / 10,
+          caloriesPer100g: it.caloriesPer100g || 0,
+          servingWeightGrams: it.servingWeightGrams || 100,
+        })),
+      },
+    },
+    include: {
+      items: true,
+    },
+  });
+}
+
+/**
+ * Update an existing saved meal.
+ */
+export async function updateSavedMeal(userId: string, mealId: string, data: {
+  name: string;
+  description?: string;
+  items: Array<{
+    foodName: string;
+    foodItemId?: string | null;
+    productId?: string | null;
+    quantity: number;
+    unit: string;
+    calories: number;
+    protein: number;
+    carbohydrates: number;
+    fat: number;
+    caloriesPer100g?: number;
+    servingWeightGrams?: number;
+  }>;
+}) {
+  const existing = await prisma.savedMeal.findFirst({
+    where: { id: mealId, userId },
+  });
+  if (!existing) {
+    throw new Error("Saved meal not found or unauthorized.");
+  }
+
+  return await prisma.$transaction(async (tx) => {
+    // Delete old items
+    await tx.savedMealItem.deleteMany({
+      where: { savedMealId: mealId },
+    });
+
+    // Update parent and insert new items
+    return await tx.savedMeal.update({
+      where: { id: mealId },
+      data: {
+        name: data.name.trim(),
+        description: data.description?.trim() || null,
+        items: {
+          create: data.items.map((it) => ({
+            foodName: it.foodName.trim(),
+            foodItemId: it.foodItemId || null,
+            productId: it.productId || null,
+            quantity: Math.max(0.1, it.quantity || 1),
+            unit: it.unit || "serving",
+            calories: Math.round(it.calories * 10) / 10,
+            protein: Math.round(it.protein * 10) / 10,
+            carbohydrates: Math.round(it.carbohydrates * 10) / 10,
+            fat: Math.round(it.fat * 10) / 10,
+            caloriesPer100g: it.caloriesPer100g || 0,
+            servingWeightGrams: it.servingWeightGrams || 100,
+          })),
+        },
+      },
+      include: {
+        items: true,
+      },
+    });
+  });
+}
+
+/**
+ * Delete a saved meal.
+ */
+export async function deleteSavedMeal(userId: string, mealId: string) {
+  const existing = await prisma.savedMeal.findFirst({
+    where: { id: mealId, userId },
+  });
+  if (!existing) {
+    throw new Error("Saved meal not found or unauthorized.");
+  }
+
+  return await prisma.savedMeal.delete({
+    where: { id: mealId },
+  });
+}
+
+/**
+ * Log an entire saved meal into the food diary.
+ * Creates individual FoodLog records for each item in the saved meal
+ * so all nutrition snapshot calculations remain accurate and granular.
+ */
+export async function logSavedMeal(userId: string, mealId: string, mealType: MealType, dateKey: string) {
+  const meal = await prisma.savedMeal.findFirst({
+    where: { id: mealId, userId },
+    include: { items: true },
+  });
+
+  if (!meal) {
+    throw new Error("Saved meal not found or unauthorized.");
+  }
+
+  const createdLogs = await prisma.$transaction(
+    meal.items.map((it) =>
+      prisma.foodLog.create({
+        data: {
+          userId,
+          foodItemId: it.foodItemId || null,
+          productId: it.productId || null,
+          foodNameSnapshot: it.foodName,
+          mealType,
+          quantity: it.quantity,
+          unit: it.unit,
+          calories: it.calories,
+          protein: it.protein,
+          carbohydrates: it.carbohydrates,
+          fat: it.fat,
+          dateKey,
+          loggedAt: new Date(),
+        },
+      })
+    )
+  );
+
+  return {
+    success: true,
+    mealName: meal.name,
+    loggedItemsCount: createdLogs.length,
+    createdLogs,
+  };
+}
+
+

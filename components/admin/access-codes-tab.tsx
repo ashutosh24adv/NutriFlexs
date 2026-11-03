@@ -18,6 +18,7 @@ import {
   Store,
   Info,
   X,
+  Link2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -69,7 +70,9 @@ export function AccessCodesTab() {
 
   // Reveal Modal for generated plaintext code
   const [newlyGeneratedCode, setNewlyGeneratedCode] = useState<string | null>(null);
+  const [newlyGeneratedRole, setNewlyGeneratedRole] = useState<string>("ADMIN");
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Action loading for revocation
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -161,6 +164,7 @@ export function AccessCodesTab() {
 
       // Store plaintext code for the one-time reveal modal
       setNewlyGeneratedCode(data.plaintextCode);
+      setNewlyGeneratedRole(payload.role);
       setIsModalOpen(false);
 
       // Reset form
@@ -210,6 +214,15 @@ export function AccessCodesTab() {
     navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function handleCopyInviteLink(code: string, role: string) {
+    const portal = role === "ADMIN" ? "admin" : role === "KITCHEN" ? "kitchen" : "trainer";
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://nutriflexs.com";
+    const url = `${origin}/signup?portal=${portal}&token=${encodeURIComponent(code)}&callbackUrl=%2F${portal}&staff=true`;
+    navigator.clipboard.writeText(url);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   }
 
   const filteredCodes = codes.filter((c) => {
@@ -702,6 +715,16 @@ export function AccessCodesTab() {
               </div>
             </div>
 
+            {/* Direct Invitation Link Box */}
+            <div className="p-3.5 rounded-2xl bg-nutri-green-soft border border-nutri-border space-y-1.5 text-left">
+              <span className="text-[10px] uppercase font-bold text-nutri-green tracking-wider block">
+                Single-Use Invitation Link
+              </span>
+              <div className="text-xs font-mono text-nutri-charcoal truncate bg-white px-2.5 py-1.5 rounded-lg border border-nutri-border-light select-all">
+                {(typeof window !== "undefined" ? window.location.origin : "https://nutriflexs.com") + "/signup?portal=" + (newlyGeneratedRole === "ADMIN" ? "admin" : newlyGeneratedRole === "KITCHEN" ? "kitchen" : "trainer") + "&token=" + newlyGeneratedCode}
+              </div>
+            </div>
+
             {/* Security Warning Notice */}
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-2.5 text-left text-xs text-amber-900 leading-snug">
               <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
@@ -711,24 +734,36 @@ export function AccessCodesTab() {
             </div>
 
             {/* Buttons */}
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
+            <div className="space-y-2 pt-1">
               <Button
                 type="button"
-                onClick={() => handleCopy(newlyGeneratedCode)}
-                className="bg-nutri-green hover:bg-nutri-green-dark text-white rounded-full font-bold text-xs py-2.5 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                onClick={() => handleCopyInviteLink(newlyGeneratedCode, newlyGeneratedRole)}
+                className="w-full bg-nutri-green hover:bg-nutri-green-dark text-white rounded-full font-bold text-xs py-2.5 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                {copied ? "Copied!" : "Copy Code"}
+                {copiedLink ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+                {copiedLink ? "Invitation Link Copied!" : "Copy One-Click Invitation Link"}
               </Button>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setNewlyGeneratedCode(null)}
-                className="rounded-full text-xs font-bold cursor-pointer"
-              >
-                I&apos;ve Stored It Safely
-              </Button>
+              <div className="grid grid-cols-2 gap-2.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleCopy(newlyGeneratedCode)}
+                  className="rounded-full text-xs font-bold py-2.5 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? "Copied!" : "Copy Plain Code"}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setNewlyGeneratedCode(null)}
+                  className="rounded-full text-xs font-bold cursor-pointer hover:bg-nutri-bg"
+                >
+                  I&apos;ve Stored It Safely
+                </Button>
+              </div>
             </div>
           </div>
         </div>

@@ -19,7 +19,7 @@ import {
   ChefHat,
   Dumbbell,
   Shield,
-  KeyRound,
+  CheckCircle2,
   Store,
   Tag,
   ShieldAlert,
@@ -41,6 +41,12 @@ function SignupForm() {
   const portalParam = searchParams.get("portal")?.toLowerCase() || null;
   const rawStaff = searchParams.get("staff") === "true";
   const rawCallbackUrl = searchParams.get("callbackUrl");
+  const inviteTokenParam =
+    searchParams.get("token") ||
+    searchParams.get("invite") ||
+    searchParams.get("key") ||
+    searchParams.get("code") ||
+    "";
 
   const isStaff =
     rawStaff ||
@@ -80,10 +86,15 @@ function SignupForm() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [inviteCode, setInviteCode] = useState("");
-  const [showCode, setShowCode] = useState(false);
+  const [inviteCode, setInviteCode] = useState(inviteTokenParam);
   const [referralCode, setReferralCode] = useState("");
   const [outletId, setOutletId] = useState("");
+
+  useEffect(() => {
+    if (inviteTokenParam) {
+      setInviteCode(inviteTokenParam);
+    }
+  }, [inviteTokenParam]);
 
   // Outlets for kitchen signup
   const [availableOutlets, setAvailableOutlets] = useState<
@@ -141,6 +152,12 @@ function SignupForm() {
         throw new Error("Please select an assigned kitchen outlet.");
       }
 
+      if (targetPortal === "admin" && (!inviteCode || !inviteCode.trim())) {
+        throw new Error(
+          "Super Admin registration requires an authorized administrator invitation link. Public registration is restricted."
+        );
+      }
+
       // 1. Submit registration to backend
       const res = await fetch("/api/auth/register", {
         method: "POST",
@@ -194,11 +211,13 @@ function SignupForm() {
       icon: Shield,
       color: "text-rose-700 bg-rose-50 border-rose-200",
       title: "Super Admin Registration",
-      subtitle: "Restricted administrative onboarding. Valid invitation key required.",
-      codeLabel: "Administrator Invitation Key",
-      codePlaceholder: "e.g., NF-TEST-ADMIN-2026",
-      codeHint: "Confidential master administrative invite key",
-      requiresCode: true,
+      subtitle: inviteCode
+        ? "Authorized administrator onboarding via verified invitation link."
+        : "Restricted administrative onboarding. Authorized invitation required.",
+      codeLabel: "",
+      codePlaceholder: "",
+      codeHint: "",
+      requiresCode: false,
     },
     kitchen: {
       label: "Kitchen Display Kiosk",
@@ -257,6 +276,22 @@ function SignupForm() {
                 <portalBadge.icon className="w-3.5 h-3.5" />
                 {portalBadge.label}
               </span>
+            </div>
+          )}
+
+          {targetPortal === "admin" && (
+            <div className="pt-0.5 flex justify-center">
+              {inviteCode ? (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-nutri-green bg-nutri-green-light px-3 py-0.5 rounded-full border border-nutri-green/20">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-nutri-green" />
+                  Invitation Token Linked
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-800 bg-amber-50 px-3 py-0.5 rounded-full border border-amber-200">
+                  <ShieldAlert className="w-3.5 h-3.5 text-amber-700" />
+                  Authorized Invitation Required
+                </span>
+              )}
             </div>
           )}
 
@@ -465,43 +500,7 @@ function SignupForm() {
             </p>
           </div>
 
-          {/* Staff Invitation / Authorization Code (Required for Admin only; temporarily removed for Kitchen Staff and Trainer Partner) */}
-          {portalBadge?.requiresCode && (
-            <div className="p-3.5 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-1.5">
-              <label
-                htmlFor="reg-code"
-                className="block text-xs font-bold text-nutri-charcoal"
-              >
-                {portalBadge.codeLabel}{" "}
-                <span className="text-rose-600 font-extrabold">*</span>
-              </label>
-              <div className="relative">
-                <KeyRound className="w-4 h-4 text-amber-600 absolute left-3.5 top-3 pointer-events-none" />
-                <input
-                  id="reg-code"
-                  type={showCode ? "text" : "password"}
-                  required
-                  placeholder={portalBadge.codePlaceholder}
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
-                  className="w-full text-xs pl-10 pr-10 py-2.5 bg-white rounded-xl border border-amber-200 focus:outline-none focus:border-amber-500 text-nutri-charcoal font-semibold tracking-wider transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCode(!showCode)}
-                  className="absolute right-3 top-2.5 p-0.5 text-nutri-secondary hover:text-nutri-charcoal transition-colors cursor-pointer"
-                  title={showCode ? "Hide access code" : "Show access code"}
-                  aria-label={showCode ? "Hide access code" : "Show access code"}
-                >
-                  {showCode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              <p className="text-[10px] text-amber-900/80 leading-snug">
-                {portalBadge.codeHint}. Unrestricted public self-registration is strictly
-                prohibited.
-              </p>
-            </div>
-          )}
+
 
           {/* Submit Button */}
           <Button
