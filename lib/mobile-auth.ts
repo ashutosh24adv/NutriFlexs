@@ -17,7 +17,12 @@ export const AUTH_SECRET =
 
 function isRealDatabaseConfigured(): boolean {
   const url = process.env.DATABASE_URL || "";
-  return !!url && !url.includes("sample") && !url.includes("user:password");
+  return (
+    !!url &&
+    !url.includes("sample") &&
+    !url.includes("user:password") &&
+    !url.includes("localhost:5432")
+  );
 }
 
 /**
