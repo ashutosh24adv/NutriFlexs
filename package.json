@@ -2,6 +2,10 @@
   "name": "nutriflexs",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "packages/*",
+    "mobile"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",

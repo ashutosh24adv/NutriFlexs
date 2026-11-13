@@ -1,0 +1,78 @@
+name: NutriFlexs Monorepo CI
+
+on:
+  push:
+    branches: [main, master, "feature/**"]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck-and-lint:
+    name: Typecheck & Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install Monorepo Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Typecheck @nutriflexs/shared
+        run: npx tsc --project packages/shared/tsconfig.json --noEmit
+
+      - name: Typecheck Web App (Root)
+        run: npx tsc --noEmit
+
+      - name: Typecheck Mobile App
+        working-directory: ./mobile
+        run: |
+          if [ -f tsconfig.json ]; then
+            npx tsc --noEmit
+          fi
+
+      - name: Lint Web App
+        run: npm run lint
+
+  build-web:
+    name: Next.js Web Build
+    runs-on: ubuntu-latest
+    needs: [typecheck-and-lint]
+    env:
+      DATABASE_URL: "postgresql://ci_user:ci_pass@localhost:5432/nutriflexs_ci?schema=public"
+      DIRECT_URL: "postgresql://ci_user:ci_pass@localhost:5432/nutriflexs_ci?schema=public"
+      NEXTAUTH_SECRET: "ci_nextauth_secret_key_32_characters_minimum_example_ci"
+      NEXTAUTH_URL: "http://localhost:3000"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: "rzp_test_mock_ci_key"
+      RAZORPAY_KEY_SECRET: "mock_ci_key_secret"
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install Monorepo Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Build Next.js Web Application
+        run: npm run build

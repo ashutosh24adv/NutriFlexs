@@ -1,0 +1,76 @@
+{
+  "expo": {
+    "name": "NutriFlexs",
+    "slug": "nutriflexs-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FBF9F5"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nutriflexs.app",
+      "entitlements": {
+        "com.apple.developer.healthkit": true
+      },
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "NutriFlexs reads your daily steps, active calories burned, workouts, and heart rate to adjust your post-workout macro and calorie targets.",
+        "NSHealthUpdateUsageDescription": "NutriFlexs logs your completed high-protein meals and hydration intake into Apple Health."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FBF9F5"
+      },
+      "package": "com.nutriflexs.app",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_TOTAL_CALORIES_BURNED",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.READ_HYDRATION",
+        "android.permission.health.WRITE_NUTRITION"
+      ],
+      "intentFilters": [
+        {
+          "action": "androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"
+        }
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "NutriFlexs needs access to your photos to scan meal images.",
+          "cameraPermission": "NutriFlexs needs access to your camera to scan meal photos."
+        }
+      ],
+      [
+        "react-native-health",
+        {
+          "healthSharePermission": "NutriFlexs reads your daily steps, active calories burned, workouts, and heart rate to adjust your post-workout macro and calorie targets.",
+          "healthUpdatePermission": "NutriFlexs logs your completed high-protein meals and hydration intake into Apple Health."
+        }
+      ],
+      "react-native-health-connect",
+      "./plugins/withHealthConnectPermissionDelegate.js"
+    ],
+    "scheme": "nutriflexs",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

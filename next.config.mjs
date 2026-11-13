@@ -1,5 +1,6 @@
 /** @type {import('next').NextOptions} */
 const nextConfig = {
+  transpilePackages: ['@nutriflexs/shared'],
   reactStrictMode: true,
   images: {
     formats: ['image/avif', 'image/webp'],

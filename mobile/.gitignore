@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.expo/
+dist/
+web-build/
+
+# Native build artifacts
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/hs_err_*.log
+*.apk
+*.aab
+*.dex
+*.exe
+ninja.exe
+
+# Secrets & Keys
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+.env*.local
+
+# iOS
+ios/build/
+ios/Pods/
+ios/*.xcworkspace/
+ios/*.xcodeproj/xcuserdata/
+
+# Expo generated
+expo-env.d.ts
