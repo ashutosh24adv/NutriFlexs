@@ -1,0 +1,148 @@
+/**
+ * NutriFlexs Global Layout & Utilities
+ * Standardized containers, grid systems, flexbox alignment, and layout constraints
+ */
+
+/* Standardized Page Containers */
+.nutri-container {
+  width: 100%;
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-4, 1rem);
+  padding-right: var(--space-4, 1rem);
+}
+
+@media (min-width: 640px) {
+  .nutri-container {
+    padding-left: var(--space-6, 1.5rem);
+    padding-right: var(--space-6, 1.5rem);
+  }
+}
+
+@media (min-width: 1024px) {
+  .nutri-container {
+    padding-left: var(--space-8, 2rem);
+    padding-right: var(--space-8, 2rem);
+  }
+}
+
+.nutri-container-narrow {
+  width: 100%;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-4, 1rem);
+  padding-right: var(--space-4, 1rem);
+}
+
+.nutri-container-wide {
+  width: 100%;
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-4, 1rem);
+  padding-right: var(--space-4, 1rem);
+}
+
+/* Page Section Spacing */
+.nutri-section {
+  padding-top: var(--space-12, 3rem);
+  padding-bottom: var(--space-12, 3rem);
+}
+
+@media (min-width: 768px) {
+  .nutri-section {
+    padding-top: var(--space-16, 4rem);
+    padding-bottom: var(--space-16, 4rem);
+  }
+}
+
+/* Layout Flex Helpers */
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flex-start {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.flex-col-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Standardized Responsive Card Grids */
+.nutri-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6, 1.5rem);
+}
+
+@media (min-width: 768px) {
+  .nutri-grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.nutri-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6, 1.5rem);
+}
+
+@media (min-width: 640px) {
+  .nutri-grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .nutri-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.nutri-grid-4 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6, 1.5rem);
+}
+
+@media (min-width: 640px) {
+  .nutri-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .nutri-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Screen-reader-only accessible class */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+

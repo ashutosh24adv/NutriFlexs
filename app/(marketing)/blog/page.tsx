@@ -323,7 +323,7 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
 
             {/* Widget 4: Kiosk Pickup Guarantee Card */}
             <div className="bg-[#1E3A1E] text-white rounded-3xl p-6 shadow-md border border-nutri-green-dark space-y-3">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-emerald-300">
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-nutri-green-light">
                 <MapPin className="w-5 h-5" />
               </div>
               <h4 className="font-heading font-extrabold text-base text-white">
@@ -335,7 +335,7 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
               </p>
               <Link
                 href="/gyms"
-                className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-300 hover:text-white pt-1 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-extrabold text-nutri-green-light hover:text-white pt-1 transition-colors"
               >
                 <span>Find Nearby Gyms</span>
                 <ArrowRight className="w-3.5 h-3.5" />

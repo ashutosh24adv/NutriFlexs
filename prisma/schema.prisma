@@ -37,6 +37,14 @@ enum SubscriptionStatus {
   ACTIVE
   EXPIRED
   CANCELLED
+  UPGRADED
+}
+
+enum SubscriptionPlanType {
+  FOOD_PASS
+  NUTRITION_PASS
+  ALL_ACCESS_PASS
+  LEGACY
 }
 
 enum DiscountType {
@@ -72,11 +80,27 @@ model User {
   weightKg                 Float?
   customDailyProteinGoal   Int?
   isVegetarian             Boolean        @default(false)
+
+  // Nutrition Onboarding & Personalization
+  hasCompletedNutritionOnboarding Boolean  @default(false)
+  nutritionOnboardingCompletedAt DateTime?
+  nutritionOnboardingStep        Int      @default(1)
+  nutritionOnboardingData        Json?
+  heightCm                       Float?
+  birthDate                      DateTime?
+  gender                         String?
+  activityLevel                  String?
+  primaryNutritionGoal           String?
+  calorieRolloverEnabled         Boolean  @default(false)
+  notificationsEnabled           Boolean  @default(false)
+
   createdAt                DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
   orders           Order[]
   subscriptions    Subscription[]
+  subscriptionPayments SubscriptionPayment[]
+  subscriptionUsages   SubscriptionUsageRecord[]
   trainerProfile   Trainer?
   referralsMade    Referral[]     @relation("CustomerReferrals")
 
@@ -88,6 +112,7 @@ model User {
   customFoods      FoodItem[]     @relation("CustomFoodItems")
   favoriteFoods    FavoriteFood[]
   savedMeals       SavedMeal[]
+  contactSubmissions ContactSubmission[]
 }
 
 model Gym {
@@ -280,33 +305,112 @@ model Payment {
 }
 
 model SubscriptionPlan {
-  id           String   @id @default(uuid())
-  name         String
-  price        Float
-  validityDays Int      @default(30)
-  creditsCount Int      @default(30)
-  description  String
-  benefits     String
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                  String               @id @default(uuid())
+  name                String
+  slug                String?
+  planType            SubscriptionPlanType @default(LEGACY)
+  price               Float                // Monthly base price
+  quarterlyPrice      Float?               // Optional quarterly price
+  annualPrice         Float?               // Optional annual price
+  promotionalPrice    Float?               // Optional promo price
+  validityDays        Int                  @default(30)
+  creditsCount        Int                  @default(30)
+  aiScanAllowance     Int                  @default(0)   // monthly AI scan quota
+  foodDiscountPercent Float                @default(0)   // e.g. 15% or 20%
+  hasFoodBenefits     Boolean              @default(false)
+  hasNutritionBenefits Boolean             @default(false)
+  hasAiScan           Boolean              @default(false)
+  hasAdvancedInsights Boolean              @default(false)
+  displayOrder        Int                  @default(0)
+  badgeText           String?
+  description         String
+  benefits            String               // JSON array string of benefits
+  isActive            Boolean              @default(true)
+  flaggedForReview    Boolean              @default(false) // For legacy plans needing admin review
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
-  subscriptions Subscription[]
+  subscriptions        Subscription[]
+  subscriptionPayments SubscriptionPayment[]
 }
 
 model Subscription {
-  id               String             @id @default(uuid())
-  userId           String
-  planId           String
-  remainingCredits Int
-  startDate        DateTime           @default(now())
-  endDate          DateTime
-  status           SubscriptionStatus @default(ACTIVE)
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  id                 String             @id @default(uuid())
+  userId             String
+  planId             String
+  remainingCredits   Int                @default(0)
+  aiScansUsed        Int                @default(0)
+  billingPeriod      String             @default("MONTHLY") // MONTHLY, QUARTERLY, ANNUAL
+  startDate          DateTime           @default(now())
+  endDate            DateTime
+  status             SubscriptionStatus @default(ACTIVE)
+  autoRenew          Boolean            @default(true)
+  cancelledAt        DateTime?
+  cancellationReason String?
+  upgradedToId       String?            // If upgraded to another subscription
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
-  user User             @relation(fields: [userId], references: [id])
-  plan SubscriptionPlan @relation(fields: [planId], references: [id])
+  user         User                      @relation(fields: [userId], references: [id])
+  plan         SubscriptionPlan          @relation(fields: [planId], references: [id])
+  payments     SubscriptionPayment[]
+  usageRecords SubscriptionUsageRecord[]
+
+  @@index([userId, status])
+}
+
+model SubscriptionPayment {
+  id                String        @id @default(uuid())
+  subscriptionId    String?
+  userId            String
+  planId            String
+  amount            Float
+  currency          String        @default("INR")
+  status            PaymentStatus @default(PENDING)
+  razorpayOrderId   String?       @unique
+  razorpayPaymentId String?       @unique
+  razorpaySignature String?
+  idempotencyKey    String?       @unique
+  billingPeriod     String        @default("MONTHLY") // MONTHLY, QUARTERLY, ANNUAL
+  metadata          String?       @db.Text
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  subscription Subscription?    @relation(fields: [subscriptionId], references: [id])
+  user         User             @relation(fields: [userId], references: [id])
+  plan         SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+model SubscriptionUsageRecord {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  userId         String
+  feature        String       // e.g. "AI_MEAL_SCAN"
+  quantity       Int          @default(1)
+  metadata       String?      @db.Text
+  createdAt      DateTime     @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, feature])
+  @@index([userId, feature])
+}
+
+model SubscriptionAuditLog {
+  id          String   @id @default(uuid())
+  action      String   // e.g. "PLAN_CREATED", "PLAN_UPDATED", "SUBSCRIPTION_UPGRADED", "CANCELLED"
+  performedBy String   // userId or "SYSTEM" or admin email
+  targetType  String   // "PLAN" or "SUBSCRIPTION"
+  targetId    String
+  details     String   @db.Text // JSON summary of changes
+  createdAt   DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([createdAt])
 }
 
 model Referral {
@@ -415,11 +519,13 @@ model FoodItem {
   servingWeightGrams Float?   @default(100)
   isCustom           Boolean  @default(false)
   createdById        String?
+  hasVariants        Boolean  @default(false)
   isActive           Boolean  @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   createdBy User?           @relation("CustomFoodItems", fields: [createdById], references: [id], onDelete: SetNull)
+  variants  FoodVariant[]
   foodLogs  FoodLog[]
   favoriteFoods FavoriteFood[]
   savedMealItems SavedMealItem[]
@@ -429,33 +535,69 @@ model FoodItem {
   @@index([isCustom, createdById])
 }
 
-model FoodLog {
-  id               String   @id @default(uuid())
-  userId           String
-  foodItemId       String?
-  orderItemId      String?
-  productId        String?
-  foodNameSnapshot String
-  mealType         MealType
-  quantity         Float
-  unit             String
-  calories         Float
-  protein          Float
-  carbohydrates    Float
-  fat              Float
-  loggedAt         DateTime @default(now())
-  dateKey          String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+model FoodVariant {
+  id                 String   @id @default(uuid())
+  foodItemId         String
+  name               String
+  variantType        String   @default("BALANCED") // "MORE_MAIN", "BALANCED", "GRAVY_ONLY", "THICK", "REGULAR", "THIN"
+  description        String?
+  caloriesPer100g    Float    @default(0)
+  protein            Float    @default(0)
+  carbohydrates      Float    @default(0)
+  fat                Float    @default(0)
+  isDefault          Boolean  @default(false)
+  servingConversions Json?    // Configurable portions: e.g. {"small_bowl": 100, "medium_bowl": 150, "large_bowl": 250, "cup": 200, "grams": 1}
+  preparationMethod  String?
+  nutritionSource    String?  @default("IFCT / ICMR-NIN & Recipe Analysis")
+  confidenceLevel    String?  @default("ESTIMATED") // "VERIFIED", "ESTIMATED"
+  imageUrl           String?
+  displayOrder       Int      @default(0)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  foodItem  FoodItem?  @relation(fields: [foodItemId], references: [id], onDelete: SetNull)
-  orderItem OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
-  product   Product?   @relation(fields: [productId], references: [id], onDelete: SetNull)
+  foodItem           FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+  foodLogs           FoodLog[]
+  favoriteFoods      FavoriteFood[]
+  savedMealItems     SavedMealItem[]
+
+  @@index([foodItemId, isActive])
+  @@index([variantType])
+}
+
+model FoodLog {
+  id                  String   @id @default(uuid())
+  userId              String
+  foodItemId          String?
+  foodVariantId       String?
+  orderItemId         String?
+  productId           String?
+  foodNameSnapshot    String
+  variantNameSnapshot String?
+  mealType            MealType
+  quantity            Float
+  unit                String
+  servingUnitSnapshot String?
+  gramsCalculated     Float?
+  calories            Float
+  protein             Float
+  carbohydrates       Float
+  fat                 Float
+  loggedAt            DateTime @default(now())
+  dateKey             String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foodItem    FoodItem?    @relation(fields: [foodItemId], references: [id], onDelete: SetNull)
+  foodVariant FoodVariant? @relation(fields: [foodVariantId], references: [id], onDelete: SetNull)
+  orderItem   OrderItem?   @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  product     Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@index([userId, dateKey])
   @@index([userId, mealType, dateKey])
   @@index([orderItemId])
+  @@index([foodVariantId])
 }
 
 model NutritionGoal {
@@ -496,27 +638,31 @@ model BlogPost {
 }
 
 model FavoriteFood {
-  id                 String   @id @default(uuid())
-  userId             String
-  foodItemId         String?
-  productId          String?
-  foodNameSnapshot   String
-  category           String?
-  caloriesPer100g    Float    @default(0)
-  protein            Float    @default(0)
-  carbohydrates      Float    @default(0)
-  fat                Float    @default(0)
-  defaultServingSize Float    @default(1)
-  defaultServingUnit String   @default("serving")
-  servingWeightGrams Float?   @default(100)
-  createdAt          DateTime @default(now())
+  id                  String       @id @default(uuid())
+  userId              String
+  foodItemId          String?
+  foodVariantId       String?
+  productId           String?
+  foodNameSnapshot    String
+  variantNameSnapshot String?
+  category            String?
+  caloriesPer100g     Float        @default(0)
+  protein             Float        @default(0)
+  carbohydrates       Float        @default(0)
+  fat                 Float        @default(0)
+  defaultServingSize  Float        @default(1)
+  defaultServingUnit  String       @default("serving")
+  servingWeightGrams  Float?       @default(100)
+  createdAt           DateTime     @default(now())
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  foodItem FoodItem? @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
-  product  Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foodItem    FoodItem?    @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+  foodVariant FoodVariant? @relation(fields: [foodVariantId], references: [id], onDelete: Cascade)
+  product     Product?     @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([foodItemId])
+  @@index([foodVariantId])
   @@index([productId])
 }
 
@@ -535,24 +681,56 @@ model SavedMeal {
 }
 
 model SavedMealItem {
-  id                 String   @id @default(uuid())
-  savedMealId        String
-  foodItemId         String?
-  productId          String?
-  foodName           String
-  quantity           Float
-  unit               String
-  calories           Float
-  protein            Float
-  carbohydrates      Float
-  fat                Float
-  caloriesPer100g    Float?   @default(0)
-  servingWeightGrams Float?   @default(100)
+  id                  String       @id @default(uuid())
+  savedMealId         String
+  foodItemId          String?
+  foodVariantId       String?
+  productId           String?
+  foodName            String
+  variantNameSnapshot String?
+  quantity            Float
+  unit                String
+  calories            Float
+  protein             Float
+  carbohydrates       Float
+  fat                 Float
+  caloriesPer100g     Float?       @default(0)
+  servingWeightGrams  Float?       @default(100)
 
-  savedMeal SavedMeal @relation(fields: [savedMealId], references: [id], onDelete: Cascade)
-  foodItem  FoodItem? @relation(fields: [foodItemId], references: [id], onDelete: SetNull)
-  product   Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  savedMeal   SavedMeal    @relation(fields: [savedMealId], references: [id], onDelete: Cascade)
+  foodItem    FoodItem?    @relation(fields: [foodItemId], references: [id], onDelete: SetNull)
+  foodVariant FoodVariant? @relation(fields: [foodVariantId], references: [id], onDelete: SetNull)
+  product     Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@index([savedMealId])
+  @@index([foodVariantId])
 }
+
+enum ContactStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+}
+
+model ContactSubmission {
+  id        String        @id @default(uuid())
+  name      String
+  email     String
+  phone     String?
+  category  String
+  message   String
+  orderId   String?
+  status    ContactStatus @default(NEW)
+  userId    String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+  @@index([userId])
+}
+
 

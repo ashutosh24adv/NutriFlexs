@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { OrderStatus, PaymentStatus } from "@/types/enums";
 import { createRazorpayOrder } from "@/lib/razorpay";
 import { syncCompletedOrderToNutritionDiary } from "@/services/nutrition.service";
+import { calculateFoodOrderPassDiscount } from "@/services/subscription-entitlement.service";
 
 export interface CreateOrderParams {
   userId: string;
@@ -105,6 +106,12 @@ export async function createOrder(params: CreateOrderParams) {
     }
   }
 
+  // 4b. Member Pass Exclusive Food Discount (FOOD_PASS or ALL_ACCESS_PASS)
+  const passDiscount = await calculateFoodOrderPassDiscount(userId, subtotal);
+  if (passDiscount.discountAmount > 0) {
+    discount = Math.max(discount, passDiscount.discountAmount);
+  }
+
   const finalAmount = Math.max(0, subtotal - discount);
   const orderNumber = `NF-${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -123,7 +130,7 @@ export async function createOrder(params: CreateOrderParams) {
       paymentStatus: PaymentStatus.PENDING,
       trainerId,
       couponId,
-      estimatedPrepMinutes: 3,
+      estimatedPrepMinutes: 5,
       items: {
         create: orderItemsData,
       },
@@ -162,6 +169,16 @@ export async function createOrder(params: CreateOrderParams) {
   };
 }
 
+const safeUserSelect = {
+  select: {
+    id: true,
+    name: true,
+    email: true,
+    phone: true,
+    role: true,
+  },
+};
+
 export async function updateOrderStatus(orderId: string, status: OrderStatus) {
   const updatedOrder = await prisma.order.update({
     where: { id: orderId },
@@ -170,7 +187,7 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus) {
       items: {
         include: { product: true },
       },
-      user: true,
+      user: safeUserSelect,
       outlet: true,
     },
   });
@@ -202,7 +219,7 @@ export async function getOrderById(orderId: string) {
         },
       },
       payment: true,
-      user: true,
+      user: safeUserSelect,
     },
   });
 }
@@ -234,7 +251,7 @@ export async function getKitchenOrders(outletId?: string) {
       items: {
         include: { product: true },
       },
-      user: true,
+      user: safeUserSelect,
       outlet: { include: { gym: true } },
       payment: true,
     },

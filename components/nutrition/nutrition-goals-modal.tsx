@@ -9,6 +9,7 @@ interface NutritionGoalsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onGoalsUpdated: () => void;
+  onRetakeOnboarding?: () => void;
   isGuest?: boolean;
   currentGoals: {
     dailyCalorieGoal: number | null;
@@ -22,6 +23,7 @@ export function NutritionGoalsModal({
   isOpen,
   onClose,
   onGoalsUpdated,
+  onRetakeOnboarding,
   isGuest = false,
   currentGoals,
 }: NutritionGoalsModalProps) {
@@ -266,6 +268,22 @@ export function NutritionGoalsModal({
           <div className="p-3 bg-nutri-green-soft rounded-2xl border border-nutri-green/20 text-[11px] text-nutri-secondary leading-relaxed">
             💡 <strong>Disclaimer:</strong> Nutrition values and targets are general dietary estimates. Individual nutritional needs vary based on age, metabolism, and fitness routine. Consult a certified nutritionist or physician for clinical advice.
           </div>
+
+          {onRetakeOnboarding && !isGuest && (
+            <div className="pt-2 border-t border-nutri-border-light">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onRetakeOnboarding();
+                }}
+                className="w-full py-2.5 px-3 bg-nutri-green-light hover:bg-nutri-green-soft text-nutri-green border border-nutri-border-light rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Recalculate with Personalized Nutrition Onboarding</span>
+              </button>
+            </div>
+          )}
 
           <div className="pt-2 flex items-center justify-between gap-3 border-t border-nutri-border-light">
             {(currentGoals.dailyCalorieGoal || currentGoals.proteinGoal) ? (

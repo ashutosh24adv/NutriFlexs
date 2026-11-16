@@ -186,7 +186,7 @@ export default function GymDiscoveryPage() {
                 <span className="text-[11px] font-extrabold text-nutri-green bg-nutri-green-light px-2.5 py-0.5 rounded-full border border-nutri-green/20">
                   ✓ Active Pickup Location
                 </span>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-nutri-green-fresh animate-pulse" />
               </div>
               <h2 className="text-lg font-bold font-heading text-nutri-charcoal flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-nutri-green shrink-0" />
@@ -341,8 +341,8 @@ export default function GymDiscoveryPage() {
 
         {/* Success feedback when distance sorting is enabled */}
         {isSortedByDistance && !locationError && (
-          <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="p-3 rounded-2xl bg-nutri-green-light border border-nutri-border-light text-xs text-nutri-charcoal flex items-center gap-2">
+            <Check className="w-4 h-4 text-nutri-green shrink-0" />
             <span className="font-semibold">
               Showing partner gyms sorted by distance calculated from your device coordinates using Haversine formula.
             </span>
@@ -521,8 +521,8 @@ export default function GymDiscoveryPage() {
                                 </div>
 
                                 {outlet.isAvailable ? (
-                                  <span className="text-[9px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  <span className="text-[9px] font-extrabold text-nutri-green bg-nutri-green-light border border-nutri-border-light px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-nutri-green-fresh animate-pulse" />
                                     Live
                                   </span>
                                 ) : (

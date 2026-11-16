@@ -1,0 +1,240 @@
+/**
+ * NutriFlexs Component Styling System
+ * Reusable, standardized UI primitives adhering strictly to the brand design system
+ */
+
+/* =========================================================================
+   1. BUTTONS
+   ========================================================================= */
+.nutri-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-family-heading);
+  font-weight: var(--font-weight-semibold, 600);
+  font-size: var(--font-size-sm, 0.875rem);
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md, 0.75rem);
+  transition: all var(--transition-normal);
+  cursor: pointer;
+  text-decoration: none;
+  border: 1px solid transparent;
+  gap: var(--space-2, 0.5rem);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.nutri-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.nutri-btn:disabled,
+.nutri-btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Primary Brand Button */
+.nutri-btn-primary {
+  background-color: var(--color-primary, #2F7D16);
+  color: var(--color-white, #FFFFFF);
+  border-color: var(--color-primary, #2F7D16);
+  box-shadow: 0 1px 2px rgba(47, 125, 22, 0.2);
+}
+
+.nutri-btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-dark, #24630F);
+  border-color: var(--color-primary-dark, #24630F);
+  box-shadow: 0 4px 12px rgba(47, 125, 22, 0.25);
+}
+
+.nutri-btn-primary:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+/* Secondary Button (Soft Green Tint) */
+.nutri-btn-secondary {
+  background-color: var(--color-green-light, #EAF4E3);
+  color: var(--color-primary-dark, #24630F);
+  border-color: transparent;
+}
+
+.nutri-btn-secondary:hover:not(:disabled) {
+  background-color: #dceece;
+  color: var(--color-primary-dark, #24630F);
+}
+
+/* Outline Button */
+.nutri-btn-outline {
+  background-color: var(--color-white, #FFFFFF);
+  color: var(--color-text-primary, #111111);
+  border-color: var(--color-border, #E5E7E2);
+}
+
+.nutri-btn-outline:hover:not(:disabled) {
+  border-color: var(--color-primary, #2F7D16);
+  background-color: var(--color-background-soft, #F7FAF4);
+  color: var(--color-primary-dark, #24630F);
+}
+
+/* Ghost Button */
+.nutri-btn-ghost {
+  background-color: transparent;
+  color: var(--color-text-secondary, #4B5563);
+  border-color: transparent;
+}
+
+.nutri-btn-ghost:hover:not(:disabled) {
+  background-color: var(--color-sage, #F3F7EE);
+  color: var(--color-text-primary, #111111);
+}
+
+/* Button Sizing */
+.nutri-btn-sm {
+  padding: 0.375rem 0.75rem;
+  font-size: var(--font-size-xs, 0.75rem);
+  border-radius: var(--radius-sm, 0.5rem);
+}
+
+.nutri-btn-lg {
+  padding: 0.875rem 1.75rem;
+  font-size: var(--font-size-base, 1rem);
+  border-radius: var(--radius-lg, 1rem);
+}
+
+/* =========================================================================
+   2. CARDS & PANELS
+   ========================================================================= */
+.nutri-card {
+  background-color: var(--color-white, #FFFFFF);
+  border: 1px solid var(--color-border, #E5E7E2);
+  border-radius: var(--radius-2xl, 1.5rem);
+  padding: var(--space-6, 1.5rem);
+  transition: all var(--transition-normal);
+}
+
+.nutri-card-elevated {
+  background-color: var(--color-white, #FFFFFF);
+  border: 1px solid var(--color-border, #E5E7E2);
+  border-radius: var(--radius-2xl, 1.5rem);
+  padding: var(--space-6, 1.5rem);
+  box-shadow: var(--shadow-card);
+}
+
+.nutri-card-interactive {
+  cursor: pointer;
+}
+
+.nutri-card-interactive:hover {
+  border-color: var(--color-primary, #2F7D16);
+  box-shadow: var(--shadow-card);
+  transform: translateY(-2px);
+}
+
+.nutri-panel-soft {
+  background-color: var(--color-sage, #F3F7EE);
+  border: 1px solid var(--color-border, #E5E7E2);
+  border-radius: var(--radius-xl, 1.25rem);
+  padding: var(--space-5, 1.25rem);
+}
+
+/* =========================================================================
+   3. FORM INPUTS & CONTROLS
+   ========================================================================= */
+.nutri-input,
+.nutri-select,
+.nutri-textarea {
+  width: 100%;
+  background-color: var(--color-white, #FFFFFF);
+  border: 1.5px solid var(--color-border, #E5E7E2);
+  border-radius: var(--radius-md, 0.75rem);
+  padding: 0.75rem 1rem;
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text-primary, #111111);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  outline: none;
+}
+
+.nutri-input:focus,
+.nutri-select:focus,
+.nutri-textarea:focus {
+  border-color: var(--color-primary, #2F7D16);
+  box-shadow: 0 0 0 3px rgba(47, 125, 22, 0.12);
+}
+
+.nutri-input::placeholder,
+.nutri-textarea::placeholder {
+  color: var(--color-text-muted, #6B7280);
+}
+
+.nutri-input.error,
+.nutri-input-error {
+  border-color: var(--color-error, #DC2626);
+}
+
+.nutri-input.error:focus,
+.nutri-input-error:focus {
+  border-color: var(--color-error, #DC2626);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+/* =========================================================================
+   4. BADGES & CHIPS
+   ========================================================================= */
+.nutri-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1, 0.25rem);
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: var(--font-weight-semibold, 600);
+  line-height: 1;
+}
+
+.nutri-badge-green {
+  background-color: var(--color-green-light, #EAF4E3);
+  color: var(--color-primary-dark, #24630F);
+  border: 1px solid rgba(47, 125, 22, 0.2);
+}
+
+.nutri-badge-primary {
+  background-color: var(--color-primary, #2F7D16);
+  color: var(--color-white, #FFFFFF);
+}
+
+.nutri-badge-sage {
+  background-color: var(--color-sage, #F3F7EE);
+  color: var(--color-text-secondary, #4B5563);
+  border: 1px solid var(--color-border, #E5E7E2);
+}
+
+/* =========================================================================
+   5. MODE TOGGLES & SEGMENTED CONTROLS
+   ========================================================================= */
+.nutri-tabs-segment {
+  display: inline-flex;
+  background-color: var(--color-sage, #F3F7EE);
+  padding: var(--space-1, 0.25rem);
+  border-radius: var(--radius-full, 9999px);
+  border: 1px solid var(--color-border, #E5E7E2);
+}
+
+.nutri-tab-button {
+  padding: 0.5rem 1.25rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-text-secondary, #4B5563);
+  transition: all var(--transition-fast);
+}
+
+.nutri-tab-button.active {
+  background-color: var(--color-white, #FFFFFF);
+  color: var(--color-primary-dark, #24630F);
+  box-shadow: var(--shadow-sm);
+  font-weight: var(--font-weight-semibold, 600);
+}
+

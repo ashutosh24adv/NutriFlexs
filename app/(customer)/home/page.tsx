@@ -43,7 +43,7 @@ const DEFAULT_RECOMMENDED_PRODUCT = {
   protein: 1.8,
   carbs: 34,
   fats: 0.4,
-  preparationTimeMinutes: 3,
+  preparationTimeMinutes: 5,
   imageUrl: "/images/products/abc-stamina-rebuilder.webp",
   categoryId: "juices",
   isAvailable: true,
@@ -495,7 +495,7 @@ export default function CustomerHomePage() {
                 </div>
                 <div className="w-full bg-black/25 border border-white/10 h-2.5 rounded-full overflow-hidden">
                   <div
-                    className="bg-emerald-300 h-full rounded-full transition-all duration-500 shadow-xs"
+                    className="bg-nutri-green-light h-full rounded-full transition-all duration-500 shadow-xs"
                     style={{ width: `${progressBarWidth}%` }}
                   />
                 </div>
@@ -802,7 +802,7 @@ export default function CustomerHomePage() {
                     <span className="text-nutri-secondary">0 Added Sugar</span>
                   </div>
                   <div className="w-full bg-nutri-border-light h-2 rounded-full overflow-hidden">
-                    <div className="bg-emerald-400 h-full rounded-full" style={{ width: "100%" }} />
+                    <div className="bg-nutri-green h-full rounded-full" style={{ width: "100%" }} />
                   </div>
                 </div>
               </div>

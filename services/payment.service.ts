@@ -11,6 +11,37 @@ export async function verifyAndCompletePayment(params: {
 }) {
   const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = params;
 
+  if (!orderId || !razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+    throw new Error("Missing required payment verification parameters.");
+  }
+
+  // 1. Fetch existing order and payment state
+  const existingOrder = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      },
+      trainer: true,
+      payment: true,
+    },
+  });
+
+  if (!existingOrder) {
+    throw new Error("Order not found");
+  }
+
+  // 2. Anti-replay & Idempotency: If already marked PAID, return existing state safely
+  if (existingOrder.paymentStatus === PaymentStatus.PAID) {
+    return { order: existingOrder, payment: existingOrder.payment };
+  }
+
+  // 3. Cryptographic signature verification
   const isValid = verifyRazorpaySignature(
     razorpayOrderId,
     razorpayPaymentId,
@@ -18,40 +49,58 @@ export async function verifyAndCompletePayment(params: {
   );
 
   if (!isValid) {
-    await prisma.payment.update({
+    await prisma.payment.updateMany({
       where: { orderId },
       data: { status: PaymentStatus.FAILED },
     });
     throw new Error("Invalid payment signature verification");
   }
 
-  // Update Payment record
-  const payment = await prisma.payment.update({
-    where: { orderId },
-    data: {
-      razorpayPaymentId,
-      razorpaySignature,
-      status: PaymentStatus.PAID,
-    },
+  // 4. Atomic transaction to mark payment & order as paid
+  const { updatedPayment, updatedOrder } = await prisma.$transaction(async (tx) => {
+    const updatedPayment = await tx.payment.update({
+      where: { orderId },
+      data: {
+        razorpayPaymentId,
+        razorpaySignature,
+        status: PaymentStatus.PAID,
+      },
+    });
+
+    const updatedOrder = await tx.order.update({
+      where: { id: orderId },
+      data: {
+        paymentStatus: PaymentStatus.PAID,
+        status: OrderStatus.ACCEPTED,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        trainer: true,
+      },
+    });
+
+    return { updatedPayment, updatedOrder };
   });
 
-  // Update Order payment status and move order to ACCEPTED
-  const order = await prisma.order.update({
-    where: { id: orderId },
-    data: {
-      paymentStatus: PaymentStatus.PAID,
-      status: OrderStatus.ACCEPTED,
-    },
-    include: {
-      user: true,
-      trainer: true,
-    },
-  });
-
-  // Process referral logic if trainer ID exists
-  if (order.trainerId) {
-    await processTrainerReferralOnPaymentSuccess(order.trainerId, order.userId, order.discount);
+  // 5. Process referral reward idempotently (only once upon first payment transition)
+  if (updatedOrder.trainerId) {
+    try {
+      await processTrainerReferralOnPaymentSuccess(
+        updatedOrder.trainerId,
+        updatedOrder.userId,
+        updatedOrder.discount
+      );
+    } catch (referralErr) {
+      console.error("[Payment Security] Non-fatal referral processing error:", referralErr);
+    }
   }
 
-  return { order, payment };
+  return { order: updatedOrder, payment: updatedPayment };
 }

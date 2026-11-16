@@ -74,13 +74,13 @@ export function NutriFlexsLogo({ size = "md", showTagline = false, showIcon = tr
         </div>
       )}
 
-      <div className="flex flex-col items-center text-center">
+      <div className="flex flex-col items-start text-left">
         <span className={`font-extrabold tracking-tight text-nutri-green ${textSizes} leading-none font-heading uppercase`}>
           NUTRI<span className="text-nutri-green-dark">FLEXS</span>
         </span>
         {showTagline && (
-          <span className="text-[9px] sm:text-[10px] font-bold tracking-[0.18em] text-nutri-green uppercase mt-0.5">
-            REAL FOOD. REAL FUEL.
+          <span className="text-[9px] sm:text-[10px] font-bold tracking-wide text-nutri-green mt-0.5">
+            Eat Smart. Track Better.
           </span>
         )}
       </div>

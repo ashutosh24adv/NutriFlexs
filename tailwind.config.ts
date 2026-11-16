@@ -10,24 +10,24 @@ const config: Config = {
     extend: {
       colors: {
         nutri: {
-          bg: "#FCFDFC",
-          card: "#FFFFFF",
-          green: "#2F7D16",
-          "green-hover": "#24630F",
-          "green-deep": "#24630F",
-          "green-fresh": "#4E9F2F",
-          "green-light": "#EAF4E3",
-          "green-soft": "#F3F7EE",
-          "green-verylight": "#F7FAF4",
-          "green-dark": "#24630F",
-          sage: "#F3F7EE",
-          charcoal: "#111111",
-          secondary: "#4B5563",
-          muted: "#6B7280",
-          border: "#E5E7E2",
-          "border-light": "#E5E7E2",
-          gold: "#D97706",
-          accent: "#4E9F2F"
+          bg: "var(--color-background, #FCFDFC)",
+          card: "var(--color-white, #FFFFFF)",
+          green: "var(--color-primary, #2F7D16)",
+          "green-hover": "var(--color-primary-dark, #24630F)",
+          "green-deep": "var(--color-primary-dark, #24630F)",
+          "green-fresh": "var(--color-primary-light, #4E9F2F)",
+          "green-light": "var(--color-green-light, #EAF4E3)",
+          "green-soft": "var(--color-sage, #F3F7EE)",
+          "green-verylight": "var(--color-background-soft, #F7FAF4)",
+          "green-dark": "var(--color-primary-dark, #24630F)",
+          sage: "var(--color-sage, #F3F7EE)",
+          charcoal: "var(--color-text-primary, #111111)",
+          secondary: "var(--color-text-secondary, #4B5563)",
+          muted: "var(--color-text-muted, #6B7280)",
+          border: "var(--color-border, #E5E7E2)",
+          "border-light": "var(--color-border, #E5E7E2)",
+          gold: "var(--color-warning, #D97706)",
+          accent: "var(--color-primary-light, #4E9F2F)"
         }
       },
       fontFamily: {

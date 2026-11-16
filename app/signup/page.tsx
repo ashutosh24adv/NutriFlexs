@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { NutriFlexsLogo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   Lock,
   Mail,
@@ -23,6 +23,10 @@ import {
   Store,
   Tag,
   ShieldAlert,
+  Sparkles,
+  Utensils,
+  Flame,
+  Check,
 } from "lucide-react";
 import { PublicHeader } from "@/components/customer/public-header";
 
@@ -199,7 +203,18 @@ function SignupForm() {
         );
       }
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred during registration");
+      const msg = err?.message || "";
+      // Defensively sanitize error messages to never display internal database or Prisma details to customers
+      if (
+        msg.toLowerCase().includes("prisma") ||
+        msg.toLowerCase().includes("neon.tech") ||
+        msg.toLowerCase().includes("database server") ||
+        msg.toLowerCase().includes("findunique")
+      ) {
+        setError("We're temporarily unable to process your request. Please try again shortly.");
+      } else {
+        setError(msg || "We're temporarily unable to process your request. Please try again shortly.");
+      }
     } finally {
       setLoading(false);
     }
@@ -250,9 +265,9 @@ function SignupForm() {
     : `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`;
 
   return (
-    <div className="w-full max-w-md space-y-5">
-      {/* Back to NutriFlexs link */}
-      <div>
+    <div className="w-full max-w-5xl mx-auto">
+      {/* Back to NutriFlexs breadcrumb */}
+      <div className="mb-4">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-nutri-secondary hover:text-nutri-green transition-colors cursor-pointer"
@@ -261,287 +276,375 @@ function SignupForm() {
         </Link>
       </div>
 
-      <Card className="p-6 sm:p-8 bg-white border border-nutri-border rounded-3xl shadow-sm space-y-6">
-        {/* Header Branding */}
-        <div className="text-center space-y-2">
-          <div className="flex justify-center">
-            <NutriFlexsLogo size="md" showTagline={true} />
-          </div>
+      {/* Two-Column Card Container */}
+      <div className="bg-white rounded-3xl border border-nutri-border shadow-float overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
+        {/* LEFT COLUMN: Editorial Brand Panel (5 cols on lg) */}
+        <div className="lg:col-span-5 bg-gradient-to-br from-nutri-green/10 via-nutri-bg to-nutri-green-soft p-6 sm:p-8 lg:p-10 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-nutri-border-light relative overflow-hidden">
+          {/* Subtle Decorative Background Blob */}
+          <div className="absolute -top-16 -left-16 w-48 h-48 rounded-full bg-nutri-green/10 blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-16 -right-16 w-48 h-48 rounded-full bg-nutri-green-fresh/10 blur-2xl pointer-events-none" />
 
-          {portalBadge && (
-            <div className="pt-2 flex justify-center">
-              <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border ${portalBadge.color}`}
-              >
-                <portalBadge.icon className="w-3.5 h-3.5" />
-                {portalBadge.label}
+          {/* Top Brand Presentation */}
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center justify-between">
+              <NutriFlexsLogo size="md" showTagline={true} />
+              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-nutri-green bg-nutri-green-light px-2.5 py-1 rounded-full border border-nutri-green/20">
+                <Sparkles className="w-3 h-3 fill-nutri-green" /> ONE PLATFORM
               </span>
             </div>
-          )}
 
-          {targetPortal === "admin" && (
-            <div className="pt-0.5 flex justify-center">
-              {inviteCode ? (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-nutri-green bg-nutri-green-light px-3 py-0.5 rounded-full border border-nutri-green/20">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-nutri-green" />
-                  Invitation Token Linked
+            <div className="space-y-2 pt-2">
+              <h2 className="text-2xl sm:text-3xl font-extrabold font-heading text-nutri-charcoal tracking-tight leading-tight">
+                Your Healthier Journey Starts Here.
+              </h2>
+              <p className="text-xs sm:text-sm text-nutri-muted leading-relaxed">
+                Discover healthy food, track every meal and make smarter nutrition choices with NutriFlexs. Two essential modes, one unified account.
+              </p>
+            </div>
+          </div>
+
+          {/* Middle Visual & Experience Highlights */}
+          <div className="relative z-10 my-4 lg:my-6 space-y-3.5">
+            {/* Featured Photography Card (visible on sm screens and up) */}
+            <div className="hidden sm:block relative aspect-[16/9] w-full rounded-2xl overflow-hidden shadow-xs border border-white/80 bg-nutri-bg">
+              <Image
+                src="/images/products/grilled-chicken-quinoa-bowl.webp"
+                alt="NutriFlexs Clean Post-Workout Bowl"
+                fill
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 400px"
+                priority
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              <div className="absolute bottom-2.5 left-3 right-3 text-white flex items-center justify-between">
+                <span className="text-[11px] font-bold">Post-Workout Recovery</span>
+                <span className="text-[10px] font-extrabold bg-nutri-green text-white px-2 py-0.5 rounded-full shadow-xs">
+                  5-Min Pickup
                 </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-800 bg-amber-50 px-3 py-0.5 rounded-full border border-amber-200">
-                  <ShieldAlert className="w-3.5 h-3.5 text-amber-700" />
-                  Authorized Invitation Required
-                </span>
+              </div>
+            </div>
+
+            {/* Two Primary Experience Highlights (compact on mobile, stacked on lg) */}
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-2.5">
+              <div className="p-2.5 sm:p-3 rounded-2xl bg-white/80 backdrop-blur-xs border border-white/80 shadow-2xs flex items-center gap-2.5 sm:gap-3">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-nutri-green-light text-nutri-green flex items-center justify-center shrink-0">
+                  <Utensils className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="font-bold text-xs text-nutri-charcoal truncate">Order Food</h4>
+                  <p className="text-[10px] sm:text-[11px] text-nutri-secondary leading-tight mt-0.5 hidden xs:block sm:block truncate">
+                    Fresh meals &amp; juices in 5 mins.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-2.5 sm:p-3 rounded-2xl bg-white/80 backdrop-blur-xs border border-white/80 shadow-2xs flex items-center gap-2.5 sm:gap-3">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-nutri-green-light text-nutri-green flex items-center justify-center shrink-0">
+                  <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="font-bold text-xs text-nutri-charcoal truncate">Track Nutrition</h4>
+                  <p className="text-[10px] sm:text-[11px] text-nutri-secondary leading-tight mt-0.5 hidden xs:block sm:block truncate">
+                    Smart Indian food diary &amp; macros.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Trust Indicators (hidden on mobile, visible on sm and up) */}
+          <div className="hidden sm:flex relative z-10 pt-3 border-t border-nutri-border/60 items-center justify-between text-[11px] font-semibold text-nutri-secondary">
+            <span className="flex items-center gap-1">
+              <Check className="w-3.5 h-3.5 text-nutri-green" /> 5-Min Pickup
+            </span>
+            <span className="flex items-center gap-1">
+              <Check className="w-3.5 h-3.5 text-nutri-green" /> 100% Clean Food
+            </span>
+            <span className="flex items-center gap-1">
+              <Check className="w-3.5 h-3.5 text-nutri-green" /> Smart Indian Macros
+            </span>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Clean, Well-Organized Form (7 cols on lg) */}
+        <div className="lg:col-span-7 p-6 sm:p-8 lg:p-10 flex flex-col justify-center bg-white">
+          <div className="max-w-md w-full mx-auto space-y-5">
+            {/* Header Titles */}
+            <div className="space-y-1.5">
+              {portalBadge && (
+                <div className="pb-1">
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border ${portalBadge.color}`}
+                  >
+                    <portalBadge.icon className="w-3.5 h-3.5" />
+                    {portalBadge.label}
+                  </span>
+                </div>
               )}
-            </div>
-          )}
 
-          <h1 className="text-xl sm:text-2xl font-bold font-heading text-nutri-charcoal pt-1">
-            {portalBadge ? portalBadge.title : "Create Customer Account"}
-          </h1>
-
-          <p className="text-xs text-nutri-secondary max-w-xs mx-auto leading-relaxed">
-            {portalBadge
-              ? portalBadge.subtitle
-              : "Get 10% off your first post-workout refuel pack"}
-          </p>
-        </div>
-
-        {/* Error Alert Banner */}
-        {error && (
-          <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-2.5 text-xs text-rose-800">
-            <ShieldAlert className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
-            <span className="font-semibold leading-snug">{error}</span>
-          </div>
-        )}
-
-        {/* Registration Form */}
-        <form onSubmit={handleSignup} className="space-y-4">
-          {/* Full Name */}
-          <div>
-            <label
-              htmlFor="reg-name"
-              className="block text-xs font-bold text-nutri-charcoal mb-1.5"
-            >
-              Full Name
-            </label>
-            <div className="relative">
-              <User className="w-4 h-4 text-nutri-secondary absolute left-3.5 top-3.5 pointer-events-none" />
-              <input
-                id="reg-name"
-                type="text"
-                required
-                autoComplete="name"
-                placeholder={
-                  targetPortal === "kitchen"
-                    ? "Kitchen Operator Name"
-                    : targetPortal === "trainer"
-                    ? "Trainer / Coach Name"
-                    : targetPortal === "admin"
-                    ? "Administrator Name"
-                    : "e.g., Ashutosh Sharma"
-                }
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full text-xs pl-10 pr-3.5 py-3 bg-nutri-bg/50 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white text-nutri-charcoal font-medium transition-colors"
-              />
-            </div>
-          </div>
-
-          {/* Email Address */}
-          <div>
-            <label
-              htmlFor="reg-email"
-              className="block text-xs font-bold text-nutri-charcoal mb-1.5"
-            >
-              Email Address
-            </label>
-            <div className="relative">
-              <Mail className="w-4 h-4 text-nutri-secondary absolute left-3.5 top-3.5 pointer-events-none" />
-              <input
-                id="reg-email"
-                type="email"
-                required
-                autoComplete="email"
-                placeholder={
-                  targetPortal === "kitchen"
-                    ? "kitchen.operator@nutriflexs.com"
-                    : targetPortal === "trainer"
-                    ? "trainer@partner.com"
-                    : targetPortal === "admin"
-                    ? "admin.ops@nutriflexs.com"
-                    : "you@example.com"
-                }
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full text-xs pl-10 pr-3.5 py-3 bg-nutri-bg/50 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white text-nutri-charcoal font-medium transition-colors"
-              />
-            </div>
-          </div>
-
-          {/* Phone Number (Trainer or Customer) */}
-          {(!targetPortal || targetPortal === "trainer") && (
-            <div>
-              <label
-                htmlFor="reg-phone"
-                className="block text-xs font-bold text-nutri-charcoal mb-1.5"
-              >
-                Phone Number
-              </label>
-              <div className="relative">
-                <Phone className="w-4 h-4 text-nutri-secondary absolute left-3.5 top-3.5 pointer-events-none" />
-                <input
-                  id="reg-phone"
-                  type="tel"
-                  placeholder="+91 99999 88888"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full text-xs pl-10 pr-3.5 py-3 bg-nutri-bg/50 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white text-nutri-charcoal font-medium transition-colors"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Kitchen Outlet Selector */}
-          {targetPortal === "kitchen" && (
-            <div>
-              <label
-                htmlFor="reg-outlet"
-                className="block text-xs font-bold text-nutri-charcoal mb-1.5"
-              >
-                Assigned Kitchen Outlet <span className="text-rose-600 font-extrabold">*</span>
-              </label>
-              <div className="relative">
-                <Store className="w-4 h-4 text-nutri-secondary absolute left-3.5 top-3.5 pointer-events-none" />
-                <select
-                  id="reg-outlet"
-                  required
-                  value={outletId}
-                  onChange={(e) => setOutletId(e.target.value)}
-                  className="w-full text-xs pl-10 pr-3.5 py-3 bg-nutri-bg/50 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white text-nutri-charcoal font-medium transition-colors cursor-pointer"
-                >
-                  {availableOutlets.length > 0 ? (
-                    availableOutlets.map((outlet) => (
-                      <option key={outlet.id} value={outlet.id}>
-                        {outlet.name} ({outlet.gymName})
-                      </option>
-                    ))
+              {targetPortal === "admin" && (
+                <div className="pb-1">
+                  {inviteCode ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-nutri-green bg-nutri-green-light px-3 py-0.5 rounded-full border border-nutri-green/20">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-nutri-green" />
+                      Invitation Token Linked
+                    </span>
                   ) : (
-                    <option value="" disabled>
-                      Loading active kitchen outlets...
-                    </option>
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-800 bg-amber-50 px-3 py-0.5 rounded-full border border-amber-200">
+                      <ShieldAlert className="w-3.5 h-3.5 text-amber-700" />
+                      Authorized Invitation Required
+                    </span>
                   )}
-                </select>
-              </div>
-              <p className="text-[10px] text-nutri-secondary mt-1">
-                Select the physical express kiosk outlet you are operating.
+                </div>
+              )}
+
+              <h1 className="text-2xl sm:text-3xl font-bold font-heading text-nutri-charcoal tracking-tight">
+                {portalBadge ? portalBadge.title : "Create Your Account"}
+              </h1>
+
+              <p className="text-xs sm:text-sm text-nutri-secondary leading-relaxed">
+                {portalBadge
+                  ? portalBadge.subtitle
+                  : "One account for healthy food ordering and smarter nutrition tracking."}
               </p>
             </div>
-          )}
 
-          {/* Trainer Custom Referral Handle */}
-          {targetPortal === "trainer" && (
-            <div>
-              <label
-                htmlFor="reg-ref"
-                className="block text-xs font-bold text-nutri-charcoal mb-1.5"
-              >
-                Custom Referral Code (Optional)
-              </label>
-              <div className="relative">
-                <Tag className="w-4 h-4 text-nutri-secondary absolute left-3.5 top-3.5 pointer-events-none" />
-                <input
-                  id="reg-ref"
-                  type="text"
-                  placeholder="e.g., NUTRI-VIKRAM"
-                  value={referralCode}
-                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                  className="w-full text-xs pl-10 pr-3.5 py-3 bg-nutri-bg/50 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white text-nutri-charcoal font-medium transition-colors uppercase"
-                />
+            {/* Error Alert Banner */}
+            {error && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-2.5 text-xs text-rose-800 animate-fade-in">
+                <ShieldAlert className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+                <span className="font-semibold leading-snug">{error}</span>
               </div>
-              <p className="text-[10px] text-nutri-secondary mt-1">
-                Clients use this code for discounts. Automatically generated if left blank.
+            )}
+
+            {/* Registration Form */}
+            <form onSubmit={handleSignup} className="space-y-3.5">
+              {/* Full Name */}
+              <div>
+                <label
+                  htmlFor="reg-name"
+                  className="block text-xs font-bold text-nutri-charcoal mb-1"
+                >
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-nutri-secondary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    id="reg-name"
+                    type="text"
+                    required
+                    autoComplete="name"
+                    placeholder={
+                      targetPortal === "kitchen"
+                        ? "Kitchen Operator Name"
+                        : targetPortal === "trainer"
+                        ? "Trainer / Coach Name"
+                        : targetPortal === "admin"
+                        ? "Administrator Name"
+                        : "e.g., Ashutosh Sharma"
+                    }
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="h-11 sm:h-12 w-full text-xs sm:text-sm pl-10 pr-3.5 bg-nutri-bg/40 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white focus:ring-2 focus:ring-nutri-green/15 text-nutri-charcoal font-medium transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Email Address */}
+              <div>
+                <label
+                  htmlFor="reg-email"
+                  className="block text-xs font-bold text-nutri-charcoal mb-1"
+                >
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-nutri-secondary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    id="reg-email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    placeholder={
+                      targetPortal === "kitchen"
+                        ? "kitchen.operator@nutriflexs.com"
+                        : targetPortal === "trainer"
+                        ? "trainer@partner.com"
+                        : targetPortal === "admin"
+                        ? "admin.ops@nutriflexs.com"
+                        : "you@example.com"
+                    }
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-11 sm:h-12 w-full text-xs sm:text-sm pl-10 pr-3.5 bg-nutri-bg/40 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white focus:ring-2 focus:ring-nutri-green/15 text-nutri-charcoal font-medium transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Phone Number (Customer or Trainer) */}
+              {(!targetPortal || targetPortal === "trainer") && (
+                <div>
+                  <label
+                    htmlFor="reg-phone"
+                    className="block text-xs font-bold text-nutri-charcoal mb-1"
+                  >
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-nutri-secondary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      id="reg-phone"
+                      type="tel"
+                      placeholder="+91 99999 88888"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="h-11 sm:h-12 w-full text-xs sm:text-sm pl-10 pr-3.5 bg-nutri-bg/40 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white focus:ring-2 focus:ring-nutri-green/15 text-nutri-charcoal font-medium transition-all"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Kitchen Outlet Selector */}
+              {targetPortal === "kitchen" && (
+                <div>
+                  <label
+                    htmlFor="reg-outlet"
+                    className="block text-xs font-bold text-nutri-charcoal mb-1"
+                  >
+                    Assigned Kitchen Outlet <span className="text-rose-600 font-extrabold">*</span>
+                  </label>
+                  <div className="relative">
+                    <Store className="w-4 h-4 text-nutri-secondary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <select
+                      id="reg-outlet"
+                      required
+                      value={outletId}
+                      onChange={(e) => setOutletId(e.target.value)}
+                      className="h-11 sm:h-12 w-full text-xs sm:text-sm pl-10 pr-3.5 bg-nutri-bg/40 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white focus:ring-2 focus:ring-nutri-green/15 text-nutri-charcoal font-medium transition-all cursor-pointer"
+                    >
+                      {availableOutlets.length > 0 ? (
+                        availableOutlets.map((outlet) => (
+                          <option key={outlet.id} value={outlet.id}>
+                            {outlet.name} ({outlet.gymName})
+                          </option>
+                        ))
+                      ) : (
+                        <option value="" disabled>
+                          Loading active kitchen outlets...
+                        </option>
+                      )}
+                    </select>
+                  </div>
+                  <p className="text-[10px] text-nutri-secondary mt-1">
+                    Select the physical express kiosk outlet you are operating.
+                  </p>
+                </div>
+              )}
+
+              {/* Trainer Custom Referral Handle */}
+              {targetPortal === "trainer" && (
+                <div>
+                  <label
+                    htmlFor="reg-ref"
+                    className="block text-xs font-bold text-nutri-charcoal mb-1"
+                  >
+                    Custom Referral Code (Optional)
+                  </label>
+                  <div className="relative">
+                    <Tag className="w-4 h-4 text-nutri-secondary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      id="reg-ref"
+                      type="text"
+                      placeholder="e.g., NUTRI-VIKRAM"
+                      value={referralCode}
+                      onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                      className="h-11 sm:h-12 w-full text-xs sm:text-sm pl-10 pr-3.5 bg-nutri-bg/40 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white focus:ring-2 focus:ring-nutri-green/15 text-nutri-charcoal font-medium transition-all uppercase"
+                    />
+                  </div>
+                  <p className="text-[10px] text-nutri-secondary mt-1">
+                    Clients use this code for discounts. Automatically generated if left blank.
+                  </p>
+                </div>
+              )}
+
+              {/* Password */}
+              <div>
+                <label
+                  htmlFor="reg-password"
+                  className="block text-xs font-bold text-nutri-charcoal mb-1"
+                >
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-nutri-secondary absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    id="reg-password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    placeholder="••••••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-11 sm:h-12 w-full text-xs sm:text-sm pl-10 pr-10 bg-nutri-bg/40 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white focus:ring-2 focus:ring-nutri-green/15 text-nutri-charcoal font-medium transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-nutri-secondary hover:text-nutri-charcoal transition-colors cursor-pointer"
+                    title={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[10px] text-nutri-secondary mt-1">
+                  Must be at least 6 characters long.
+                </p>
+              </div>
+
+              {/* Submit CTA */}
+              <Button
+                type="submit"
+                isLoading={loading}
+                size="lg"
+                className="h-12 w-full bg-nutri-green text-white hover:bg-nutri-green-dark font-extrabold text-sm rounded-full cursor-pointer shadow-md shadow-nutri-green/20 transition-all active:scale-[0.99] flex items-center justify-center gap-2 mt-2"
+              >
+                {targetPortal === "admin"
+                  ? "REGISTER SUPER ADMIN"
+                  : targetPortal === "kitchen"
+                  ? "REGISTER KITCHEN OPERATOR"
+                  : targetPortal === "trainer"
+                  ? "REGISTER TRAINER PARTNER"
+                  : "CREATE ACCOUNT"}
+                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+              </Button>
+            </form>
+
+            {/* Navigation to Login */}
+            <div className="pt-3 border-t border-nutri-border-light text-center">
+              <p className="text-xs text-nutri-secondary">
+                Already have an account?{" "}
+                <Link
+                  href={loginLink}
+                  className="font-bold text-nutri-green hover:underline cursor-pointer"
+                >
+                  Sign in
+                </Link>
               </p>
             </div>
-          )}
-
-          {/* Password */}
-          <div>
-            <label
-              htmlFor="reg-password"
-              className="block text-xs font-bold text-nutri-charcoal mb-1.5"
-            >
-              Password
-            </label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-nutri-secondary absolute left-3.5 top-3.5 pointer-events-none" />
-              <input
-                id="reg-password"
-                type={showPassword ? "text" : "password"}
-                required
-                minLength={6}
-                autoComplete="new-password"
-                placeholder="••••••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full text-xs pl-10 pr-10 py-3 bg-nutri-bg/50 rounded-xl border border-nutri-border focus:outline-none focus:border-nutri-green focus:bg-white text-nutri-charcoal font-medium transition-colors"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 p-0.5 text-nutri-secondary hover:text-nutri-charcoal transition-colors cursor-pointer"
-                title={showPassword ? "Hide password" : "Show password"}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            <p className="text-[10px] text-nutri-secondary mt-1">
-              Must be at least 6 characters long.
-            </p>
           </div>
-
-
-
-          {/* Submit Button */}
-          <Button
-            type="submit"
-            isLoading={loading}
-            size="lg"
-            className="w-full bg-nutri-green text-white hover:bg-nutri-green-dark font-extrabold text-xs rounded-full cursor-pointer shadow-xs py-3 mt-2"
-          >
-            {targetPortal === "admin"
-              ? "REGISTER SUPER ADMIN"
-              : targetPortal === "kitchen"
-              ? "REGISTER KITCHEN OPERATOR"
-              : targetPortal === "trainer"
-              ? "REGISTER TRAINER PARTNER"
-              : "CREATE CUSTOMER ACCOUNT"}{" "}
-            <ArrowRight className="w-4 h-4 ml-1.5 stroke-[2.5]" />
-          </Button>
-        </form>
-
-        {/* Navigation to Login */}
-        <div className="pt-2 border-t border-nutri-border-light text-center">
-          <p className="text-xs text-nutri-secondary">
-            Already have an account?{" "}
-            <Link
-              href={loginLink}
-              className="font-bold text-nutri-green hover:underline cursor-pointer"
-            >
-              Sign in
-            </Link>
-          </p>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }
 
 export default function SignupPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-nutri-bg">
+    <div className="min-h-screen flex flex-col bg-nutri-bg selection:bg-nutri-green-light selection:text-nutri-green">
       <PublicHeader />
-      <main className="flex-1 flex flex-col justify-center items-center px-4 py-8 sm:py-12">
+      <main className="flex-1 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <Suspense
           fallback={
             <div className="text-xs font-bold text-nutri-green p-8 animate-pulse">

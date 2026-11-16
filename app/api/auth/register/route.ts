@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withDbRetry } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { hashPassword } from "@/lib/password";
 import { validateAndConsumeStaffCode } from "@/lib/staff-access-codes";
@@ -55,10 +55,12 @@ export async function POST(request: Request) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // 3. Prevent duplicate email registration
-    const existingUser = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
+    // 3. Prevent duplicate email registration with connection retry
+    const existingUser = await withDbRetry(() =>
+      prisma.user.findUnique({
+        where: { email: normalizedEmail },
+      })
+    );
 
     if (existingUser) {
       return NextResponse.json(
@@ -248,28 +250,30 @@ export async function POST(request: Request) {
     }
 
     // CUSTOMER REGISTRATION (Public, strictly CUSTOMER role only)
-    const defaultOutlet = await prisma.outlet.findFirst();
+    const defaultOutlet = await withDbRetry(() => prisma.outlet.findFirst());
 
-    const newUser = await prisma.user.create({
-      data: {
-        name: name.trim(),
-        email: normalizedEmail,
-        phone: phone ? phone.trim() : null,
-        passwordHash: hashedPassword,
-        role: Role.CUSTOMER, // Strict: never allows privileged role in public registration
-        selectedGymId: defaultOutlet?.gymId || null,
-        selectedOutletId: defaultOutlet?.id || null,
-        streakDays: 1,
-        proteinGoalGrams: 120,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        selectedOutletId: true,
-      },
-    });
+    const newUser = await withDbRetry(() =>
+      prisma.user.create({
+        data: {
+          name: name.trim(),
+          email: normalizedEmail,
+          phone: phone ? phone.trim() : null,
+          passwordHash: hashedPassword,
+          role: Role.CUSTOMER, // Strict: never allows privileged role in public registration
+          selectedGymId: defaultOutlet?.gymId || null,
+          selectedOutletId: defaultOutlet?.id || null,
+          streakDays: 1,
+          proteinGoalGrams: 120,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          selectedOutletId: true,
+        },
+      })
+    );
 
     return NextResponse.json({
       success: true,
@@ -277,7 +281,8 @@ export async function POST(request: Request) {
       portal: "customer",
     });
   } catch (error: any) {
-    console.error("User registration error:", error);
+    // Diagnostic details securely logged on server only
+    console.error("[Auth/Register] Server-side registration error:", error);
 
     // If an error came from access code validation during transaction, return 403
     if (
@@ -289,8 +294,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: error.message }, { status: 403 });
     }
 
+    // Prisma unique constraint violation (P2002) - duplicate email
+    if (error?.code === "P2002") {
+      return NextResponse.json(
+        { success: false, error: "An account with this email already exists" },
+        { status: 400 }
+      );
+    }
+
+    // Database connection failure or transient server error:
+    // Never display raw Prisma errors, SQL details, hostnames or internal infrastructure information to customers.
     return NextResponse.json(
-      { success: false, error: error.message || "Failed to create account" },
+      {
+        success: false,
+        error: "We're temporarily unable to process your request. Please try again shortly.",
+      },
       { status: 500 }
     );
   }

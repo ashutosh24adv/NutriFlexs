@@ -1,0 +1,123 @@
+/**
+ * NutriFlexs Global Typography System
+ * Consistent typography tokens, heading hierarchies, body copy, and text utilities
+ */
+
+/* Heading Classes */
+.font-heading {
+  font-family: var(--font-family-heading);
+}
+
+.font-sans {
+  font-family: var(--font-family-sans);
+}
+
+.heading-display {
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-5xl, 3rem);
+  line-height: var(--line-height-tight, 1.15);
+  font-weight: var(--font-weight-extrabold, 800);
+  letter-spacing: -0.03em;
+  color: var(--color-text-primary, #111111);
+}
+
+.heading-1 {
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-4xl, 2.25rem);
+  line-height: var(--line-height-tight, 1.15);
+  font-weight: var(--font-weight-bold, 700);
+  letter-spacing: -0.025em;
+  color: var(--color-text-primary, #111111);
+}
+
+.heading-2 {
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-3xl, 1.875rem);
+  line-height: var(--line-height-snug, 1.3);
+  font-weight: var(--font-weight-bold, 700);
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary, #111111);
+}
+
+.heading-3 {
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-2xl, 1.5rem);
+  line-height: var(--line-height-snug, 1.3);
+  font-weight: var(--font-weight-semibold, 600);
+  letter-spacing: -0.015em;
+  color: var(--color-text-primary, #111111);
+}
+
+.heading-4 {
+  font-family: var(--font-family-heading);
+  font-size: var(--font-size-xl, 1.25rem);
+  line-height: var(--line-height-normal, 1.5);
+  font-weight: var(--font-weight-semibold, 600);
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary, #111111);
+}
+
+/* Body and Paragraphs */
+.text-body-lead {
+  font-size: var(--font-size-lg, 1.125rem);
+  line-height: var(--line-height-relaxed, 1.625);
+  color: var(--color-text-secondary, #4B5563);
+}
+
+.text-body {
+  font-size: var(--font-size-base, 1rem);
+  line-height: var(--line-height-normal, 1.5);
+  color: var(--color-text-secondary, #4B5563);
+}
+
+.text-body-sm {
+  font-size: var(--font-size-sm, 0.875rem);
+  line-height: var(--line-height-normal, 1.5);
+  color: var(--color-text-secondary, #4B5563);
+}
+
+.text-caption {
+  font-size: var(--font-size-xs, 0.75rem);
+  line-height: var(--line-height-normal, 1.5);
+  color: var(--color-text-muted, #6B7280);
+}
+
+/* Form and UI Labels */
+.label-primary {
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--color-text-primary, #111111);
+  display: block;
+  margin-bottom: var(--space-2, 0.5rem);
+}
+
+.badge-label {
+  font-size: var(--font-size-2xs, 0.6875rem);
+  font-weight: var(--font-weight-bold, 700);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Links */
+.link-primary {
+  color: var(--color-primary, #2F7D16);
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.link-primary:hover {
+  color: var(--color-primary-dark, #24630F);
+  text-decoration: underline;
+}
+
+.link-muted {
+  color: var(--color-text-muted, #6B7280);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.link-muted:hover {
+  color: var(--color-text-primary, #111111);
+}
+

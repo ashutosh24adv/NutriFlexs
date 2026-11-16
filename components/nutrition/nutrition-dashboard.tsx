@@ -25,15 +25,18 @@ import {
   CheckCircle2,
   AlertCircle,
   Apple,
+  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { MealType } from "@prisma/client";
 import { DailyNutritionSummary, MealDiarySection } from "@/services/nutrition.service";
 import { FoodSearchModal } from "@/components/nutrition/food-search-modal";
 import { CustomFoodModal } from "@/components/nutrition/custom-food-modal";
 import { EditLogModal } from "@/components/nutrition/edit-log-modal";
 import { NutritionGoalsModal } from "@/components/nutrition/nutrition-goals-modal";
+import { AIMealScannerModal } from "@/components/nutrition/ai-meal-scanner-modal";
 import {
   getGuestDailyNutritionSummary,
   hasGuestDataToMigrate,
@@ -51,7 +54,7 @@ const MEAL_ICONS: Record<string, any> = {
 
 const MEAL_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   BREAKFAST: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
-  LUNCH: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+  LUNCH: { bg: "bg-nutri-green-light/60", text: "text-nutri-green", border: "border-nutri-border" },
   SNACKS: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
   DINNER: { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
 };
@@ -102,7 +105,11 @@ function formatHumanDate(dateKey: string): { label: string; sublabel: string; is
   return { label: formatted, sublabel: dateKey, isToday: false };
 }
 
-export function NutritionDashboard() {
+export interface NutritionDashboardProps {
+  onRetakeOnboarding?: () => void;
+}
+
+export function NutritionDashboard({ onRetakeOnboarding }: NutritionDashboardProps = {}) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const isAuthenticated = status === "authenticated";
@@ -120,6 +127,8 @@ export function NutritionDashboard() {
   // Modals state
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [searchModalMealType, setSearchModalMealType] = useState<"BREAKFAST" | "LUNCH" | "SNACKS" | "DINNER">("BREAKFAST");
+  const [scannerModalOpen, setScannerModalOpen] = useState(false);
+  const [scannerMealType, setScannerMealType] = useState<MealType>(MealType.LUNCH);
   const [customFoodModalOpen, setCustomFoodModalOpen] = useState(false);
   const [editLogModalOpen, setEditLogModalOpen] = useState(false);
   const [selectedLogItem, setSelectedLogItem] = useState<any | null>(null);
@@ -256,6 +265,11 @@ export function NutritionDashboard() {
     setSearchModalOpen(true);
   };
 
+  const handleOpenScannerModal = (mealType: MealType = MealType.LUNCH) => {
+    setScannerMealType(mealType);
+    setScannerModalOpen(true);
+  };
+
   const handleOpenEditModal = (item: any, mealType: "BREAKFAST" | "LUNCH" | "SNACKS" | "DINNER") => {
     setSelectedLogItem({ ...item, mealType });
     setEditLogModalOpen(true);
@@ -282,14 +296,14 @@ export function NutritionDashboard() {
     <div className="space-y-6 pb-16">
       {/* Migration Success Notice */}
       {migrationNotice && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm rounded-2xl flex items-center justify-between animate-fade-in shadow-xs">
+        <div className="p-4 bg-nutri-green-light border border-nutri-border text-nutri-charcoal text-xs sm:text-sm rounded-2xl flex items-center justify-between animate-fade-in shadow-xs">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-nutri-green" />
             <span>{migrationNotice}</span>
           </div>
           <button
             onClick={() => setMigrationNotice(null)}
-            className="text-xs font-bold text-emerald-700 hover:text-emerald-900 cursor-pointer px-1"
+            className="text-xs font-bold text-nutri-green hover:text-nutri-green-dark cursor-pointer px-1"
           >
             ✕
           </button>
@@ -515,10 +529,10 @@ export function NutritionDashboard() {
         <Card className="p-5 bg-white border border-nutri-border rounded-3xl shadow-xs space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-nutri-secondary flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Protein
+              <span className="w-2.5 h-2.5 rounded-full bg-nutri-green" /> Protein
             </span>
             {goals.proteinGoal && (
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+              <span className="text-[10px] font-bold text-nutri-green bg-nutri-green-light px-2 py-0.5 rounded-md border border-nutri-border-light">
                 Goal: {goals.proteinGoal}g
               </span>
             )}
@@ -534,7 +548,7 @@ export function NutritionDashboard() {
               <div className="mt-2 space-y-1">
                 <div className="w-full bg-nutri-bg rounded-full h-2 overflow-hidden border border-nutri-border-light">
                   <div
-                    className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                    className="h-full bg-nutri-green rounded-full transition-all duration-500"
                     style={{ width: `${Math.min(100, goals.proteinProgressPercent)}%` }}
                   />
                 </div>
@@ -628,10 +642,17 @@ export function NutritionDashboard() {
         <div className="flex items-center gap-2">
           <Info className="w-4 h-4 text-nutri-green shrink-0" />
           <span className="text-xs text-nutri-secondary leading-snug">
-            Completed NutriFlexs express kiosk orders are synced automatically. Use <strong>+ Add Food</strong> to log homemade &amp; outside meals.
+            Completed NutriFlexs express kiosk orders are synced automatically. Use <strong>Scan Your Meal</strong> to log plate photos with AI.
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <Button
+            size="sm"
+            onClick={() => handleOpenScannerModal(MealType.LUNCH)}
+            className="bg-nutri-green hover:bg-nutri-green-dark text-white font-bold text-xs cursor-pointer shadow-xs transition-all"
+          >
+            <Camera className="w-3.5 h-3.5 mr-1.5" /> Scan Your Meal
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -642,9 +663,9 @@ export function NutritionDashboard() {
           </Button>
           <Button
             size="sm"
-            variant="primary"
+            variant="outline"
             onClick={() => handleOpenSearchModal("BREAKFAST")}
-            className="bg-nutri-green hover:bg-nutri-green-dark text-white font-bold text-xs cursor-pointer shadow-xs"
+            className="text-xs font-bold border-nutri-border text-nutri-charcoal hover:bg-white cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5 mr-1" /> Add Food
           </Button>
@@ -697,6 +718,14 @@ export function NutritionDashboard() {
                   <Button
                     size="sm"
                     variant="outline"
+                    onClick={() => handleOpenScannerModal(mealType as MealType)}
+                    className="text-xs font-bold border-nutri-green/40 text-nutri-green hover:bg-nutri-green-light py-1.5 px-3 rounded-xl cursor-pointer"
+                  >
+                    <Camera className="w-3.5 h-3.5 mr-1" /> Scan Meal
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={() => handleOpenSearchModal(mealType)}
                     className="text-xs font-bold border-nutri-green text-nutri-green hover:bg-nutri-green-light py-1.5 px-3 rounded-xl cursor-pointer"
                   >
@@ -736,6 +765,7 @@ export function NutritionDashboard() {
                           </div>
                           <p className="text-[11px] text-nutri-secondary mt-0.5">
                             {item.quantity} {item.unit}
+                            {(item as any).grams ? ` (~${(item as any).grams}g)` : ""}
                           </p>
                         </div>
 
@@ -813,6 +843,9 @@ export function NutritionDashboard() {
         isOpen={goalsModalOpen}
         onClose={() => setGoalsModalOpen(false)}
         onGoalsUpdated={() => fetchDiary(currentDateKey)}
+        onRetakeOnboarding={
+          onRetakeOnboarding || (() => router.push("/nutrition/onboarding?retake=true"))
+        }
         currentGoals={{
           dailyCalorieGoal: goals.dailyCalorieGoal,
           proteinGoal: goals.proteinGoal,
@@ -820,6 +853,14 @@ export function NutritionDashboard() {
           fatGoal: goals.fatGoal,
         }}
         isGuest={!isAuthenticated}
+      />
+
+      <AIMealScannerModal
+        isOpen={scannerModalOpen}
+        onClose={() => setScannerModalOpen(false)}
+        initialMealType={scannerMealType}
+        dateKey={currentDateKey}
+        onScanSuccess={() => fetchDiary(currentDateKey)}
       />
     </div>
   );

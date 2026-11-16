@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { Shield, ShoppingBag, Box, BarChart3, Tag, Check, RefreshCw, ChevronLeft, Plus, LogOut, KeyRound, Building2 } from "lucide-react";
+import { Shield, ShoppingBag, Box, BarChart3, Tag, Check, RefreshCw, ChevronLeft, Plus, LogOut, KeyRound, Building2, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
 import { AccessCodesTab } from "@/components/admin/access-codes-tab";
 import { GymsTab } from "@/components/admin/gyms-tab";
+import { SubscriptionsTab } from "@/components/admin/subscriptions-tab";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -118,6 +119,7 @@ export default function AdminDashboard() {
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
         {[
           { id: "overview", label: "Overview & Analytics", icon: BarChart3 },
+          { id: "subscriptions", label: "NutriFlexs Passes", icon: Sparkles },
           { id: "gyms", label: "Partner Gyms & Kiosks", icon: Building2 },
           { id: "access-codes", label: "Staff Access Codes", icon: KeyRound },
           { id: "products", label: "Product Catalog", icon: ShoppingBag },
@@ -244,7 +246,10 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* 2. PARTNER GYMS & KIOSKS TAB */}
+      {/* 2. NUTRIFLEXS PASSES MANAGEMENT TAB */}
+      {activeTab === "subscriptions" && <SubscriptionsTab />}
+
+      {/* 3. PARTNER GYMS & KIOSKS TAB */}
       {activeTab === "gyms" && <GymsTab />}
 
       {/* 3. PRODUCTS CATALOG TAB (Loaded from PostgreSQL Product Table) */}

@@ -11,6 +11,9 @@ export interface GuestNutritionGoal {
 export interface GuestFoodLogItem {
   id: string;
   foodItemId?: string | null;
+  foodVariantId?: string | null;
+  variantName?: string | null;
+  gramsCalculated?: number | null;
   productId?: string | null;
   orderItemId?: string | null;
   name: string;

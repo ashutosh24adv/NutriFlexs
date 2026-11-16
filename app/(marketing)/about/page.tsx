@@ -241,7 +241,7 @@ export default function AboutPage() {
         <div className="relative z-10 max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center text-white space-y-6 sm:space-y-8">
           {/* Brand Tag Pill */}
           <div className="inline-flex items-center gap-2 bg-white/15 border border-white/30 text-white text-xs sm:text-[13px] font-extrabold uppercase tracking-wider px-4 py-1.5 rounded-full backdrop-blur-md shadow-xs">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-300 fill-emerald-300" />
+            <Sparkles className="w-3.5 h-3.5 text-nutri-green-light fill-nutri-green-light" />
             <span>OUR STORY &amp; PURPOSE</span>
           </div>
 
@@ -249,7 +249,7 @@ export default function AboutPage() {
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold font-heading text-white tracking-tight leading-[1.08] max-w-4xl mx-auto">
             Fuel Your Ambition.
             <br />
-            <span className="text-emerald-300">Nourish Your Potential.</span>
+            <span className="text-nutri-green-light">Nourish Your Potential.</span>
           </h1>
 
           {/* Supporting Text */}
@@ -272,7 +272,7 @@ export default function AboutPage() {
               href="/gyms"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 text-white font-bold text-sm sm:text-base py-3.5 px-8 rounded-full border border-white/30 backdrop-blur-sm transition-all duration-200 cursor-pointer active:scale-98"
             >
-              <MapPin className="w-4 h-4 text-emerald-300" />
+              <MapPin className="w-4 h-4 text-nutri-green-light" />
               <span>Find a Nearby Gym</span>
             </Link>
           </div>
@@ -280,13 +280,13 @@ export default function AboutPage() {
           {/* Trust Highlights Strip */}
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 pt-6 sm:pt-10 text-xs sm:text-sm font-semibold text-nutri-green-light/90 border-t border-white/15 max-w-2xl mx-auto">
             <span className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-emerald-300" /> ~5-Min Express Pickup
+              <Clock className="w-4 h-4 text-nutri-green-light" /> ~5-Min Express Pickup
             </span>
             <span className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-300" /> Fresh Daily Preparation
+              <ShieldCheck className="w-4 h-4 text-nutri-green-light" /> Fresh Daily Preparation
             </span>
             <span className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-emerald-300" /> Transparent Nutrition
+              <Zap className="w-4 h-4 text-nutri-green-light" /> Transparent Nutrition
             </span>
           </div>
 
@@ -298,7 +298,7 @@ export default function AboutPage() {
               className="inline-flex flex-col items-center text-xs text-white/70 hover:text-white transition-colors"
             >
               <span className="text-[11px] font-medium tracking-wider uppercase mb-1">Discover</span>
-              <ChevronDown className="w-4 h-4 animate-bounce text-emerald-300" />
+              <ChevronDown className="w-4 h-4 animate-bounce text-nutri-green-light" />
             </a>
           </div>
         </div>
@@ -800,9 +800,9 @@ export default function AboutPage() {
           <div className="max-w-2xl mx-auto space-y-6 relative z-10">
             <Badge
               variant="gold"
-              className="bg-white/15 text-emerald-300 border-white/20 font-extrabold text-xs px-4 py-1.5 inline-flex items-center gap-1.5"
+              className="bg-white/15 text-nutri-green-light border-white/20 font-extrabold text-xs px-4 py-1.5 inline-flex items-center gap-1.5"
             >
-              <Zap className="w-3.5 h-3.5 text-emerald-300 fill-emerald-300 shrink-0" />
+              <Zap className="w-3.5 h-3.5 text-nutri-green-light fill-nutri-green-light shrink-0" />
               START YOUR REFUEL ROUTINE
             </Badge>
 
@@ -826,7 +826,7 @@ export default function AboutPage() {
                 href="/gyms"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold text-sm sm:text-base py-3.5 px-8 rounded-full border border-white/25 transition-all duration-200 cursor-pointer active:scale-98"
               >
-                <MapPin className="w-4 h-4 text-emerald-300" />
+                <MapPin className="w-4 h-4 text-nutri-green-light" />
                 <span>Find a Nearby Gym</span>
               </Link>
             </div>

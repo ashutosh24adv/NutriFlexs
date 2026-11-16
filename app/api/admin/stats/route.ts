@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { stripSensitiveFields, safeErrorResponse } from "@/lib/api-security";
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role;
 
-    if (!session || userRole !== "ADMIN") {
+    if (!session || (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN")) {
       return NextResponse.json(
         { success: false, error: "Unauthorized. Administrator role required." },
         { status: 403 }
@@ -39,7 +40,15 @@ export async function GET() {
         orderBy: { createdAt: "desc" },
         include: {
           items: { include: { product: { include: { category: true } } } },
-          user: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              role: true,
+            },
+          },
           outlet: { include: { gym: true } },
         },
       }),
@@ -75,23 +84,25 @@ export async function GET() {
       sales,
     }));
 
-    return NextResponse.json({
-      success: true,
-      stats: {
-        totalOrdersCount,
-        todayOrdersCount: todayOrders.length,
-        todayRevenue,
-        totalRevenue,
-        activeCustomersCount,
-        activeSubscriptionsCount,
-      },
-      categoryData,
-      recentOrders: allOrders,
-      products,
-      coupons,
-      inventoryItems,
-    });
+    return NextResponse.json(
+      stripSensitiveFields({
+        success: true,
+        stats: {
+          totalOrdersCount,
+          todayOrdersCount: todayOrders.length,
+          todayRevenue,
+          totalRevenue,
+          activeCustomersCount,
+          activeSubscriptionsCount,
+        },
+        categoryData,
+        recentOrders: allOrders,
+        products,
+        coupons,
+        inventoryItems,
+      })
+    );
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return safeErrorResponse(error, "Failed to load administrative analytics", 500);
   }
 }

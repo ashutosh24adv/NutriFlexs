@@ -20,11 +20,14 @@ export interface MealDiarySection {
   items: Array<{
     id: string;
     foodItemId?: string | null;
+    foodVariantId?: string | null;
+    variantName?: string | null;
     productId?: string | null;
     orderItemId?: string | null;
     name: string;
     quantity: number;
     unit: string;
+    grams?: number | null;
     calories: number;
     protein: number;
     carbohydrates: number;
@@ -116,6 +119,62 @@ export function calculateItemNutrition(
 }
 
 /**
+ * Calculates nutrition for an Indian food variant based on dish-specific serving conversions.
+ * Authoritative Formula: Selected nutrition = Nutrition per 100g × Selected quantity in grams / 100
+ */
+export function calculateVariantNutrition(
+  variant: {
+    caloriesPer100g: number;
+    protein: number;
+    carbohydrates: number;
+    fat: number;
+    servingConversions?: any;
+  },
+  quantity: number,
+  unit: string,
+  fallbackServingGrams = 180
+) {
+  const normUnit = (unit || "medium_bowl").toLowerCase().trim().replace(/[\s-]+/g, "_");
+  const conversions =
+    variant.servingConversions && typeof variant.servingConversions === "object"
+      ? (variant.servingConversions as Record<string, number>)
+      : {};
+
+  let gramsPerUnit = fallbackServingGrams;
+
+  if (normUnit === "g" || normUnit === "gram" || normUnit === "grams") {
+    gramsPerUnit = 1;
+  } else if (normUnit === "small_bowl" || normUnit === "small_katori") {
+    gramsPerUnit = conversions.small_bowl || 110;
+  } else if (
+    normUnit === "medium_bowl" ||
+    normUnit === "bowl" ||
+    normUnit === "medium_katori" ||
+    normUnit === "serving"
+  ) {
+    gramsPerUnit = conversions.medium_bowl || 180;
+  } else if (normUnit === "large_bowl" || normUnit === "large_katori") {
+    gramsPerUnit = conversions.large_bowl || 280;
+  } else if (normUnit === "cup" || normUnit === "cups") {
+    gramsPerUnit = conversions.cup || 220;
+  } else if (conversions[normUnit]) {
+    gramsPerUnit = conversions[normUnit];
+  }
+
+  const totalGrams = Math.max(0, Math.round(quantity * gramsPerUnit * 10) / 10);
+  const factor = totalGrams / 100;
+
+  return {
+    grams: totalGrams,
+    gramsPerUnit,
+    calories: Math.round(variant.caloriesPer100g * factor * 10) / 10,
+    protein: Math.round(variant.protein * factor * 10) / 10,
+    carbohydrates: Math.round(variant.carbohydrates * factor * 10) / 10,
+    fat: Math.round(variant.fat * factor * 10) / 10,
+  };
+}
+
+/**
  * Returns today's date in YYYY-MM-DD format for a given timezone.
  */
 export function getLocalDateKey(timeZone = "Asia/Kolkata", date = new Date()): string {
@@ -188,7 +247,15 @@ export async function searchFoodLibrary(params: {
   }
 
   if (trimmed) {
-    whereFoodItem.name = { contains: trimmed, mode: "insensitive" };
+    whereFoodItem.AND = [
+      {
+        OR: [
+          { name: { contains: trimmed, mode: "insensitive" } },
+          { description: { contains: trimmed, mode: "insensitive" } },
+          { variants: { some: { name: { contains: trimmed, mode: "insensitive" } } } },
+        ],
+      },
+    ];
   }
 
   const [foods, totalFoods] = await Promise.all([
@@ -209,7 +276,31 @@ export async function searchFoodLibrary(params: {
         defaultServingSize: true,
         defaultServingUnit: true,
         servingWeightGrams: true,
+        hasVariants: true,
         isCustom: true,
+        variants: {
+          where: { isActive: true },
+          orderBy: { displayOrder: "asc" },
+          select: {
+            id: true,
+            foodItemId: true,
+            name: true,
+            variantType: true,
+            description: true,
+            caloriesPer100g: true,
+            protein: true,
+            carbohydrates: true,
+            fat: true,
+            isDefault: true,
+            servingConversions: true,
+            preparationMethod: true,
+            nutritionSource: true,
+            confidenceLevel: true,
+            imageUrl: true,
+            displayOrder: true,
+            isActive: true,
+          },
+        },
       },
     }),
     prisma.foodItem.count({ where: whereFoodItem }),
@@ -342,11 +433,14 @@ export async function getDailyNutritionDiary(userId: string, dateKey: string): P
     meal.items.push({
       id: log.id,
       foodItemId: log.foodItemId,
+      foodVariantId: log.foodVariantId,
       productId: log.productId,
       orderItemId: log.orderItemId,
       name: log.foodNameSnapshot,
+      variantName: log.variantNameSnapshot,
       quantity: log.quantity,
       unit: log.unit,
+      grams: log.gramsCalculated,
       calories: roundedCals,
       protein: roundedProt,
       carbohydrates: roundedCarb,
@@ -415,7 +509,11 @@ export async function addFoodLog(userId: string, input: AddFoodLogInput) {
   let calculatedProtein = 0;
   let calculatedCarbs = 0;
   let calculatedFat = 0;
+  let calculatedGrams: number | null = null;
   let foodName = input.foodName.trim();
+  let variantNameSnapshot: string | null = input.variantName || null;
+  let foodItemId: string | null = input.foodItemId || null;
+  let foodVariantId: string | null = input.foodVariantId || null;
   let possibleDuplicate = false;
 
   if (input.productId) {
@@ -429,6 +527,7 @@ export async function addFoodLog(userId: string, input: AddFoodLogInput) {
     calculatedProtein = Math.round(product.protein * input.quantity * 10) / 10;
     calculatedCarbs = Math.round(product.carbs * input.quantity * 10) / 10;
     calculatedFat = Math.round(product.fats * input.quantity * 10) / 10;
+    calculatedGrams = Math.round(input.quantity * 100 * 10) / 10;
 
     // Check if an order item for this product was already logged for this user on this dateKey
     const existingOrderLog = await prisma.foodLog.findFirst({
@@ -442,6 +541,30 @@ export async function addFoodLog(userId: string, input: AddFoodLogInput) {
     if (existingOrderLog) {
       possibleDuplicate = true;
     }
+  } else if (input.foodVariantId) {
+    // Dedicated variant logging with dish-specific gram conversions
+    const variant = await prisma.foodVariant.findUnique({
+      where: { id: input.foodVariantId },
+      include: { foodItem: true },
+    });
+    if (!variant) throw new Error("Food variant not found");
+
+    foodItemId = variant.foodItemId;
+    foodVariantId = variant.id;
+    foodName = variant.name;
+    variantNameSnapshot = variant.name;
+
+    const computed = calculateVariantNutrition(
+      variant,
+      input.quantity,
+      input.unit,
+      variant.foodItem?.servingWeightGrams || 180
+    );
+    calculatedCalories = computed.calories;
+    calculatedProtein = computed.protein;
+    calculatedCarbs = computed.carbohydrates;
+    calculatedFat = computed.fat;
+    calculatedGrams = computed.grams;
   } else if (input.foodItemId) {
     const foodItem = await prisma.foodItem.findFirst({
       where: {
@@ -458,20 +581,28 @@ export async function addFoodLog(userId: string, input: AddFoodLogInput) {
     calculatedProtein = computed.protein;
     calculatedCarbs = computed.carbohydrates;
     calculatedFat = computed.fat;
+    calculatedGrams = computed.grams;
   } else {
     // Custom ad-hoc entry
     calculatedCalories = input.calories !== undefined ? input.calories : 0;
     calculatedProtein = input.protein !== undefined ? input.protein : 0;
     calculatedCarbs = input.carbohydrates !== undefined ? input.carbohydrates : 0;
     calculatedFat = input.fat !== undefined ? input.fat : 0;
+    if (input.unit?.toLowerCase() === "g" || input.unit?.toLowerCase() === "grams") {
+      calculatedGrams = input.quantity;
+    }
   }
 
   const log = await prisma.foodLog.create({
     data: {
       userId,
-      foodItemId: input.foodItemId || null,
+      foodItemId,
+      foodVariantId,
       productId: input.productId || null,
       foodNameSnapshot: foodName,
+      variantNameSnapshot,
+      servingUnitSnapshot: input.unit,
+      gramsCalculated: calculatedGrams,
       mealType: input.mealType,
       quantity: input.quantity,
       unit: input.unit,
@@ -496,7 +627,7 @@ export async function addFoodLog(userId: string, input: AddFoodLogInput) {
 export async function updateFoodLog(userId: string, logId: string, input: UpdateFoodLogInput) {
   const existing = await prisma.foodLog.findFirst({
     where: { id: logId, userId },
-    include: { foodItem: true, product: true },
+    include: { foodItem: true, product: true, foodVariant: true },
   });
 
   if (!existing) {
@@ -506,23 +637,49 @@ export async function updateFoodLog(userId: string, logId: string, input: Update
   const quantity = input.quantity !== undefined ? input.quantity : existing.quantity;
   const unit = input.unit !== undefined ? input.unit : existing.unit;
   const mealType = input.mealType !== undefined ? input.mealType : existing.mealType;
+  const targetVariantId = input.foodVariantId !== undefined ? input.foodVariantId : existing.foodVariantId;
 
   let calories = existing.calories;
   let protein = existing.protein;
   let carbohydrates = existing.carbohydrates;
   let fat = existing.fat;
+  let gramsCalculated = existing.gramsCalculated;
+  let foodNameSnapshot = existing.foodNameSnapshot;
+  let variantNameSnapshot = existing.variantNameSnapshot;
 
-  if (existing.productId && existing.product) {
+  if (targetVariantId) {
+    const variant = await prisma.foodVariant.findUnique({
+      where: { id: targetVariantId },
+      include: { foodItem: true },
+    });
+    if (variant) {
+      foodNameSnapshot = variant.name;
+      variantNameSnapshot = variant.name;
+      const computed = calculateVariantNutrition(
+        variant,
+        quantity,
+        unit,
+        variant.foodItem?.servingWeightGrams || 180
+      );
+      calories = computed.calories;
+      protein = computed.protein;
+      carbohydrates = computed.carbohydrates;
+      fat = computed.fat;
+      gramsCalculated = computed.grams;
+    }
+  } else if (existing.productId && existing.product) {
     calories = Math.round(existing.product.calories * quantity * 10) / 10;
     protein = Math.round(existing.product.protein * quantity * 10) / 10;
     carbohydrates = Math.round(existing.product.carbs * quantity * 10) / 10;
     fat = Math.round(existing.product.fats * quantity * 10) / 10;
+    gramsCalculated = Math.round(quantity * 100 * 10) / 10;
   } else if (existing.foodItemId && existing.foodItem) {
     const computed = calculateItemNutrition(existing.foodItem, quantity, unit);
     calories = computed.calories;
     protein = computed.protein;
     carbohydrates = computed.carbohydrates;
     fat = computed.fat;
+    gramsCalculated = computed.grams;
   } else {
     // If ad-hoc, scale proportionally with quantity ratio if user didn't override
     if (input.calories !== undefined) {
@@ -542,6 +699,11 @@ export async function updateFoodLog(userId: string, logId: string, input: Update
   return await prisma.foodLog.update({
     where: { id: logId },
     data: {
+      foodVariantId: targetVariantId || null,
+      foodNameSnapshot,
+      variantNameSnapshot,
+      servingUnitSnapshot: unit,
+      gramsCalculated,
       quantity,
       unit,
       mealType,
@@ -892,13 +1054,16 @@ export async function getRecentFoods(userId: string, limit = 12) {
     select: {
       id: true,
       foodNameSnapshot: true,
+      variantNameSnapshot: true,
       quantity: true,
       unit: true,
+      gramsCalculated: true,
       calories: true,
       protein: true,
       carbohydrates: true,
       fat: true,
       foodItemId: true,
+      foodVariantId: true,
       productId: true,
       loggedAt: true,
     },
@@ -908,19 +1073,22 @@ export async function getRecentFoods(userId: string, limit = 12) {
   const recentFoods: any[] = [];
 
   for (const log of logs) {
-    const key = log.foodNameSnapshot.trim().toLowerCase();
+    const key = (log.variantNameSnapshot || log.foodNameSnapshot).trim().toLowerCase();
     if (!seen.has(key)) {
       seen.add(key);
       recentFoods.push({
         id: log.id,
         name: log.foodNameSnapshot,
+        variantName: log.variantNameSnapshot,
         lastQuantity: log.quantity,
         unit: log.unit,
+        grams: log.gramsCalculated,
         calories: Math.round(log.calories * 10) / 10,
         protein: Math.round(log.protein * 10) / 10,
         carbohydrates: Math.round(log.carbohydrates * 10) / 10,
         fat: Math.round(log.fat * 10) / 10,
         foodItemId: log.foodItemId,
+        foodVariantId: log.foodVariantId,
         productId: log.productId,
         loggedAt: log.loggedAt.toISOString(),
       });
@@ -937,6 +1105,9 @@ export async function getRecentFoods(userId: string, limit = 12) {
 export async function getFavoriteFoods(userId: string) {
   return await prisma.favoriteFood.findMany({
     where: { userId },
+    include: {
+      foodVariant: true,
+    },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -947,6 +1118,7 @@ export async function getFavoriteFoods(userId: string) {
 export async function toggleFavoriteFood(userId: string, data: {
   foodName: string;
   foodItemId?: string | null;
+  foodVariantId?: string | null;
   productId?: string | null;
   category?: string | null;
   caloriesPer100g?: number;
@@ -964,7 +1136,8 @@ export async function toggleFavoriteFood(userId: string, data: {
     where: {
       userId,
       OR: [
-        ...(data.foodItemId ? [{ foodItemId: data.foodItemId }] : []),
+        ...(data.foodVariantId ? [{ foodVariantId: data.foodVariantId }] : []),
+        ...(data.foodItemId && !data.foodVariantId ? [{ foodItemId: data.foodItemId }] : []),
         ...(data.productId ? [{ productId: data.productId }] : []),
         { foodNameSnapshot: { equals: name, mode: "insensitive" } },
       ],
@@ -980,6 +1153,7 @@ export async function toggleFavoriteFood(userId: string, data: {
     data: {
       userId,
       foodItemId: data.foodItemId || null,
+      foodVariantId: data.foodVariantId || null,
       productId: data.productId || null,
       foodNameSnapshot: name,
       category: data.category || "General",
@@ -1015,7 +1189,9 @@ export async function getSavedMeals(userId: string) {
   const meals = await prisma.savedMeal.findMany({
     where: { userId },
     include: {
-      items: true,
+      items: {
+        include: { foodVariant: true },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -1046,6 +1222,7 @@ export async function createSavedMeal(userId: string, data: {
   items: Array<{
     foodName: string;
     foodItemId?: string | null;
+    foodVariantId?: string | null;
     productId?: string | null;
     quantity: number;
     unit: string;
@@ -1073,6 +1250,7 @@ export async function createSavedMeal(userId: string, data: {
         create: data.items.map((it) => ({
           foodName: it.foodName.trim(),
           foodItemId: it.foodItemId || null,
+          foodVariantId: it.foodVariantId || null,
           productId: it.productId || null,
           quantity: Math.max(0.1, it.quantity || 1),
           unit: it.unit || "serving",
@@ -1100,6 +1278,7 @@ export async function updateSavedMeal(userId: string, mealId: string, data: {
   items: Array<{
     foodName: string;
     foodItemId?: string | null;
+    foodVariantId?: string | null;
     productId?: string | null;
     quantity: number;
     unit: string;
@@ -1134,6 +1313,7 @@ export async function updateSavedMeal(userId: string, mealId: string, data: {
           create: data.items.map((it) => ({
             foodName: it.foodName.trim(),
             foodItemId: it.foodItemId || null,
+            foodVariantId: it.foodVariantId || null,
             productId: it.productId || null,
             quantity: Math.max(0.1, it.quantity || 1),
             unit: it.unit || "serving",
@@ -1190,8 +1370,11 @@ export async function logSavedMeal(userId: string, mealId: string, mealType: Mea
         data: {
           userId,
           foodItemId: it.foodItemId || null,
+          foodVariantId: it.foodVariantId || null,
           productId: it.productId || null,
           foodNameSnapshot: it.foodName,
+          variantNameSnapshot: it.foodName,
+          servingUnitSnapshot: it.unit,
           mealType,
           quantity: it.quantity,
           unit: it.unit,

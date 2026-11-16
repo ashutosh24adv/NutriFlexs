@@ -273,7 +273,7 @@ export function GymSelector({
         {/* VIEW: INITIAL */}
         {modalView === "initial" && (
           <div className="space-y-3.5 py-1">
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-nutri-green-light/80 to-emerald-50/50 border border-nutri-green/20 text-center space-y-3">
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-nutri-green-light to-nutri-green-soft border border-nutri-green/20 text-center space-y-3">
               <div className="w-12 h-12 mx-auto rounded-2xl bg-white shadow-xs flex items-center justify-center text-nutri-green">
                 <Navigation className="w-6 h-6 text-nutri-green fill-nutri-green/20" />
               </div>
@@ -405,7 +405,7 @@ export function GymSelector({
                             {gym.name}
                           </h5>
                           {gym.formattedDistance && (
-                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-nutri-green-light text-nutri-green border border-nutri-border-light shrink-0">
                               📍 {gym.formattedDistance}
                             </span>
                           )}

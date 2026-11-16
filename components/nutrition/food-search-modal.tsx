@@ -8,6 +8,7 @@ import {
   Flame,
   Check,
   ChevronRight,
+  ChevronLeft,
   AlertCircle,
   Sparkles,
   Utensils,
@@ -15,16 +16,14 @@ import {
   RotateCcw,
   Star,
   Clock,
-  Heart,
-  Bookmark,
   Layers,
   Trash2,
   CheckCircle2,
-  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { calculateItemNutrition } from "@/services/nutrition.service";
+import { cn } from "@/lib/utils";
+import { calculateItemNutrition, calculateVariantNutrition } from "@/services/nutrition.service";
 import {
   addGuestLog,
   getGuestCustomFoods,
@@ -38,7 +37,34 @@ import {
   logGuestSavedMeal,
 } from "@/lib/guest-nutrition";
 
-interface FoodItem {
+export interface FoodVariantItem {
+  id: string;
+  foodItemId: string;
+  name: string;
+  variantType: "MORE_MAIN" | "BALANCED" | "GRAVY_ONLY" | "THICK" | "THIN";
+  description?: string | null;
+  caloriesPer100g: number;
+  protein: number;
+  carbohydrates: number;
+  fat: number;
+  isDefault: boolean;
+  servingConversions?: {
+    g?: number;
+    small_bowl?: number;
+    medium_bowl?: number;
+    large_bowl?: number;
+    cup?: number;
+    [key: string]: number | undefined;
+  } | null;
+  preparationMethod?: string | null;
+  nutritionSource?: string | null;
+  confidenceLevel?: string;
+  imageUrl?: string | null;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface FoodItem {
   id: string;
   name: string;
   description?: string | null;
@@ -53,6 +79,8 @@ interface FoodItem {
   isCustom?: boolean;
   productId?: string;
   isNutriFlexsProduct?: boolean;
+  hasVariants?: boolean;
+  variants?: FoodVariantItem[];
 }
 
 interface FoodSearchModalProps {
@@ -66,6 +94,43 @@ interface FoodSearchModalProps {
 }
 
 type TabType = "search" | "recents" | "favorites" | "savedMeals";
+
+function formatHeaderDate(dateKey: string): string {
+  try {
+    const parts = dateKey.split("-");
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const date = new Date(year, month, day);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        });
+      }
+    }
+    return dateKey;
+  } catch {
+    return dateKey;
+  }
+}
+
+function formatMealLabel(mealType: string): string {
+  switch (mealType) {
+    case "BREAKFAST":
+      return "Breakfast";
+    case "LUNCH":
+      return "Lunch";
+    case "SNACKS":
+      return "Evening Snacks";
+    case "DINNER":
+      return "Dinner";
+    default:
+      return mealType;
+  }
+}
 
 export function FoodSearchModal({
   isOpen,
@@ -81,7 +146,18 @@ export function FoodSearchModal({
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([
+    "All",
+    "NutriFlexs Menu",
+    "Popular",
+    "Dal and Legumes",
+    "Grains",
+    "Vegetables",
+    "Chicken and Meat",
+    "Dairy Products",
+    "Beverages",
+    "Fruits",
+  ]);
   const [foods, setFoods] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +165,7 @@ export function FoodSearchModal({
 
   // Selected food configuration state
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<FoodVariantItem | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
   const [unit, setUnit] = useState<string>("serving");
   const [targetMealType, setTargetMealType] = useState<"BREAKFAST" | "LUNCH" | "SNACKS" | "DINNER">(initialMealType);
@@ -96,7 +173,7 @@ export function FoodSearchModal({
   const [duplicateWarning, setDuplicateWarning] = useState(false);
   const [retryTrigger, setRetryTrigger] = useState(0);
 
-  // Phase 3 States: Recents, Favorites, Saved Meals
+  // Recents, Favorites, Saved Meals
   const [recentFoods, setRecentFoods] = useState<any[]>([]);
   const [loadingRecents, setLoadingRecents] = useState(false);
 
@@ -140,7 +217,7 @@ export function FoodSearchModal({
       try {
         const res = await fetch("/api/nutrition/categories");
         const data = await res.json();
-        if (data.success && Array.isArray(data.categories)) {
+        if (data.success && Array.isArray(data.categories) && data.categories.length > 0) {
           setCategories(data.categories);
         }
       } catch (err) {
@@ -240,7 +317,7 @@ export function FoodSearchModal({
         const params = new URLSearchParams();
         if (searchQuery.trim()) params.set("q", searchQuery.trim());
         if (selectedCategory && selectedCategory !== "All") params.set("category", selectedCategory);
-        params.set("limit", "40");
+        params.set("limit", "50");
 
         const res = await fetch(`/api/nutrition/foods?${params.toString()}`, {
           signal: controller.signal,
@@ -420,9 +497,17 @@ export function FoodSearchModal({
   // When a food item is clicked, initialize its serving inputs
   const handleSelectFood = (food: FoodItem) => {
     setSelectedFood(food);
-    const defUnit = food.defaultServingUnit || "g";
-    setUnit(defUnit);
-    setQuantity(food.defaultServingSize || (defUnit === "g" ? 100 : 1));
+    if (food.variants && food.variants.length > 0) {
+      const defaultVar = food.variants.find((v) => v.isDefault) || food.variants[0];
+      setSelectedVariant(defaultVar);
+      setUnit("medium_bowl");
+      setQuantity(1);
+    } else {
+      setSelectedVariant(null);
+      const defUnit = food.defaultServingUnit || "g";
+      setUnit(defUnit);
+      setQuantity(food.defaultServingSize || (defUnit === "g" ? 100 : 1));
+    }
     setDuplicateWarning(false);
   };
 
@@ -443,8 +528,14 @@ export function FoodSearchModal({
       isNutriFlexsProduct: Boolean(item.productId),
     };
     setSelectedFood(foodItem);
+    if (item.foodVariant) {
+      setSelectedVariant(item.foodVariant);
+      setUnit(item.unit || "medium_bowl");
+    } else {
+      setSelectedVariant(null);
+      setUnit(item.unit || item.defaultServingUnit || "serving");
+    }
     setQuantity(item.lastQuantity || item.defaultServingSize || 1);
-    setUnit(item.unit || item.defaultServingUnit || "serving");
     setActiveTab("search");
   };
 
@@ -463,17 +554,30 @@ export function FoodSearchModal({
       };
     }
 
+    if (selectedVariant) {
+      return calculateVariantNutrition(
+        selectedVariant,
+        Math.max(0.1, quantity || 1),
+        unit,
+        selectedFood.servingWeightGrams || 180
+      );
+    }
+
     return calculateItemNutrition(
       selectedFood,
       Math.max(0.1, quantity || 1),
       unit
     );
-  }, [selectedFood, quantity, unit]);
+  }, [selectedFood, selectedVariant, quantity, unit]);
 
   // Unit options available for the selected food
   const unitOptions = useMemo(() => {
     if (!selectedFood) return ["serving", "g"];
     if (selectedFood.isNutriFlexsProduct) return ["serving", "portion"];
+
+    if (selectedVariant) {
+      return ["medium_bowl", "small_bowl", "large_bowl", "cup", "g"];
+    }
 
     const def = selectedFood.defaultServingUnit || "g";
     const set = new Set<string>();
@@ -498,7 +602,28 @@ export function FoodSearchModal({
     }
 
     return Array.from(set);
-  }, [selectedFood]);
+  }, [selectedFood, selectedVariant]);
+
+  const getPortionLabel = (u: string) => {
+    if (!selectedVariant) {
+      if (u === "g") return "Grams (g)";
+      if (u === "ml") return "Milliliters (ml)";
+      if (u === "serving") return "Standard Serving";
+      if (u === "piece") return "Piece";
+      if (u === "bowl") return "Bowl (~180g)";
+      if (u === "cup") return "Cup (~200g)";
+      if (u === "glass") return "Glass (~250ml)";
+      if (u === "plate") return "Plate";
+      return u;
+    }
+    const conv = (selectedVariant.servingConversions as any) || {};
+    if (u === "medium_bowl") return `Medium bowl (${conv.medium_bowl || 180}g) — Standard`;
+    if (u === "small_bowl") return `Small bowl (${conv.small_bowl || 110}g)`;
+    if (u === "large_bowl") return `Large bowl (${conv.large_bowl || 280}g)`;
+    if (u === "cup") return `Cup (${conv.cup || 220}g)`;
+    if (u === "g") return `Grams (exact weight in g)`;
+    return u;
+  };
 
   // Submit food log entry
   const handleAddLog = async () => {
@@ -508,18 +633,23 @@ export function FoodSearchModal({
     setSubmitError(null);
 
     try {
+      const displayName = selectedVariant ? selectedVariant.name : selectedFood.name;
+
       if (isGuest) {
         addGuestLog({
-          name: selectedFood.name,
+          name: displayName,
+          variantName: selectedVariant?.name || null,
           mealType: targetMealType,
           quantity: Math.max(0.1, quantity),
           unit,
+          gramsCalculated: computedNutrition.grams,
           dateKey,
           calories: computedNutrition.calories,
           protein: computedNutrition.protein,
           carbohydrates: computedNutrition.carbohydrates,
           fat: computedNutrition.fat,
           foodItemId: selectedFood.productId ? null : selectedFood.id,
+          foodVariantId: selectedVariant?.id || null,
           productId: selectedFood.productId || null,
         });
 
@@ -528,12 +658,14 @@ export function FoodSearchModal({
           window.dispatchEvent(new CustomEvent("nutriflexs:nutrition-updated"));
         }
         setSelectedFood(null);
+        setSelectedVariant(null);
         onClose();
         return;
       }
 
       const payload: any = {
-        foodName: selectedFood.name,
+        foodName: displayName,
+        variantName: selectedVariant?.name || null,
         mealType: targetMealType,
         quantity: Math.max(0.1, quantity),
         unit,
@@ -548,6 +680,9 @@ export function FoodSearchModal({
         payload.productId = selectedFood.productId;
       } else {
         payload.foodItemId = selectedFood.id;
+        if (selectedVariant) {
+          payload.foodVariantId = selectedVariant.id;
+        }
       }
 
       const res = await fetch("/api/nutrition/logs", {
@@ -570,6 +705,7 @@ export function FoodSearchModal({
         window.dispatchEvent(new CustomEvent("nutriflexs:nutrition-updated"));
       }
       setSelectedFood(null);
+      setSelectedVariant(null);
       onClose();
     } catch (err: any) {
       console.error("Error logging food", err);
@@ -718,293 +854,162 @@ export function FoodSearchModal({
 
   if (!isOpen) return null;
 
+  const TABS: { id: TabType; label: string; icon: React.ElementType; badge?: number }[] = [
+    { id: "search", label: "Search", icon: Search },
+    { id: "recents", label: "Recents", icon: Clock },
+    { id: "favorites", label: "Favourites", icon: Star, badge: favoriteFoods.length },
+    { id: "savedMeals", label: "Saved Meals", icon: Layers, badge: savedMeals.length },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-      <div className="bg-white rounded-3xl border border-nutri-border shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-up">
-        {/* Modal Header */}
-        <div className="p-4 sm:p-5 border-b border-nutri-border-light bg-nutri-bg/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-2xl bg-nutri-green-light flex items-center justify-center text-nutri-green">
-                <Utensils className="w-5 h-5 stroke-[2.2]" />
-              </div>
-              <div>
-                <h3 className="font-heading font-bold text-nutri-charcoal text-base sm:text-lg leading-tight">
-                  Add Food to Diary
-                </h3>
-                <p className="text-xs text-nutri-secondary">
-                  Targeting: <strong className="text-nutri-green capitalize">{targetMealType.toLowerCase()}</strong> for {dateKey}
-                </p>
-              </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/60 backdrop-blur-xs animate-fade-in">
+      <div className="bg-white rounded-3xl border border-[#E5E7E2] shadow-2xl w-full max-w-4xl xl:max-w-5xl max-h-[88vh] flex flex-col overflow-hidden animate-scale-up">
+        {/* 1. Modal Header */}
+        <div className="px-5 py-4 border-b border-[#E5E7E2] bg-[#F7FAF4]/70 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-[#EAF4E3] text-[#2F7D16] flex items-center justify-center shrink-0 border border-[#E5E7E2]">
+              <Utensils className="w-5 h-5 stroke-[2.2]" />
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1.5 rounded-full text-nutri-secondary hover:text-nutri-charcoal hover:bg-nutri-border-light transition-colors cursor-pointer"
-              aria-label="Close modal"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div>
+              <h3 className="font-heading font-extrabold text-[#111111] text-base sm:text-lg leading-tight">
+                Add Food to Diary
+              </h3>
+              <p className="text-xs text-[#4B5563] mt-0.5">
+                {formatMealLabel(targetMealType)} · {formatHeaderDate(dateKey)}
+              </p>
+            </div>
           </div>
-
-          {/* Sub Navigation Tabs */}
-          <div className="flex items-center gap-1 sm:gap-2 mt-4 border-b border-nutri-border-light/60 pb-1 text-xs">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("search");
-                setIsCreatingMeal(false);
-              }}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === "search"
-                  ? "bg-nutri-green text-white shadow-xs"
-                  : "text-nutri-secondary hover:text-nutri-charcoal hover:bg-nutri-border-light/50"
-              }`}
-            >
-              <Search className="w-3.5 h-3.5" /> Search
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("recents");
-                setIsCreatingMeal(false);
-              }}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === "recents"
-                  ? "bg-nutri-green text-white shadow-xs"
-                  : "text-nutri-secondary hover:text-nutri-charcoal hover:bg-nutri-border-light/50"
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5" /> Recents
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("favorites");
-                setIsCreatingMeal(false);
-              }}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === "favorites"
-                  ? "bg-nutri-green text-white shadow-xs"
-                  : "text-nutri-secondary hover:text-nutri-charcoal hover:bg-nutri-border-light/50"
-              }`}
-            >
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" /> Favourites ({favoriteFoods.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("savedMeals");
-                setIsCreatingMeal(false);
-              }}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === "savedMeals"
-                  ? "bg-nutri-green text-white shadow-xs"
-                  : "text-nutri-secondary hover:text-nutri-charcoal hover:bg-nutri-border-light/50"
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" /> Saved Meals
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-[#4B5563] hover:text-[#111111] hover:bg-[#EAF4E3] transition-colors cursor-pointer shrink-0"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
-          {submitError && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-2xl flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{submitError}</span>
-            </div>
-          )}
-
-          {mealActionSuccess && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-2xl flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-              <span>{mealActionSuccess}</span>
-            </div>
-          )}
-
-          {/* TAB 1: SEARCH FOODS */}
-          {activeTab === "search" && (
-            <>
-              {/* Search Box */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-nutri-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search foods (e.g. Dal, Roti, Rice, Boiled Egg, Paneer, Chicken)..."
-                  className="w-full bg-nutri-bg border border-nutri-border rounded-2xl pl-10 pr-9 py-2.5 text-xs sm:text-sm text-nutri-charcoal focus:outline-none focus:border-nutri-green transition-all"
-                  autoFocus
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-nutri-muted hover:text-nutri-charcoal p-1 cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+        {/* 2. Sub Navigation Tabs */}
+        <div className="flex items-center gap-1.5 sm:gap-2 px-5 py-2.5 border-b border-[#E5E7E2] bg-white overflow-x-auto scrollbar-none shrink-0">
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setIsCreatingMeal(false);
+                }}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0",
+                  isActive
+                    ? "bg-[#2F7D16] text-white shadow-xs"
+                    : "text-[#4B5563] hover:text-[#111111] hover:bg-[#EAF4E3]/60"
                 )}
-              </div>
-
-              {/* Category Filter Chips */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-3 py-1.5 rounded-full font-bold transition-all shrink-0 cursor-pointer ${
-                      selectedCategory === cat
-                        ? "bg-nutri-green text-white shadow-xs"
-                        : "bg-nutri-bg text-nutri-secondary hover:bg-nutri-green-soft hover:text-nutri-green border border-nutri-border"
-                    }`}
+              >
+                <Icon className={cn("w-3.5 h-3.5", isActive ? "text-white" : "text-[#4B5563]")} />
+                <span>{tab.label}</span>
+                {typeof tab.badge === "number" && tab.badge > 0 && (
+                  <span
+                    className={cn(
+                      "text-[10px] px-1.5 py-0.2 rounded-full font-extrabold",
+                      isActive ? "bg-white/25 text-white" : "bg-[#EAF4E3] text-[#2F7D16]"
+                    )}
                   >
-                    {cat}
-                  </button>
-                ))}
-              </div>
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
 
-              {/* Selected Item Configuration Panel */}
-              {selectedFood && (
-                <div className="p-4 bg-nutri-green-soft/70 border border-nutri-green/30 rounded-2xl space-y-3.5 animate-slide-down">
-                  <div className="flex items-start justify-between gap-3 pb-2 border-b border-nutri-green/20">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-heading font-extrabold text-sm sm:text-base text-nutri-charcoal">
-                          {selectedFood.name}
-                        </h4>
-                        {selectedFood.isNutriFlexsProduct && (
-                          <Badge className="bg-nutri-green text-white text-[10px] font-bold">
-                            NutriFlexs Kiosk
-                          </Badge>
-                        )}
-                        {selectedFood.isCustom && (
-                          <Badge className="bg-amber-100 text-amber-800 text-[10px] font-bold">
-                            Custom Food
-                          </Badge>
-                        )}
-                      </div>
-                      {selectedFood.description && (
-                        <p className="text-xs text-nutri-secondary mt-0.5">
-                          {selectedFood.description}
-                        </p>
-                      )}
-                    </div>
+        {/* Global Notifications */}
+        {submitError && (
+          <div className="mx-5 mt-3 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-2xl flex items-center gap-2 shrink-0">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{submitError}</span>
+          </div>
+        )}
+
+        {mealActionSuccess && (
+          <div className="mx-5 mt-3 p-3 bg-[#EAF4E3] border border-[#2F7D16]/30 text-[#111111] text-xs rounded-2xl flex items-center gap-2 shrink-0">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-[#2F7D16]" />
+            <span>{mealActionSuccess}</span>
+          </div>
+        )}
+
+        {/* 3. Main Body Container */}
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+          {/* ========================================================================= */}
+          {/* TAB 1: SEARCH FOODS (TWO-PANEL DESKTOP LAYOUT)                            */}
+          {/* ========================================================================= */}
+          {activeTab === "search" && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 min-h-0 divide-y lg:divide-y-0 lg:divide-x divide-[#E5E7E2] overflow-hidden">
+              {/* ----------------------------------------------------------------- */}
+              {/* LEFT PANEL: Food Search and Results (~46-48% on desktop)          */}
+              {/* ----------------------------------------------------------------- */}
+              <div
+                className={cn(
+                  "lg:col-span-6 xl:col-span-5 flex flex-col min-h-0 p-4 sm:p-5 bg-white space-y-3 overflow-hidden",
+                  selectedFood ? "hidden lg:flex" : "flex"
+                )}
+              >
+                {/* Search Bar */}
+                <div className="relative shrink-0">
+                  <Search className="w-4 h-4 text-[#4B5563] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search dal, roti, rice, chicken..."
+                    className="w-full bg-[#F7FAF4] border border-[#E5E7E2] rounded-xl pl-10 pr-9 py-2.5 text-xs sm:text-sm text-[#111111] placeholder:text-[#4B5563]/60 focus:outline-none focus:border-[#2F7D16] focus:bg-white transition-all font-medium"
+                    autoFocus
+                  />
+                  {searchQuery && (
                     <button
                       type="button"
-                      onClick={() => setSelectedFood(null)}
-                      className="text-xs text-nutri-muted hover:text-nutri-charcoal p-1 cursor-pointer"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4B5563] hover:text-[#111111] p-1 cursor-pointer"
+                      aria-label="Clear search"
                     >
-                      Change
+                      <X className="w-3.5 h-3.5" />
                     </button>
-                  </div>
-
-                  {/* Serving & Quantity Selectors */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-[11px] font-bold text-nutri-secondary uppercase tracking-wider block mb-1">
-                        Quantity
-                      </label>
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0.1"
-                        max="5000"
-                        value={quantity}
-                        onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
-                        className="w-full bg-white border border-nutri-border rounded-xl px-3 py-2 text-sm font-bold text-nutri-charcoal focus:outline-none focus:border-nutri-green"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-bold text-nutri-secondary uppercase tracking-wider block mb-1">
-                        Serving Unit
-                      </label>
-                      <select
-                        value={unit}
-                        onChange={(e) => setUnit(e.target.value)}
-                        className="w-full bg-white border border-nutri-border rounded-xl px-3 py-2 text-sm font-bold text-nutri-charcoal focus:outline-none focus:border-nutri-green capitalize cursor-pointer"
-                      >
-                        {unitOptions.map((u) => (
-                          <option key={u} value={u}>
-                            {u}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-bold text-nutri-secondary uppercase tracking-wider block mb-1">
-                        Meal Category
-                      </label>
-                      <select
-                        value={targetMealType}
-                        onChange={(e) => setTargetMealType(e.target.value as any)}
-                        className="w-full bg-white border border-nutri-border rounded-xl px-3 py-2 text-sm font-bold text-nutri-charcoal focus:outline-none focus:border-nutri-green cursor-pointer"
-                      >
-                        <option value="BREAKFAST">🌅 Breakfast</option>
-                        <option value="LUNCH">☀️ Lunch</option>
-                        <option value="SNACKS">☕ Evening Snacks</option>
-                        <option value="DINNER">🌙 Dinner</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Live Computed Nutrition Preview */}
-                  <div className="p-3 bg-white rounded-xl border border-nutri-border flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-nutri-green font-extrabold text-sm sm:text-base">
-                      <Flame className="w-4 h-4 fill-nutri-green" />
-                      <span>{computedNutrition.calories} kcal</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs font-bold text-nutri-secondary">
-                      <span>Protein: <strong className="text-nutri-charcoal">{computedNutrition.protein}g</strong></span>
-                      <span>Carbs: <strong className="text-nutri-charcoal">{computedNutrition.carbohydrates}g</strong></span>
-                      <span>Fat: <strong className="text-nutri-charcoal">{computedNutrition.fat}g</strong></span>
-                      {computedNutrition.grams > 0 && unit !== "g" && (
-                        <span className="text-[11px] text-nutri-muted font-normal">
-                          (~{computedNutrition.grams}g)
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {duplicateWarning && (
-                    <div className="p-2.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-                      <span>Note: An order containing this item was already completed today. Click Add again to confirm logging a duplicate.</span>
-                    </div>
                   )}
-
-                  <Button
-                    variant="primary"
-                    onClick={handleAddLog}
-                    disabled={submitting || quantity <= 0}
-                    className="w-full bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-2.5 rounded-xl shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {submitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Adding to Diary...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4 stroke-[2.5]" /> Add {quantity} {unit} to Diary
-                      </>
-                    )}
-                  </Button>
                 </div>
-              )}
 
-              {/* Results List */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-nutri-secondary">
-                    {loading ? "Searching foods..." : error ? "Unable to load items" : `Found ${foods.length} items`}
+                {/* Category Chips */}
+                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1 shrink-0">
+                  {categories.map((cat) => {
+                    const isSelected = selectedCategory === cat;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setSelectedCategory(cat)}
+                        className={cn(
+                          "px-3 py-1 rounded-full text-[11px] font-bold transition-all shrink-0 cursor-pointer whitespace-nowrap",
+                          isSelected
+                            ? "bg-[#2F7D16] text-white shadow-2xs"
+                            : "bg-[#F3F7EE] text-[#4B5563] hover:text-[#2F7D16] hover:bg-[#EAF4E3] border border-[#E5E7E2]"
+                        )}
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Search Meta & Add Custom Food Action */}
+                <div className="flex items-center justify-between text-[11px] font-bold text-[#4B5563] px-1 shrink-0">
+                  <span>
+                    {loading
+                      ? "Searching food library..."
+                      : error
+                      ? "Search error"
+                      : `${foods.length} matching foods`}
                   </span>
                   <button
                     type="button"
@@ -1012,66 +1017,69 @@ export function FoodSearchModal({
                       onClose();
                       onOpenCustomFood();
                     }}
-                    className="text-xs font-bold text-nutri-green hover:underline cursor-pointer flex items-center gap-1"
+                    className="text-[#2F7D16] hover:text-[#24630F] hover:underline cursor-pointer flex items-center gap-1"
                   >
                     <Plus className="w-3.5 h-3.5" /> Add Custom Food
                   </button>
                 </div>
 
-                {loading ? (
-                  <div className="py-12 flex flex-col items-center justify-center text-nutri-secondary text-xs space-y-2">
-                    <Loader2 className="w-6 h-6 animate-spin text-nutri-green" />
-                    <span>Searching food library...</span>
-                  </div>
-                ) : error ? (
-                  <div className="p-8 text-center bg-rose-50/50 rounded-2xl border border-rose-200 space-y-3">
-                    <AlertCircle className="w-8 h-8 text-rose-500 mx-auto" />
-                    <div>
-                      <p className="font-bold text-sm text-nutri-charcoal">Unable to load foods</p>
-                      <p className="text-xs text-nutri-secondary mt-0.5">{error}</p>
+                {/* Food Results List */}
+                <div className="flex-1 overflow-y-auto divide-y divide-[#E5E7E2]/70 border border-[#E5E7E2] rounded-2xl bg-white pr-1">
+                  {loading ? (
+                    <div className="py-16 flex flex-col items-center justify-center text-[#4B5563] text-xs space-y-2">
+                      <Loader2 className="w-6 h-6 animate-spin text-[#2F7D16]" />
+                      <span className="font-medium">Searching foods...</span>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleRetry}
-                      className="text-xs font-bold border-nutri-green text-nutri-green hover:bg-nutri-green-light cursor-pointer"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5 mr-1" /> Retry Search
-                    </Button>
-                  </div>
-                ) : foods.length === 0 ? (
-                  <div className="p-8 text-center bg-nutri-bg rounded-2xl border border-nutri-border space-y-3">
-                    <Utensils className="w-8 h-8 text-nutri-muted mx-auto" />
-                    <div>
-                      <p className="font-bold text-sm text-nutri-charcoal">No foods match your search</p>
-                      <p className="text-xs text-nutri-secondary mt-0.5">
-                        Can&apos;t find what you ate? You can create a custom food item with your own macros.
-                      </p>
+                  ) : error ? (
+                    <div className="p-6 text-center bg-rose-50/40 rounded-xl m-3 space-y-2.5">
+                      <AlertCircle className="w-6 h-6 text-rose-500 mx-auto" />
+                      <p className="font-bold text-xs text-[#111111]">{error}</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleRetry}
+                        className="text-xs font-bold border-[#2F7D16] text-[#2F7D16] hover:bg-[#EAF4E3] rounded-full"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 mr-1" /> Retry Search
+                      </Button>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        onClose();
-                        onOpenCustomFood();
-                      }}
-                      className="text-xs font-bold border-nutri-green text-nutri-green hover:bg-nutri-green-light cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Create Custom Food
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-nutri-border-light border border-nutri-border rounded-2xl overflow-hidden bg-white max-h-72 overflow-y-auto">
-                    {foods.map((food) => {
+                  ) : foods.length === 0 ? (
+                    <div className="p-8 text-center bg-[#F7FAF4] rounded-xl m-3 space-y-3">
+                      <Utensils className="w-8 h-8 text-[#4B5563]/50 mx-auto" />
+                      <div>
+                        <p className="font-bold text-sm text-[#111111]">No foods found</p>
+                        <p className="text-xs text-[#4B5563] mt-0.5 max-w-xs mx-auto">
+                          Can&apos;t find what you ate? You can create a custom food item with your verified macros.
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          onClose();
+                          onOpenCustomFood();
+                        }}
+                        className="text-xs font-bold border-[#2F7D16] text-[#2F7D16] hover:bg-[#EAF4E3] rounded-full"
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" /> Create Custom Food
+                      </Button>
+                    </div>
+                  ) : (
+                    foods.map((food) => {
                       const isSelected = selectedFood?.id === food.id;
                       const isFav = favoriteNames.has(food.name.trim().toLowerCase());
                       return (
                         <div
                           key={food.id}
+                          data-food-row="true"
+                          data-food-id={food.id}
                           onClick={() => handleSelectFood(food)}
-                          className={`p-3 flex items-center justify-between gap-3 hover:bg-nutri-green-soft/50 transition-colors cursor-pointer text-left ${
-                            isSelected ? "bg-nutri-green-light/60" : ""
-                          }`}
+                          className={cn(
+                            "p-3 flex items-center justify-between gap-3 transition-colors cursor-pointer text-left relative",
+                            isSelected
+                              ? "bg-[#EAF4E3] border-l-4 border-l-[#2F7D16]"
+                              : "hover:bg-[#F3F7EE]"
+                          )}
                         >
                           {/* Favorite Star Button */}
                           <button
@@ -1081,84 +1089,405 @@ export function FoodSearchModal({
                             title={isFav ? "Remove from Favorites" : "Add to Favorites"}
                           >
                             <Star
-                              className={`w-4 h-4 ${
+                              className={cn(
+                                "w-4 h-4",
                                 isFav ? "fill-amber-400 text-amber-500" : "stroke-[1.8]"
-                              }`}
+                              )}
                             />
                           </button>
 
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-xs sm:text-sm text-nutri-charcoal truncate">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-xs sm:text-sm text-[#111111] truncate">
                                 {food.name}
                               </span>
                               {food.isNutriFlexsProduct && (
-                                <span className="text-[10px] font-bold bg-nutri-green-light text-nutri-green px-1.5 py-0.5 rounded-md">
-                                  Kiosk Menu
+                                <span className="text-[9px] font-extrabold bg-[#2F7D16] text-white px-1.5 py-0.2 rounded-full">
+                                  Kiosk
+                                </span>
+                              )}
+                              {food.hasVariants && food.variants && food.variants.length > 0 && (
+                                <span className="text-[9px] font-bold bg-[#EAF4E3] text-[#2F7D16] px-1.5 py-0.2 rounded-full border border-[#E5E7E2] flex items-center gap-0.5">
+                                  <Sparkles className="w-2.5 h-2.5" /> {food.variants.length} Variants
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-nutri-secondary truncate">
-                              {food.defaultServingSize} {food.defaultServingUnit} · {food.category}
+                            <p className="text-[11px] text-[#4B5563] mt-0.5 truncate">
+                              {food.hasVariants && food.variants && food.variants.length > 0
+                                ? `${Math.min(...food.variants.map((v) => v.caloriesPer100g))}–${Math.max(...food.variants.map((v) => v.caloriesPer100g))} kcal / 100g`
+                                : `${food.caloriesPer100g} kcal / 100g`}
+                            </p>
+                            <p className="text-[10px] text-[#4B5563]/80">
+                              P: {food.protein}g · C: {food.carbohydrates}g · F: {food.fat}g
                             </p>
                           </div>
 
                           <div className="text-right shrink-0">
-                            <span className="font-heading font-extrabold text-xs sm:text-sm text-nutri-green block">
-                              {food.caloriesPer100g} kcal
+                            <span className="font-heading font-extrabold text-xs sm:text-sm text-[#2F7D16] block">
+                              {food.hasVariants && food.variants?.length ? "~" : ""}{food.caloriesPer100g} kcal
                             </span>
-                            <span className="text-[10px] text-nutri-muted block font-medium">
-                              P: {food.protein}g · C: {food.carbohydrates}g · F: {food.fat}g
+                            <span className="text-[10px] text-[#4B5563] block">
+                              {food.defaultServingSize} {food.defaultServingUnit}
                             </span>
                           </div>
 
-                          <div className="shrink-0 text-nutri-muted pl-1">
-                            <ChevronRight className="w-4 h-4" />
+                          <div className="shrink-0 text-[#4B5563] pl-1">
+                            {isSelected ? (
+                              <div className="w-5 h-5 rounded-full bg-[#2F7D16] text-white flex items-center justify-center">
+                                <Check className="w-3 h-3 stroke-[3]" />
+                              </div>
+                            ) : (
+                              <ChevronRight className="w-4 h-4 text-[#4B5563]/60" />
+                            )}
                           </div>
                         </div>
                       );
-                    })}
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* ----------------------------------------------------------------- */}
+              {/* RIGHT PANEL: Selected Food and Quantity Editor (~52-54% on desktop)*/}
+              {/* ----------------------------------------------------------------- */}
+              <div
+                className={cn(
+                  "lg:col-span-6 xl:col-span-7 flex flex-col min-h-0 p-4 sm:p-5 overflow-y-auto bg-[#F7FAF4]/40",
+                  selectedFood ? "flex" : "hidden lg:flex"
+                )}
+              >
+                {selectedFood ? (
+                  <div className="space-y-4 animate-fade-in flex-1 flex flex-col justify-between">
+                    <div className="space-y-4">
+                      {/* Mobile Back Button to return to results list */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFood(null)}
+                        className="lg:hidden flex items-center gap-1.5 text-xs font-bold text-[#2F7D16] hover:underline cursor-pointer"
+                      >
+                        <ChevronLeft className="w-4 h-4" /> Back to food search results
+                      </button>
+
+                      {/* Header of Selected Food */}
+                      <div className="p-3.5 bg-white border border-[#E5E7E2] rounded-2xl flex items-start justify-between gap-3 shadow-2xs">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-heading font-extrabold text-sm sm:text-base text-[#111111]">
+                              {selectedFood.name}
+                            </h4>
+                            {selectedFood.isNutriFlexsProduct && (
+                              <Badge className="bg-[#2F7D16] text-white text-[10px] font-bold">
+                                NutriFlexs Kiosk
+                              </Badge>
+                            )}
+                            {selectedFood.isCustom && (
+                              <Badge className="bg-amber-100 text-amber-800 text-[10px] font-bold">
+                                Custom Food
+                              </Badge>
+                            )}
+                            {selectedFood.hasVariants && (
+                              <Badge className="bg-[#EAF4E3] text-[#2F7D16] border-[#E5E7E2] text-[10px] font-bold flex items-center gap-1">
+                                <Sparkles className="w-3 h-3 text-[#2F7D16]" /> Smart Variants
+                              </Badge>
+                            )}
+                          </div>
+                          {selectedFood.description && (
+                            <p className="text-xs text-[#4B5563] mt-1 line-clamp-2 leading-relaxed">
+                              {selectedFood.description}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFood(null);
+                            setSelectedVariant(null);
+                          }}
+                          className="text-xs font-bold text-[#2F7D16] hover:text-[#24630F] hover:underline shrink-0 p-1 cursor-pointer"
+                        >
+                          Change
+                        </button>
+                      </div>
+
+                      {/* Dish Composition / Variant Selector */}
+                      {selectedFood.variants && selectedFood.variants.length > 0 && (
+                        <div className="p-3.5 bg-white border border-[#E5E7E2] rounded-2xl space-y-2.5 shadow-2xs">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[11px] font-bold text-[#4B5563] uppercase tracking-wider">
+                              Dish Composition / Ratio
+                            </label>
+                            <span className="text-[10px] text-[#4B5563] italic">
+                              Tap to select what you ate
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {selectedFood.variants.map((v) => {
+                              const isCurrent = selectedVariant?.id === v.id;
+                              let icon = "⚖️";
+                              let shortLabel = "Balanced";
+                              if (v.variantType === "MORE_MAIN") {
+                                icon = "🥘";
+                                shortLabel = "More Main";
+                              } else if (v.variantType === "GRAVY_ONLY") {
+                                icon = "🥣";
+                                shortLabel = "More Gravy";
+                              } else if (v.variantType === "THICK") {
+                                icon = "🍲";
+                                shortLabel = "Thick";
+                              } else if (v.variantType === "THIN") {
+                                icon = "🥣";
+                                shortLabel = "Thin";
+                              }
+
+                              return (
+                                <button
+                                  key={v.id}
+                                  type="button"
+                                  onClick={() => setSelectedVariant(v)}
+                                  className={cn(
+                                    "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between",
+                                    isCurrent
+                                      ? "bg-[#2F7D16] text-white border-[#2F7D16] shadow-2xs"
+                                      : "bg-[#F7FAF4] text-[#111111] border-[#E5E7E2] hover:border-[#2F7D16]/60 hover:bg-[#EAF4E3]/40"
+                                  )}
+                                >
+                                  <div className="flex items-center justify-between w-full">
+                                    <span className="text-base">{icon}</span>
+                                    {v.isDefault && (
+                                      <span
+                                        className={cn(
+                                          "text-[9px] px-1 py-0.2 rounded font-bold",
+                                          isCurrent
+                                            ? "bg-white/20 text-white"
+                                            : "bg-[#EAF4E3] text-[#2F7D16]"
+                                        )}
+                                      >
+                                        Standard
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="mt-1">
+                                    <p className="font-extrabold text-xs leading-tight">
+                                      {v.name.includes("–") ? v.name.split("–")[1]?.trim() : shortLabel}
+                                    </p>
+                                    <p
+                                      className={cn(
+                                        "text-[10px] mt-0.5 font-medium",
+                                        isCurrent ? "text-white/80" : "text-[#4B5563]"
+                                      )}
+                                    >
+                                      {v.caloriesPer100g} kcal/100g
+                                    </p>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Serving & Quantity Selectors */}
+                      <div className="p-3.5 bg-white border border-[#E5E7E2] rounded-2xl space-y-3 shadow-2xs">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {/* Quantity */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-[11px] font-bold text-[#4B5563] uppercase tracking-wider">
+                                Quantity
+                              </label>
+                              {selectedVariant && unit !== "g" && (
+                                <div className="flex items-center gap-1">
+                                  {[0.5, 1, 1.5, 2].map((step) => (
+                                    <button
+                                      key={step}
+                                      type="button"
+                                      onClick={() => setQuantity(step)}
+                                      className={cn(
+                                        "text-[10px] px-1.5 py-0.5 rounded font-bold cursor-pointer transition-colors",
+                                        quantity === step
+                                          ? "bg-[#2F7D16] text-white"
+                                          : "bg-[#F3F7EE] text-[#4B5563] hover:text-[#111111] border border-[#E5E7E2]"
+                                      )}
+                                    >
+                                      {step}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <input
+                              type="number"
+                              step={unit === "g" ? "10" : "0.5"}
+                              min="0.1"
+                              max="5000"
+                              value={quantity}
+                              onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
+                              placeholder={unit === "g" ? "e.g. 180" : "1"}
+                              className="w-full bg-[#F7FAF4] border border-[#E5E7E2] rounded-xl px-3 py-2 text-sm font-bold text-[#111111] focus:outline-none focus:border-[#2F7D16] focus:bg-white"
+                            />
+                          </div>
+
+                          {/* Serving Unit */}
+                          <div>
+                            <label className="text-[11px] font-bold text-[#4B5563] uppercase tracking-wider block mb-1">
+                              Serving Unit
+                            </label>
+                            <select
+                              value={unit}
+                              onChange={(e) => {
+                                const nextUnit = e.target.value;
+                                setUnit(nextUnit);
+                                if (nextUnit === "g" && (quantity === 1 || quantity === 0.5 || quantity === 1.5 || quantity === 2)) {
+                                  const conv = (selectedVariant?.servingConversions as any) || {};
+                                  setQuantity(conv.medium_bowl || 180);
+                                } else if (nextUnit !== "g" && quantity > 10) {
+                                  setQuantity(1);
+                                }
+                              }}
+                              className="w-full bg-[#F7FAF4] border border-[#E5E7E2] rounded-xl px-3 py-2 text-sm font-bold text-[#111111] focus:outline-none focus:border-[#2F7D16] focus:bg-white capitalize cursor-pointer"
+                            >
+                              {unitOptions.map((u) => (
+                                <option key={u} value={u}>
+                                  {getPortionLabel(u)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Meal Category */}
+                          <div>
+                            <label className="text-[11px] font-bold text-[#4B5563] uppercase tracking-wider block mb-1">
+                              Meal Category
+                            </label>
+                            <select
+                              value={targetMealType}
+                              onChange={(e) => setTargetMealType(e.target.value as any)}
+                              className="w-full bg-[#F7FAF4] border border-[#E5E7E2] rounded-xl px-3 py-2 text-sm font-bold text-[#111111] focus:outline-none focus:border-[#2F7D16] focus:bg-white cursor-pointer"
+                            >
+                              <option value="BREAKFAST">🌅 Breakfast</option>
+                              <option value="LUNCH">☀️ Lunch</option>
+                              <option value="SNACKS">☕ Evening Snacks</option>
+                              <option value="DINNER">🌙 Dinner</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Nutrition Summary Box */}
+                      <div className="p-4 bg-[#EAF4E3] border border-[#2F7D16]/30 rounded-2xl space-y-2 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-[#2F7D16] font-heading font-extrabold text-lg sm:text-xl">
+                            <Flame className="w-5 h-5 fill-[#2F7D16]" />
+                            <span data-live-calories="true">{computedNutrition.calories} kcal</span>
+                          </div>
+                          {computedNutrition.grams > 0 && (
+                            <span className="text-[11px] font-bold text-[#2F7D16] bg-white px-2 py-0.5 rounded-full border border-[#E5E7E2]">
+                              ~{computedNutrition.grams}g portion
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Clean Horizontal Macro Indicators */}
+                        <div className="flex items-center justify-between pt-2 border-t border-[#2F7D16]/20 text-xs font-semibold text-[#111111]">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[#4B5563]">Protein:</span>
+                            <span className="font-bold text-[#2F7D16]">{computedNutrition.protein}g</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[#4B5563]">Carbs:</span>
+                            <span className="font-bold text-[#111111]">{computedNutrition.carbohydrates}g</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[#4B5563]">Fat:</span>
+                            <span className="font-bold text-[#111111]">{computedNutrition.fat}g</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {duplicateWarning && (
+                        <div className="p-2.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                          <span>Note: This food was already logged today. Click Add again to confirm.</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Prominent Full-Width Add CTA */}
+                    <div className="pt-4 border-t border-[#E5E7E2]">
+                      <Button
+                        variant="primary"
+                        onClick={handleAddLog}
+                        disabled={submitting || quantity <= 0}
+                        className="w-full bg-[#2F7D16] hover:bg-[#24630F] text-white font-extrabold text-sm py-3 rounded-xl shadow-xs flex items-center justify-center gap-2 cursor-pointer min-h-[44px]"
+                      >
+                        {submitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" /> Adding to Diary...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 stroke-[2.5]" /> Add to Diary · {computedNutrition.calories} kcal
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Empty state placeholder when no food is selected */
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3 min-h-[320px]">
+                    <div className="w-16 h-16 rounded-full bg-[#EAF4E3] text-[#2F7D16] flex items-center justify-center shadow-xs border border-[#E5E7E2]">
+                      <Utensils className="w-8 h-8 stroke-[2]" />
+                    </div>
+                    <div className="max-w-xs space-y-1">
+                      <h4 className="font-heading font-extrabold text-[#111111] text-base">
+                        Select a food to view its nutrition
+                      </h4>
+                      <p className="text-xs text-[#4B5563] leading-relaxed">
+                        Click any food from the search results on the left to configure portions and add it to your daily diary.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
-            </>
+            </div>
           )}
 
-          {/* TAB 2: RECENT FOODS */}
+          {/* ========================================================================= */}
+          {/* TAB 2: RECENT FOODS                                                       */}
+          {/* ========================================================================= */}
           {activeTab === "recents" && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-heading font-bold text-sm text-nutri-charcoal">
-                    Recently Logged Foods
-                  </h4>
-                  <p className="text-xs text-nutri-secondary">
-                    Based on your actual meal logging history.
-                  </p>
-                </div>
+            <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto space-y-3">
+              <div>
+                <h4 className="font-heading font-bold text-sm text-[#111111]">
+                  Recently Logged Foods
+                </h4>
+                <p className="text-xs text-[#4B5563]">
+                  Quickly re-add foods based on your actual logging history.
+                </p>
               </div>
 
               {loadingRecents ? (
-                <div className="py-12 flex flex-col items-center justify-center text-nutri-secondary text-xs space-y-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-nutri-green" />
+                <div className="py-16 flex flex-col items-center justify-center text-[#4B5563] text-xs space-y-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#2F7D16]" />
                   <span>Loading recent foods...</span>
                 </div>
               ) : recentFoods.length === 0 ? (
-                <div className="p-8 text-center bg-nutri-bg rounded-2xl border border-nutri-border space-y-2">
-                  <Clock className="w-8 h-8 text-nutri-muted mx-auto" />
-                  <p className="font-bold text-sm text-nutri-charcoal">No recently logged foods</p>
-                  <p className="text-xs text-nutri-secondary">
+                <div className="p-8 text-center bg-[#F7FAF4] rounded-2xl border border-[#E5E7E2] space-y-2 max-w-md mx-auto my-6">
+                  <Clock className="w-8 h-8 text-[#4B5563]/50 mx-auto" />
+                  <p className="font-bold text-sm text-[#111111]">No recently logged foods</p>
+                  <p className="text-xs text-[#4B5563]">
                     Foods you log into your diary will appear here for fast 1-click refuel.
                   </p>
                 </div>
               ) : (
-                <div className="divide-y divide-nutri-border-light border border-nutri-border rounded-2xl overflow-hidden bg-white max-h-80 overflow-y-auto">
+                <div className="divide-y divide-[#E5E7E2] border border-[#E5E7E2] rounded-2xl overflow-hidden bg-white max-h-96 overflow-y-auto">
                   {recentFoods.map((item) => {
                     const isFav = favoriteNames.has(item.name.trim().toLowerCase());
                     return (
                       <div
                         key={item.id}
-                        className="p-3.5 flex items-center justify-between gap-3 hover:bg-nutri-green-soft/40 transition-colors"
+                        className="p-3.5 flex items-center justify-between gap-3 hover:bg-[#F3F7EE] transition-colors"
                       >
                         <button
                           type="button"
@@ -1166,31 +1495,30 @@ export function FoodSearchModal({
                           className="p-1 text-slate-300 hover:text-amber-500 transition-colors shrink-0 cursor-pointer"
                         >
                           <Star
-                            className={`w-4 h-4 ${
+                            className={cn(
+                              "w-4 h-4",
                               isFav ? "fill-amber-400 text-amber-500" : "stroke-[1.8]"
-                            }`}
+                            )}
                           />
                         </button>
 
                         <div className="min-w-0 flex-1">
-                          <h5 className="font-bold text-xs sm:text-sm text-nutri-charcoal truncate">
+                          <h5 className="font-bold text-xs sm:text-sm text-[#111111] truncate">
                             {item.name}
                           </h5>
-                          <p className="text-[11px] text-nutri-secondary">
+                          <p className="text-[11px] text-[#4B5563]">
                             Last logged: {item.lastQuantity} {item.unit} • {item.calories} kcal • P: {item.protein}g
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            size="sm"
-                            variant="primary"
-                            onClick={() => handleSelectFromOtherTab(item)}
-                            className="bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs py-1.5 px-3 rounded-xl shadow-xs cursor-pointer flex items-center gap-1"
-                          >
-                            <Plus className="w-3.5 h-3.5" /> Add Again
-                          </Button>
-                        </div>
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() => handleSelectFromOtherTab(item)}
+                          className="bg-[#2F7D16] hover:bg-[#24630F] text-white font-extrabold text-xs py-1.5 px-3 rounded-xl shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Log Again
+                        </Button>
                       </div>
                     );
                   })}
@@ -1199,39 +1527,39 @@ export function FoodSearchModal({
             </div>
           )}
 
-          {/* TAB 3: FAVOURITE FOODS */}
+          {/* ========================================================================= */}
+          {/* TAB 3: FAVOURITE FOODS                                                    */}
+          {/* ========================================================================= */}
           {activeTab === "favorites" && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-heading font-bold text-sm text-nutri-charcoal">
-                    Your Favourite Foods
-                  </h4>
-                  <p className="text-xs text-nutri-secondary">
-                    Quickly add foods you frequently eat to today&apos;s diary.
-                  </p>
-                </div>
+            <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto space-y-3">
+              <div>
+                <h4 className="font-heading font-bold text-sm text-[#111111]">
+                  Your Favourite Foods
+                </h4>
+                <p className="text-xs text-[#4B5563]">
+                  Quickly add your most frequent go-to foods to today&apos;s diary.
+                </p>
               </div>
 
               {loadingFavorites ? (
-                <div className="py-12 flex flex-col items-center justify-center text-nutri-secondary text-xs space-y-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-nutri-green" />
+                <div className="py-16 flex flex-col items-center justify-center text-[#4B5563] text-xs space-y-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#2F7D16]" />
                   <span>Loading favourite foods...</span>
                 </div>
               ) : favoriteFoods.length === 0 ? (
-                <div className="p-8 text-center bg-nutri-bg rounded-2xl border border-nutri-border space-y-2">
+                <div className="p-8 text-center bg-[#F7FAF4] rounded-2xl border border-[#E5E7E2] space-y-2 max-w-md mx-auto my-6">
                   <Star className="w-8 h-8 text-amber-400 mx-auto" />
-                  <p className="font-bold text-sm text-nutri-charcoal">No favourite foods yet</p>
-                  <p className="text-xs text-nutri-secondary">
-                    Tap the star icon ⭐ next to any food in Search or Recents to add it here.
+                  <p className="font-bold text-sm text-[#111111]">No favourite foods yet</p>
+                  <p className="text-xs text-[#4B5563]">
+                    Tap the star icon next to any food in Search or Recents to pin it here.
                   </p>
                 </div>
               ) : (
-                <div className="divide-y divide-nutri-border-light border border-nutri-border rounded-2xl overflow-hidden bg-white max-h-80 overflow-y-auto">
+                <div className="divide-y divide-[#E5E7E2] border border-[#E5E7E2] rounded-2xl overflow-hidden bg-white max-h-96 overflow-y-auto">
                   {favoriteFoods.map((fav) => (
                     <div
                       key={fav.id}
-                      className="p-3.5 flex items-center justify-between gap-3 hover:bg-nutri-green-soft/40 transition-colors"
+                      className="p-3.5 flex items-center justify-between gap-3 hover:bg-[#F3F7EE] transition-colors"
                     >
                       <button
                         type="button"
@@ -1243,24 +1571,22 @@ export function FoodSearchModal({
                       </button>
 
                       <div className="min-w-0 flex-1">
-                        <h5 className="font-bold text-xs sm:text-sm text-nutri-charcoal truncate">
+                        <h5 className="font-bold text-xs sm:text-sm text-[#111111] truncate">
                           {fav.foodNameSnapshot}
                         </h5>
-                        <p className="text-[11px] text-nutri-secondary">
+                        <p className="text-[11px] text-[#4B5563]">
                           {fav.caloriesPer100g} kcal/100g • P: {fav.protein}g • C: {fav.carbohydrates}g • F: {fav.fat}g
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          onClick={() => handleSelectFromOtherTab(fav)}
-                          className="bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs py-1.5 px-3 rounded-xl shadow-xs cursor-pointer flex items-center gap-1"
-                        >
-                          <Plus className="w-3.5 h-3.5" /> Log
-                        </Button>
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => handleSelectFromOtherTab(fav)}
+                        className="bg-[#2F7D16] hover:bg-[#24630F] text-white font-extrabold text-xs py-1.5 px-3 rounded-xl shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Log
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -1268,17 +1594,19 @@ export function FoodSearchModal({
             </div>
           )}
 
-          {/* TAB 4: SAVED MEALS & RECIPES */}
+          {/* ========================================================================= */}
+          {/* TAB 4: SAVED MEALS & RECIPES                                              */}
+          {/* ========================================================================= */}
           {activeTab === "savedMeals" && (
-            <div className="space-y-4">
+            <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto space-y-4">
               {!isCreatingMeal ? (
                 <>
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-heading font-bold text-sm text-nutri-charcoal">
+                      <h4 className="font-heading font-bold text-sm text-[#111111]">
                         Saved Meals &amp; Recipes
                       </h4>
-                      <p className="text-xs text-nutri-secondary">
+                      <p className="text-xs text-[#4B5563]">
                         Combine multiple food items and log them in a single tap.
                       </p>
                     </div>
@@ -1286,49 +1614,49 @@ export function FoodSearchModal({
                       size="sm"
                       variant="primary"
                       onClick={() => setIsCreatingMeal(true)}
-                      className="bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs py-1.5 px-3 rounded-xl shadow-xs cursor-pointer flex items-center gap-1"
+                      className="bg-[#2F7D16] hover:bg-[#24630F] text-white font-extrabold text-xs py-1.5 px-3 rounded-xl shadow-xs cursor-pointer flex items-center gap-1"
                     >
                       <Plus className="w-3.5 h-3.5" /> Create Meal
                     </Button>
                   </div>
 
                   {loadingSavedMeals ? (
-                    <div className="py-12 flex flex-col items-center justify-center text-nutri-secondary text-xs space-y-2">
-                      <Loader2 className="w-6 h-6 animate-spin text-nutri-green" />
+                    <div className="py-16 flex flex-col items-center justify-center text-[#4B5563] text-xs space-y-2">
+                      <Loader2 className="w-6 h-6 animate-spin text-[#2F7D16]" />
                       <span>Loading saved meals...</span>
                     </div>
                   ) : savedMeals.length === 0 ? (
-                    <div className="p-8 text-center bg-nutri-bg rounded-2xl border border-nutri-border space-y-3">
-                      <Layers className="w-8 h-8 text-nutri-muted mx-auto" />
+                    <div className="p-8 text-center bg-[#F7FAF4] rounded-2xl border border-[#E5E7E2] space-y-3 max-w-md mx-auto my-6">
+                      <Layers className="w-8 h-8 text-[#4B5563]/50 mx-auto" />
                       <div>
-                        <p className="font-bold text-sm text-nutri-charcoal">No saved meals yet</p>
-                        <p className="text-xs text-nutri-secondary mt-0.5 max-w-sm mx-auto">
-                          Create custom meal combos (e.g. &apos;My Breakfast: 2 Eggs + 2 Toast + Milk&apos;) to log all ingredients at once.
+                        <p className="font-bold text-sm text-[#111111]">No saved meals yet</p>
+                        <p className="text-xs text-[#4B5563] mt-0.5">
+                          Create custom meal combos (e.g. &apos;2 Eggs + Toast + Milk&apos;) to log all ingredients together.
                         </p>
                       </div>
                       <Button
                         size="sm"
                         variant="primary"
                         onClick={() => setIsCreatingMeal(true)}
-                        className="bg-nutri-green text-white font-extrabold text-xs rounded-xl cursor-pointer"
+                        className="bg-[#2F7D16] text-white font-extrabold text-xs rounded-xl"
                       >
                         <Plus className="w-3.5 h-3.5 mr-1" /> Create Your First Meal
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                    <div className="space-y-3">
                       {savedMeals.map((meal) => (
                         <div
                           key={meal.id}
-                          className="p-4 bg-white border border-nutri-border rounded-2xl shadow-xs space-y-2.5 hover:border-nutri-green/40 transition-colors"
+                          className="p-4 bg-white border border-[#E5E7E2] rounded-2xl shadow-xs space-y-2.5 hover:border-[#2F7D16]/40 transition-colors"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <h5 className="font-heading font-extrabold text-sm sm:text-base text-nutri-charcoal">
+                              <h5 className="font-heading font-extrabold text-sm sm:text-base text-[#111111]">
                                 {meal.name}
                               </h5>
                               {meal.description && (
-                                <p className="text-xs text-nutri-secondary mt-0.5">
+                                <p className="text-xs text-[#4B5563] mt-0.5">
                                   {meal.description}
                                 </p>
                               )}
@@ -1336,7 +1664,7 @@ export function FoodSearchModal({
                             <button
                               type="button"
                               onClick={() => handleDeleteSavedMeal(meal.id)}
-                              className="text-nutri-muted hover:text-rose-600 p-1 cursor-pointer"
+                              className="text-[#4B5563] hover:text-rose-600 p-1 cursor-pointer transition-colors"
                               title="Delete saved meal"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1348,7 +1676,7 @@ export function FoodSearchModal({
                             {meal.items.map((it: any, idx: number) => (
                               <span
                                 key={idx}
-                                className="bg-nutri-bg px-2.5 py-1 rounded-lg border border-nutri-border text-nutri-charcoal font-medium"
+                                className="bg-[#F7FAF4] px-2.5 py-1 rounded-lg border border-[#E5E7E2] text-[#111111] font-medium"
                               >
                                 {it.quantity} {it.unit} {it.foodName}
                               </span>
@@ -1356,9 +1684,9 @@ export function FoodSearchModal({
                           </div>
 
                           {/* Macro Totals & Log CTA */}
-                          <div className="pt-2 border-t border-nutri-border-light flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 text-xs font-bold text-nutri-secondary">
-                              <span className="text-nutri-green font-extrabold">
+                          <div className="pt-2 border-t border-[#E5E7E2] flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 text-xs font-bold text-[#4B5563]">
+                              <span className="text-[#2F7D16] font-extrabold">
                                 {meal.totalCalories} kcal
                               </span>
                               <span>•</span>
@@ -1374,9 +1702,9 @@ export function FoodSearchModal({
                               variant="primary"
                               disabled={submitting}
                               onClick={() => handleLogSavedMeal(meal.id)}
-                              className="bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs py-1.5 px-3 rounded-xl shadow-xs cursor-pointer flex items-center gap-1"
+                              className="bg-[#2F7D16] hover:bg-[#24630F] text-white font-extrabold text-xs py-1.5 px-3 rounded-xl shadow-xs cursor-pointer flex items-center gap-1"
                             >
-                              <Plus className="w-3.5 h-3.5" /> Log to {targetMealType.toLowerCase()}
+                              <Plus className="w-3.5 h-3.5" /> Log to {formatMealLabel(targetMealType)}
                             </Button>
                           </div>
                         </div>
@@ -1386,15 +1714,15 @@ export function FoodSearchModal({
                 </>
               ) : (
                 /* INLINE SAVED MEAL BUILDER */
-                <div className="p-4 bg-nutri-bg/60 border border-nutri-border rounded-2xl space-y-4 animate-scale-up">
-                  <div className="flex items-center justify-between border-b border-nutri-border-light pb-2">
-                    <h4 className="font-heading font-extrabold text-sm sm:text-base text-nutri-charcoal">
+                <div className="p-4 bg-[#F7FAF4] border border-[#E5E7E2] rounded-2xl space-y-4 animate-scale-up">
+                  <div className="flex items-center justify-between border-b border-[#E5E7E2] pb-2">
+                    <h4 className="font-heading font-extrabold text-sm sm:text-base text-[#111111]">
                       Create Custom Meal / Recipe
                     </h4>
                     <button
                       type="button"
                       onClick={() => setIsCreatingMeal(false)}
-                      className="text-xs text-nutri-secondary hover:text-nutri-charcoal cursor-pointer"
+                      className="text-xs text-[#4B5563] hover:text-[#111111] cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -1402,7 +1730,7 @@ export function FoodSearchModal({
 
                   <div className="space-y-3">
                     <div>
-                      <label className="text-xs font-bold text-nutri-secondary block mb-1">
+                      <label className="text-xs font-bold text-[#4B5563] block mb-1">
                         Meal Name <span className="text-rose-500">*</span>
                       </label>
                       <input
@@ -1410,12 +1738,12 @@ export function FoodSearchModal({
                         value={newMealName}
                         onChange={(e) => setNewMealName(e.target.value)}
                         placeholder="e.g. My Power Breakfast, Post-Workout Shake"
-                        className="w-full bg-white border border-nutri-border rounded-xl px-3 py-2 text-xs sm:text-sm font-bold text-nutri-charcoal focus:outline-none focus:border-nutri-green"
+                        className="w-full bg-white border border-[#E5E7E2] rounded-xl px-3 py-2 text-xs sm:text-sm font-bold text-[#111111] focus:outline-none focus:border-[#2F7D16]"
                       />
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold text-nutri-secondary block mb-1">
+                      <label className="text-xs font-bold text-[#4B5563] block mb-1">
                         Description (Optional)
                       </label>
                       <input
@@ -1423,30 +1751,29 @@ export function FoodSearchModal({
                         value={newMealDescription}
                         onChange={(e) => setNewMealDescription(e.target.value)}
                         placeholder="e.g. High protein eggs and multigrain toast with banana"
-                        className="w-full bg-white border border-nutri-border rounded-xl px-3 py-2 text-xs text-nutri-charcoal focus:outline-none focus:border-nutri-green"
+                        className="w-full bg-white border border-[#E5E7E2] rounded-xl px-3 py-2 text-xs text-[#111111] focus:outline-none focus:border-[#2F7D16]"
                       />
                     </div>
                   </div>
 
                   {/* Food Item Picker inside Builder */}
-                  <div className="space-y-2 pt-2 border-t border-nutri-border-light">
-                    <label className="text-xs font-bold text-nutri-secondary block">
+                  <div className="space-y-2 pt-2 border-t border-[#E5E7E2]">
+                    <label className="text-xs font-bold text-[#4B5563] block">
                       Search &amp; Add Food Items to Meal
                     </label>
                     <div className="relative">
-                      <Search className="w-4 h-4 text-nutri-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Search className="w-4 h-4 text-[#4B5563] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         type="text"
                         value={mealSearchQuery}
                         onChange={(e) => setMealSearchQuery(e.target.value)}
                         placeholder="Search food item to add (e.g. Boiled Egg, Oats)..."
-                        className="w-full bg-white border border-nutri-border rounded-xl pl-9 pr-3 py-2 text-xs text-nutri-charcoal focus:outline-none focus:border-nutri-green"
+                        className="w-full bg-white border border-[#E5E7E2] rounded-xl pl-9 pr-3 py-2 text-xs text-[#111111] focus:outline-none focus:border-[#2F7D16]"
                       />
                     </div>
 
-                    {/* Search results dropdown for meal */}
                     {mealSearchResults.length > 0 && (
-                      <div className="divide-y divide-nutri-border-light border border-nutri-border rounded-xl overflow-hidden bg-white max-h-40 overflow-y-auto">
+                      <div className="divide-y divide-[#E5E7E2] border border-[#E5E7E2] rounded-xl overflow-hidden bg-white max-h-40 overflow-y-auto">
                         {mealSearchResults.map((food) => (
                           <div
                             key={food.id}
@@ -1457,10 +1784,10 @@ export function FoodSearchModal({
                               setMealSearchResults([]);
                               setMealSearchQuery(food.name);
                             }}
-                            className="p-2.5 flex items-center justify-between text-xs hover:bg-nutri-green-soft cursor-pointer"
+                            className="p-2.5 flex items-center justify-between text-xs hover:bg-[#EAF4E3] cursor-pointer"
                           >
-                            <span className="font-bold text-nutri-charcoal truncate">{food.name}</span>
-                            <span className="text-nutri-secondary font-medium shrink-0">
+                            <span className="font-bold text-[#111111] truncate">{food.name}</span>
+                            <span className="text-[#4B5563] font-medium shrink-0">
                               {food.caloriesPer100g} kcal
                             </span>
                           </div>
@@ -1468,11 +1795,10 @@ export function FoodSearchModal({
                       </div>
                     )}
 
-                    {/* Configurator for the chosen item */}
                     {selectedMealFood && (
-                      <div className="p-3 bg-nutri-green-light/40 border border-nutri-green/30 rounded-xl flex items-center gap-2">
+                      <div className="p-3 bg-[#EAF4E3]/60 border border-[#2F7D16]/30 rounded-xl flex items-center gap-2">
                         <div className="flex-1 min-w-0">
-                          <span className="font-bold text-xs text-nutri-charcoal truncate block">
+                          <span className="font-bold text-xs text-[#111111] truncate block">
                             {selectedMealFood.name}
                           </span>
                         </div>
@@ -1482,14 +1808,14 @@ export function FoodSearchModal({
                           min="0.1"
                           value={mealItemQuantity}
                           onChange={(e) => setMealItemQuantity(parseFloat(e.target.value) || 0)}
-                          className="w-16 bg-white border border-nutri-border rounded-lg px-2 py-1 text-xs font-bold text-center"
+                          className="w-16 bg-white border border-[#E5E7E2] rounded-lg px-2 py-1 text-xs font-bold text-center"
                         />
-                        <span className="text-xs text-nutri-secondary">{mealItemUnit}</span>
+                        <span className="text-xs text-[#4B5563]">{mealItemUnit}</span>
                         <Button
                           size="sm"
                           variant="primary"
                           onClick={handleAddItemToSavedMeal}
-                          className="bg-nutri-green text-white font-bold text-xs py-1 px-3 rounded-lg"
+                          className="bg-[#2F7D16] text-white font-bold text-xs py-1 px-3 rounded-lg"
                         >
                           Add
                         </Button>
@@ -1499,20 +1825,20 @@ export function FoodSearchModal({
 
                   {/* Added Items List */}
                   <div className="space-y-1.5">
-                    <span className="text-xs font-bold text-nutri-secondary block">
+                    <span className="text-xs font-bold text-[#4B5563] block">
                       Meal Items ({newMealItems.length})
                     </span>
                     {newMealItems.length === 0 ? (
-                      <p className="text-xs text-nutri-muted italic">No items added to this meal yet.</p>
+                      <p className="text-xs text-[#4B5563] italic">No items added to this meal yet.</p>
                     ) : (
-                      <div className="divide-y divide-nutri-border-light border border-nutri-border rounded-xl bg-white overflow-hidden">
+                      <div className="divide-y divide-[#E5E7E2] border border-[#E5E7E2] rounded-xl bg-white overflow-hidden">
                         {newMealItems.map((item, idx) => (
                           <div key={idx} className="p-2.5 flex items-center justify-between text-xs">
                             <div>
-                              <span className="font-bold text-nutri-charcoal">
+                              <span className="font-bold text-[#111111]">
                                 {item.quantity} {item.unit} {item.foodName}
                               </span>
-                              <span className="text-nutri-muted text-[11px] block">
+                              <span className="text-[#4B5563] text-[11px] block">
                                 {item.calories} kcal • P: {item.protein}g • C: {item.carbohydrates}g • F: {item.fat}g
                               </span>
                             </div>
@@ -1531,10 +1857,10 @@ export function FoodSearchModal({
 
                   {/* Combined Totals Preview */}
                   {newMealItems.length > 0 && (
-                    <div className="p-3 bg-white rounded-xl border border-nutri-border flex items-center justify-between text-xs font-bold">
-                      <span className="text-nutri-charcoal">Total Nutrition:</span>
-                      <div className="flex items-center gap-2 text-nutri-secondary">
-                        <span className="text-nutri-green font-extrabold">
+                    <div className="p-3 bg-white rounded-xl border border-[#E5E7E2] flex items-center justify-between text-xs font-bold">
+                      <span className="text-[#111111]">Total Nutrition:</span>
+                      <div className="flex items-center gap-2 text-[#4B5563]">
+                        <span className="text-[#2F7D16] font-extrabold">
                           {Math.round(newMealItems.reduce((acc, i) => acc + i.calories, 0) * 10) / 10} kcal
                         </span>
                         <span>•</span>
@@ -1551,7 +1877,7 @@ export function FoodSearchModal({
                     variant="primary"
                     disabled={savingMeal || newMealItems.length === 0 || !newMealName.trim()}
                     onClick={handleSaveCustomMeal}
-                    className="w-full bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-2.5 rounded-xl shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full bg-[#2F7D16] hover:bg-[#24630F] text-white font-extrabold text-xs sm:text-sm py-2.5 rounded-xl shadow-xs flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
                   >
                     {savingMeal ? (
                       <>
@@ -1569,16 +1895,18 @@ export function FoodSearchModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-3.5 sm:p-4 border-t border-nutri-border-light bg-nutri-bg/50 flex items-center justify-between text-xs text-nutri-secondary">
-          <span>* Verified nutrition estimates based on standard Indian Food Composition Tables &amp; NutriFlexs recipes.</span>
+        {/* 4. Modal Footer */}
+        <div className="p-3.5 sm:p-4 border-t border-[#E5E7E2] bg-[#F7FAF4] flex items-center justify-between text-xs text-[#4B5563] shrink-0">
+          <span className="text-[11px] text-[#4B5563] truncate mr-2">
+            * Verified nutrition estimates based on standard Indian Food Composition Tables (ICMR-NIN) &amp; NutriFlexs recipes.
+          </span>
           <Button
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="text-xs font-bold text-nutri-secondary hover:text-nutri-charcoal cursor-pointer"
+            className="text-xs font-bold text-[#4B5563] hover:text-[#111111] hover:bg-[#EAF4E3] rounded-full px-3 py-1 cursor-pointer shrink-0"
           >
-            Cancel
+            Close
           </Button>
         </div>
       </div>

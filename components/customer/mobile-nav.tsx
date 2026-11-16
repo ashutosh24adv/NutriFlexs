@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Leaf, ShoppingBag, Clock, User } from "lucide-react";
+import { Home, Utensils, ShoppingBag, Flame, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MobileNavProps {
@@ -16,9 +16,9 @@ export function MobileNav({ cartCount = 0, onOpenCart }: MobileNavProps) {
 
   const navItems = [
     { label: "Home", href: "/home", icon: Home },
-    { label: "Menu", href: "/menu", icon: Leaf },
+    { label: "Order Food", href: "/menu", icon: Utensils },
     { label: "Cart", href: "/cart", icon: ShoppingBag, isCenterOrder: true },
-    { label: "Orders", href: "/orders", icon: Clock },
+    { label: "Track", href: "/nutrition", icon: Flame },
     { label: "Profile", href: "/profile", icon: User },
   ];
 
@@ -31,8 +31,8 @@ export function MobileNav({ cartCount = 0, onOpenCart }: MobileNavProps) {
             isActive = pathname === "/home" || pathname === "/";
           } else if (item.href === "/menu") {
             isActive = pathname.startsWith("/menu");
-          } else if (item.href === "/orders") {
-            isActive = pathname.startsWith("/orders");
+          } else if (item.href === "/nutrition") {
+            isActive = pathname.startsWith("/nutrition");
           } else if (item.href === "/profile") {
             isActive = pathname.startsWith("/profile");
           } else if (item.href === "/cart") {

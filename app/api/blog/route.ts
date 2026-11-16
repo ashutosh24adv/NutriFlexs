@@ -5,7 +5,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-    const limit = Math.max(1, parseInt(searchParams.get("limit") || "4", 10));
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "4", 10)));
     const category = searchParams.get("category");
     const tag = searchParams.get("tag");
 

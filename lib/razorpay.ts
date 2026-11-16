@@ -79,20 +79,43 @@ export function verifyRazorpaySignature(
   razorpayPaymentId: string,
   signature: string
 ): boolean {
-  const secret = process.env.RAZORPAY_KEY_SECRET || "demo_secret";
+  if (!razorpayOrderId || !razorpayPaymentId || !signature) {
+    return false;
+  }
 
-  // In demo test mode, accept simulated valid test signatures
-  if (signature.startsWith("demo_sig_") || process.env.NODE_ENV !== "production") {
+  const secret = process.env.RAZORPAY_KEY_SECRET;
+
+  // Controlled test simulator: accept explicit demo signature ONLY in non-production environments
+  if (process.env.NODE_ENV !== "production" && signature === "demo_sig_valid") {
     return true;
   }
 
-  const body = razorpayOrderId + "|" + razorpayPaymentId;
-  const expectedSignature = crypto
-    .createHmac("sha256", secret)
-    .update(body.toString())
-    .digest("hex");
+  if (!secret) {
+    // If no secret configured in production, fail closed
+    console.error("[Payment Security] RAZORPAY_KEY_SECRET is not configured.");
+    return false;
+  }
 
-  return expectedSignature === signature;
+  try {
+    const body = `${razorpayOrderId}|${razorpayPaymentId}`;
+    const expectedSignature = crypto
+      .createHmac("sha256", secret)
+      .update(body)
+      .digest("hex");
+
+    const expectedBuffer = Buffer.from(expectedSignature, "utf8");
+    const signatureBuffer = Buffer.from(signature, "utf8");
+
+    if (expectedBuffer.length !== signatureBuffer.length) {
+      return false;
+    }
+
+    // Timing-safe comparison to prevent side-channel timing attacks
+    return crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
+  } catch (err) {
+    console.error("[Payment Security] Signature verification error:", err);
+    return false;
+  }
 }
 
 export default Razorpay;

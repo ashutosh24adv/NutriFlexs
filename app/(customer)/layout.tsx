@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { usePathname } from "next/navigation";
 import { PublicHeader } from "@/components/customer/public-header";
 import { useDietary } from "@/components/customer/dietary-context";
 import { Leaf, X } from "lucide-react";
@@ -35,6 +36,14 @@ function DietaryAlertBanner() {
 }
 
 export default function CustomerLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isOnboarding = pathname?.startsWith("/nutrition/onboarding");
+
+  // Onboarding has its own dedicated, focused, single-screen shell
+  if (isOnboarding) {
+    return <div className="h-screen w-screen overflow-hidden bg-nutri-bg">{children}</div>;
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-nutri-bg overflow-x-hidden">
       <DietaryAlertBanner />

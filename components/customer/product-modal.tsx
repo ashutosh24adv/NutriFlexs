@@ -29,7 +29,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div data-testid="product-detail-modal" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       <div className="relative w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-slide-up">
         {/* Close Button */}
         <button
@@ -56,8 +56,8 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
               <Badge variant={product.isVeg ? "veg" : "nonveg"} className="text-white border-white/40">
                 {product.isVeg ? "100% VEGETARIAN" : "HIGH PROTEIN NON-VEG"}
               </Badge>
-              <span className="text-xs bg-black/50 backdrop-blur-md px-2.5 py-0.5 rounded-full flex items-center gap-1 font-medium">
-                <Clock className="w-3 h-3 text-nutri-accent" /> ~{product.preparationTimeMinutes} min preparation
+              <span data-testid="product-modal-prep-time" className="text-xs bg-black/50 backdrop-blur-md px-2.5 py-0.5 rounded-full flex items-center gap-1 font-medium">
+                <Clock className="w-3 h-3 text-nutri-accent" /> 5 min preparation
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold font-heading text-white">{product.name}</h2>

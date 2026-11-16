@@ -4,8 +4,10 @@ export const MealTypeEnum = z.enum(["BREAKFAST", "LUNCH", "SNACKS", "DINNER"]);
 
 export const addFoodLogSchema = z.object({
   foodItemId: z.string().uuid().optional().nullable(),
+  foodVariantId: z.string().uuid().optional().nullable(),
   productId: z.string().uuid().optional().nullable(),
   foodName: z.string().min(1, "Food name is required").max(120),
+  variantName: z.string().max(120).optional().nullable(),
   mealType: MealTypeEnum,
   quantity: z.number().positive("Quantity must be greater than 0").max(10000),
   unit: z.string().min(1).max(30),
@@ -18,6 +20,8 @@ export const addFoodLogSchema = z.object({
 });
 
 export const updateFoodLogSchema = z.object({
+  foodVariantId: z.string().uuid().optional().nullable(),
+  variantName: z.string().max(120).optional().nullable(),
   quantity: z.number().positive("Quantity must be greater than 0").max(10000).optional(),
   unit: z.string().min(1).max(30).optional(),
   mealType: MealTypeEnum.optional(),

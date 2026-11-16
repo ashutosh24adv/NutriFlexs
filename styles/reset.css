@@ -1,0 +1,96 @@
+/**
+ * NutriFlexs Global Base Normalization & Reset
+ * Safe, non-destructive defaults preserving Tailwind utility functionality
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  tab-size: 4;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-background, #FCFDFC);
+  color: var(--color-text-primary, #111111);
+  font-family: var(--font-family-sans);
+  line-height: var(--line-height-normal, 1.5);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* Images & Media */
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* Headings inherit font-heading */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-heading);
+  margin-top: 0;
+  color: var(--color-text-primary, #111111);
+  letter-spacing: -0.02em;
+}
+
+/* Form element font inheritance */
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 100%;
+  line-height: inherit;
+  color: inherit;
+  margin: 0;
+}
+
+button {
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* Selection Color (Clean NutriFlexs Green) */
+::selection {
+  background-color: var(--color-green-light, #EAF4E3);
+  color: var(--color-primary-dark, #24630F);
+}
+
+/* Custom Minimal Branded Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-background, #FCFDFC);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-green-light, #EAF4E3);
+  border-radius: var(--radius-full, 9999px);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary, #2F7D16);
+}
+

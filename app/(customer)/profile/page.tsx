@@ -157,7 +157,7 @@ export default function CustomerProfilePage() {
                 {user?.role || "CUSTOMER ACCOUNT"}
               </Badge>
               {isVegetarian && (
-                <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 font-bold text-[10px] px-2.5 py-0.5">
+                <Badge className="bg-nutri-green-light text-nutri-green border-nutri-border-light font-bold text-[10px] px-2.5 py-0.5">
                   🥬 VEGETARIAN PREFERRED
                 </Badge>
               )}
@@ -175,6 +175,23 @@ export default function CustomerProfilePage() {
 
       {/* Quick Navigation Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Link href="/nutrition?retake=true" className="block group">
+          <Card className="p-5 border-nutri-border bg-white rounded-2xl group-hover:border-nutri-green transition-all shadow-xs flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-nutri-green-light text-nutri-green flex items-center justify-center shrink-0">
+                <Zap className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-nutri-charcoal group-hover:text-nutri-green transition-colors">
+                  Personalized Nutrition Profile
+                </h4>
+                <p className="text-[11px] text-nutri-secondary">Retake onboarding &amp; recalculate daily macros</p>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-nutri-secondary group-hover:text-nutri-green transition-colors" />
+          </Card>
+        </Link>
+
         <Link href="/orders" className="block group">
           <Card className="p-5 border-nutri-border bg-white rounded-2xl group-hover:border-nutri-green transition-all shadow-xs flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -317,7 +334,7 @@ export default function CustomerProfilePage() {
               Save Changes
             </Button>
             {saved && (
-              <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+              <span className="text-xs text-nutri-green font-semibold flex items-center gap-1">
                 <Check className="w-4 h-4" /> Profile updated successfully!
               </span>
             )}

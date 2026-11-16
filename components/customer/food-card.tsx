@@ -53,7 +53,7 @@ export function FoodCard({ product, onAddToCart, onOpenDetails, onQuickView }: F
           {/* Top Left Badges */}
           <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1.5 z-10">
             {product.isVeg ? (
-              <Badge variant="veg" className="bg-emerald-900/80 backdrop-blur-md text-emerald-100 border-none text-[10px]">
+              <Badge variant="veg" className="bg-nutri-green-dark/90 backdrop-blur-md text-white border-none text-[10px]">
                 <Leaf className="w-2.5 h-2.5 fill-current" /> VEG
               </Badge>
             ) : (
@@ -69,9 +69,9 @@ export function FoodCard({ product, onAddToCart, onOpenDetails, onQuickView }: F
           </div>
 
           {/* Prep Time Badge */}
-          <div className="absolute bottom-2.5 right-2.5 bg-black/65 backdrop-blur-md text-white text-[11px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1">
+          <div data-testid="prep-time-badge" className="absolute bottom-2.5 right-2.5 bg-black/65 backdrop-blur-md text-white text-[11px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1 z-10">
             <Clock className="w-3 h-3 text-nutri-accent" />
-            <span>~{product.preparationTimeMinutes} min</span>
+            <span>5 min</span>
           </div>
         </div>
 

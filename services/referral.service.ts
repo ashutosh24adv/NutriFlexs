@@ -4,10 +4,24 @@ export async function getTrainerDashboardData(trainerUserId: string) {
   const trainer = await prisma.trainer.findUnique({
     where: { userId: trainerUserId },
     include: {
-      user: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      },
       referrals: {
         include: {
-          customer: true,
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              createdAt: true,
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
       },
@@ -17,7 +31,14 @@ export async function getTrainerDashboardData(trainerUserId: string) {
       orders: {
         include: {
           items: true,
-          user: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
         take: 10,

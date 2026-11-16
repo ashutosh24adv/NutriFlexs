@@ -1,6 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { prisma } from "@/lib/prisma";
+import { prisma, withDbRetry } from "@/lib/prisma";
 import { verifyPassword, hashPassword } from "@/lib/password";
 
 export const authOptions: NextAuthOptions = {
@@ -18,10 +18,12 @@ export const authOptions: NextAuthOptions = {
 
         const email = credentials.email.toLowerCase().trim();
 
-        // Find user in Neon PostgreSQL
-        const user = await prisma.user.findUnique({
-          where: { email },
-        });
+        // Find user in Neon PostgreSQL with retry for serverless cold start
+        const user = await withDbRetry(() =>
+          prisma.user.findUnique({
+            where: { email },
+          })
+        );
 
         if (!user || !user.passwordHash) {
           return null;
@@ -88,5 +90,10 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || "nutriflexs_super_secret_auth_key_2026_jwt",
+  secret:
+    process.env.NEXTAUTH_SECRET ||
+    process.env.AUTH_SECRET ||
+    (process.env.NODE_ENV === "production"
+      ? undefined
+      : "nutriflexs_super_secret_auth_key_2026_jwt"),
 };
