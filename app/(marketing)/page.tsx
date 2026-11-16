@@ -1029,7 +1029,7 @@ export default function MarketingLandingPage() {
               Eat Smart. Track Better.
             </h2>
             <p className="text-sm text-nutri-muted leading-relaxed">
-              NutriFlexs was founded in Bengaluru with a straightforward observation: fitness enthusiasts crush their gym workouts, but either settle for oily takeout or dry boiled chicken because fresh nutrition wasn't accessible or measurable.
+              NutriFlexs was founded in Bengaluru with a straightforward observation: fitness enthusiasts crush their gym workouts, but either settle for oily takeout or dry boiled chicken because fresh nutrition wasn&apos;t accessible or measurable.
             </p>
             <p className="text-sm text-nutri-muted leading-relaxed">
               We positioned express kiosks 50m from top fitness centers to deliver hot, organic post-workout meals in 5 minutes, and built an intelligent tracker to capture home and Indian food macros with unmatched precision.

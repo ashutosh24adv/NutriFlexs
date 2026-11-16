@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   KeyRound,
   Plus,
@@ -77,12 +77,7 @@ export function AccessCodesTab() {
   // Action loading for revocation
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchCodes();
-    fetchOutlets();
-  }, []);
-
-  async function fetchCodes() {
+  const fetchCodes = useCallback(async () => {
     try {
       setRefreshing(true);
       setError(null);
@@ -98,9 +93,9 @@ export function AccessCodesTab() {
       setLoading(false);
       setRefreshing(false);
     }
-  }
+  }, []);
 
-  async function fetchOutlets() {
+  const fetchOutlets = useCallback(async () => {
     try {
       const res = await fetch("/api/gyms");
       const data = await res.json();
@@ -118,14 +113,19 @@ export function AccessCodesTab() {
           }
         });
         setOutlets(flattened);
-        if (flattened.length > 0 && !formOutletId) {
-          setFormOutletId(flattened[0].id);
+        if (flattened.length > 0) {
+          setFormOutletId((prev) => prev || flattened[0].id);
         }
       }
     } catch (err) {
       console.error("Failed to load outlets for code modal", err);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchCodes();
+    fetchOutlets();
+  }, [fetchCodes, fetchOutlets]);
 
   async function handleCreateCode(e: React.FormEvent) {
     e.preventDefault();

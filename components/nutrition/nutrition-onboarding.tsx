@@ -89,11 +89,19 @@ export function NutritionOnboarding({
   });
 
   // Dual unit height temporary state for ft/in
-  const [feet, setFeet] = useState(5);
-  const [inches, setInches] = useState(8);
+  const [feet, setFeet] = useState(() => {
+    const totalInches = (initialData?.heightCm || 172) / 2.54;
+    return Math.floor(totalInches / 12);
+  });
+  const [inches, setInches] = useState(() => {
+    const totalInches = (initialData?.heightCm || 172) / 2.54;
+    return Math.round(totalInches % 12);
+  });
 
   // Dual unit weight temporary state for lbs
-  const [weightLbs, setWeightLbs] = useState(150);
+  const [weightLbs, setWeightLbs] = useState(() => {
+    return Math.round((initialData?.weightKg || 68) * 2.20462);
+  });
 
   // Calculated estimates
   const [calculatedTargets, setCalculatedTargets] = useState<CalculatedNutritionTargets>(() =>
@@ -109,29 +117,7 @@ export function NutritionOnboarding({
   useEffect(() => {
     const updated = calculateNutritionTargets(formData);
     setCalculatedTargets(updated);
-  }, [
-    formData.sex,
-    formData.birthDate,
-    formData.heightCm,
-    formData.weightKg,
-    formData.workoutFrequency,
-    formData.primaryGoal,
-    formData.preferredPace,
-    formData.desiredGoalTarget,
-    formData.desiredTimelineWeeks,
-  ]);
-
-  // Synchronize initial height/weight unit conversions
-  useEffect(() => {
-    if (formData.heightCm) {
-      const totalInches = formData.heightCm / 2.54;
-      setFeet(Math.floor(totalInches / 12));
-      setInches(Math.round(totalInches % 12));
-    }
-    if (formData.weightKg) {
-      setWeightLbs(Math.round(formData.weightKg * 2.20462));
-    }
-  }, []);
+  }, [formData]);
 
   // Save partial progress to server when advancing
   const persistProgress = async (stepToSave: number, updatedData: OnboardingData) => {

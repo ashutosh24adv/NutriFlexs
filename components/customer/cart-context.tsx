@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { CartItemType } from "@/components/customer/cart-drawer";
 
@@ -28,9 +28,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const prevUserEmailRef = useRef<string | null>(null);
+  const cartItemsRef = useRef<CartItemType[]>(cartItems);
+  cartItemsRef.current = cartItems;
 
   // Helper to revalidate prices & availability against the server (/api/products)
-  const revalidateWithServer = async (items: CartItemType[]): Promise<CartItemType[]> => {
+  const revalidateWithServer = useCallback(async (items: CartItemType[]): Promise<CartItemType[]> => {
     if (!items || items.length === 0) return [];
     try {
       const res = await fetch("/api/products");
@@ -61,7 +63,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       console.warn("Could not revalidate cart prices with server:", e);
     }
     return items;
-  };
+  }, []);
 
   // 1. Initial Cart Load on Mount
   useEffect(() => {
@@ -85,7 +87,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       console.error("Error reading cart from localStorage", e);
       setHasInitialized(true);
     }
-  }, []);
+  }, [revalidateWithServer]);
 
   // 2. Auth State Transition & Guest Cart Merge
   useEffect(() => {
@@ -102,7 +104,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
         // Read current guest cart items from state or storage
         const guestRaw = localStorage.getItem(GUEST_CART_KEY);
-        const guestCart: CartItemType[] = guestRaw ? JSON.parse(guestRaw) : cartItems;
+        const guestCart: CartItemType[] = guestRaw ? JSON.parse(guestRaw) : cartItemsRef.current;
 
         // Merge guest cart items into authenticated cart without duplicates
         const mergedMap = new Map<string, CartItemType>();
@@ -140,7 +142,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
 
     prevUserEmailRef.current = currentUserEmail;
-  }, [status, session?.user?.email, hasInitialized]);
+  }, [status, session?.user?.email, hasInitialized, revalidateWithServer]);
 
   // 3. Persist cart changes to storage
   useEffect(() => {

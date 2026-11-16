@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
@@ -17,7 +17,8 @@ export default function OrderTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function fetchOrderDetails() {
+  const fetchOrderDetails = useCallback(async () => {
+    if (!orderId) return;
     setLoading(true);
     setError(null);
     try {
@@ -33,7 +34,7 @@ export default function OrderTrackingPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [orderId]);
 
   useEffect(() => {
     if (orderId) {
@@ -41,7 +42,7 @@ export default function OrderTrackingPage() {
       const interval = setInterval(fetchOrderDetails, 5000);
       return () => clearInterval(interval);
     }
-  }, [orderId]);
+  }, [orderId, fetchOrderDetails]);
 
   const stages = [
     { key: "ORDER_PLACED", label: "Order Placed", desc: "Sent to Express Kiosk" },

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Sparkles, ArrowRight, Loader2, Scale, Ruler, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,7 @@ export function BmiRecommendations() {
     }
   }, []);
 
-  const calculateWithParams = async (h: number, w: number, vegOnly: boolean) => {
+  const calculateWithParams = useCallback(async (h: number, w: number, vegOnly: boolean) => {
     if (isNaN(h) || isNaN(w) || h <= 0 || w <= 0 || h < 80 || h > 260 || w < 20 || w > 350) {
       return;
     }
@@ -74,18 +74,28 @@ export function BmiRecommendations() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const isInitialMount = useRef(true);
+  const prevIsVegetarian = useRef(isVegetarian);
 
   // When isVegetarian changes and a result is already shown, re-fetch with new dietary mode
   useEffect(() => {
-    if (result && heightCm && weightKg) {
-      const h = parseFloat(heightCm);
-      const w = parseFloat(weightKg);
-      if (!isNaN(h) && !isNaN(w) && h >= 80 && w >= 20) {
-        calculateWithParams(h, w, isVegetarian);
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (prevIsVegetarian.current !== isVegetarian) {
+      prevIsVegetarian.current = isVegetarian;
+      if (result && heightCm && weightKg) {
+        const h = parseFloat(heightCm);
+        const w = parseFloat(weightKg);
+        if (!isNaN(h) && !isNaN(w) && h >= 80 && w >= 20) {
+          calculateWithParams(h, w, isVegetarian);
+        }
       }
     }
-  }, [isVegetarian]);
+  }, [isVegetarian, result, heightCm, weightKg, calculateWithParams]);
 
   const handleCalculate = async (e: React.FormEvent) => {
     e.preventDefault();
