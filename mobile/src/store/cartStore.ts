@@ -56,7 +56,7 @@ let state: CartState = {
   trainerCode: '',
   trainerDiscountApplied: false,
   kioskLocation: 'Cult.fit HSR Layout',
-  activeOrderId: 'NF-429',
+  activeOrderId: null,
 };
 
 const listeners = new Set<(s: CartState) => void>();
@@ -175,7 +175,7 @@ export const cartActions = {
   },
 
   placeOrder: (customOrderId?: string): string => {
-    const orderId = customOrderId || 'NF-429';
+    const orderId = customOrderId || `NF-${Math.floor(100 + Math.random() * 900)}`;
     state = {
       ...state,
       activeOrderId: orderId,

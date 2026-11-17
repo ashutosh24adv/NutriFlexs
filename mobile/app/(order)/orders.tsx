@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -16,100 +17,238 @@ import {
   Sparkles,
 } from 'lucide-react-native';
 import { useCartStore } from '../../src/store/cartStore';
+import { useAuthStore } from '../../src/store/authStore';
 
-interface PastOrder {
+interface ParsedItem {
   id: string;
-  orderNumber: string;
-  date: string;
-  kiosk: string;
-  itemsText: string;
-  itemIds: string[];
-  totalPrice: number;
+  name: string;
+  quantity: number;
+  price: number;
   proteinGrams: number;
   calories: number;
+  prepTimeMinutes: number;
+  isVeg: boolean;
+  imageUrl: string;
 }
 
-const PAST_ORDERS: PastOrder[] = [
-  {
-    id: 'past-1',
-    orderNumber: 'NF-382',
-    date: 'Yesterday, 7:15 PM',
-    kiosk: 'Cult.fit HSR Layout',
-    itemsText: '1x Whey Isolate Berry Blast, 1x Citrus Electrolyte Booster',
-    itemIds: ['4', '3'],
-    totalPrice: 378,
-    proteinGrams: 40,
-    calories: 400,
-  },
-  {
-    id: 'past-2',
-    orderNumber: 'NF-310',
-    date: '3 days ago, 8:00 AM',
-    kiosk: 'Cult.fit HSR Layout',
-    itemsText: '1x High Protein Peanut Butter Banana Shake',
-    itemIds: ['1'],
-    totalPrice: 199,
-    proteinGrams: 32,
-    calories: 420,
-  },
-  {
-    id: 'past-3',
-    orderNumber: 'NF-284',
-    date: '5 days ago, 6:30 PM',
-    kiosk: 'Cult.fit HSR Layout',
-    itemsText: '1x Smoked Tofu Teriyaki Quinoa Bowl',
-    itemIds: ['5'],
-    totalPrice: 189,
-    proteinGrams: 31,
-    calories: 350,
-  },
-];
+interface RawOrder {
+  id: string;
+  orderNumber: string;
+  status: string;
+  subtotal?: number;
+  discount?: number;
+  totalAmount: number;
+  totalProtein?: number;
+  totalCalories?: number;
+  paymentStatus?: string;
+  estimatedPrepMinutes?: number;
+  createdAt: string;
+  outlet?: {
+    id?: string;
+    name?: string;
+    gym?: {
+      name?: string;
+    };
+  };
+  items?: any[];
+}
+
+function parseOrderItems(items: any[] = []): ParsedItem[] {
+  return items.map((item, idx) => {
+    let meta: any = null;
+    if (typeof item.productJson === 'string') {
+      try {
+        meta = JSON.parse(item.productJson);
+      } catch {
+        meta = null;
+      }
+    }
+
+    const name = item.product?.name || meta?.name || item.name || 'Fuel Item';
+    const price =
+      item.priceAtPurchase ?? item.product?.price ?? meta?.price ?? item.price ?? 199;
+    const quantity = item.quantity || 1;
+    const proteinGrams =
+      item.product?.protein ?? meta?.protein ?? item.proteinGrams ?? 0;
+    const calories =
+      item.product?.calories ?? meta?.calories ?? item.calories ?? 0;
+    const prepTimeMinutes = item.product?.preparationTimeMinutes ?? 5;
+    const isVeg = item.product?.isVeg ?? (meta?.isVeg ?? true);
+    const imageUrl =
+      item.product?.imageUrl ||
+      meta?.imageUrl ||
+      item.imageUrl ||
+      'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
+
+    return {
+      id: item.productId || item.product?.id || `item-${idx}`,
+      name,
+      quantity,
+      price,
+      proteinGrams,
+      calories,
+      prepTimeMinutes,
+      isVeg,
+      imageUrl,
+    };
+  });
+}
+
+function formatOrderDate(dateInput?: string | Date): string {
+  if (!dateInput) return 'Recently';
+  try {
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return String(dateInput);
+
+    const now = new Date();
+    const isToday =
+      d.getDate() === now.getDate() &&
+      d.getMonth() === now.getMonth() &&
+      d.getFullYear() === now.getFullYear();
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday =
+      d.getDate() === yesterday.getDate() &&
+      d.getMonth() === yesterday.getMonth() &&
+      d.getFullYear() === yesterday.getFullYear();
+
+    const timeStr = d.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+    if (isToday) return `Today, ${timeStr}`;
+    if (isYesterday) return `Yesterday, ${timeStr}`;
+
+    return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${timeStr}`;
+  } catch {
+    return 'Recently';
+  }
+}
 
 export default function OrdersScreen() {
   const router = useRouter();
-  const { addItem, activeOrderId } = useCartStore();
+  const { addItem } = useCartStore();
+  const { user, isAuthenticated } = useAuthStore();
 
-  const handleReorder = (order: PastOrder) => {
-    // Add first item from past order to cart
-    if (order.id === 'past-1') {
+  const [orders, setOrders] = useState<RawOrder[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const fetchOrders = useCallback(async () => {
+    if (!isAuthenticated || !user) {
+      setOrders([]);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const bases = [
+        process.env.EXPO_PUBLIC_API_URL || 'https://nutri-flexs.vercel.app',
+        'http://localhost:3000',
+        'http://10.91.111.142:3000',
+      ];
+      let fetched: RawOrder[] = [];
+      let success = false;
+
+      // 1. Primary endpoint: GET /api/mobile/orders
+      for (const base of bases) {
+        try {
+          const cleanBase = base.replace(/\/$/, '');
+          const url = `${cleanBase}/api/mobile/orders?userId=${encodeURIComponent(
+            user.id || ''
+          )}&email=${encodeURIComponent(user.email || '')}`;
+          const res = await fetch(url, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const list = Array.isArray(data?.orders)
+              ? data.orders
+              : Array.isArray(data)
+              ? data
+              : [];
+            fetched = list;
+            success = true;
+            break;
+          }
+        } catch {
+          // try next base
+        }
+      }
+
+      // 2. Fallback: GET /api/orders
+      if (!success) {
+        for (const base of bases) {
+          try {
+            const cleanBase = base.replace(/\/$/, '');
+            const res = await fetch(`${cleanBase}/api/orders`, {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json' },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              const list = Array.isArray(data?.orders)
+                ? data.orders
+                : Array.isArray(data)
+                ? data
+                : [];
+              fetched = list;
+              success = true;
+              break;
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      setOrders(fetched);
+    } catch (err) {
+      console.error('[OrdersScreen] Error fetching orders:', err);
+      setOrders([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  const handleReorder = (items: ParsedItem[]) => {
+    if (!items || items.length === 0) return;
+    for (const item of items) {
       addItem({
-        id: '4',
-        name: 'Whey Isolate Berry Blast Recovery',
-        price: 229,
-        proteinGrams: 36,
-        calories: 280,
-        prepTimeMinutes: 5,
-        isVeg: true,
-        imageUrl:
-          'https://images.unsplash.com/photo-1505252585461-04db1eb84625?auto=format&fit=crop&w=400&q=80',
-      });
-    } else if (order.id === 'past-2') {
-      addItem({
-        id: '1',
-        name: 'High Protein Peanut Butter Banana Shake',
-        price: 199,
-        proteinGrams: 32,
-        calories: 420,
-        prepTimeMinutes: 5,
-        isVeg: true,
-        imageUrl:
-          'https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&w=400&q=80',
-      });
-    } else {
-      addItem({
-        id: '5',
-        name: 'Smoked Tofu Teriyaki Quinoa Bowl',
-        price: 189,
-        proteinGrams: 31,
-        calories: 350,
-        prepTimeMinutes: 5,
-        isVeg: true,
-        imageUrl:
-          'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=400&q=80',
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        proteinGrams: item.proteinGrams,
+        calories: item.calories,
+        prepTimeMinutes: item.prepTimeMinutes,
+        isVeg: item.isVeg,
+        imageUrl: item.imageUrl,
       });
     }
     router.push('/cart');
   };
+
+  const isActiveStatus = (status: string) => {
+    const s = (status || '').toUpperCase();
+    return (
+      s === 'ORDER_PLACED' ||
+      s === 'PREPARING' ||
+      s === 'READY_FOR_PICKUP' ||
+      s === 'PENDING'
+    );
+  };
+
+  const activeOrders = orders.filter((o) => isActiveStatus(o.status));
+  const pastOrders = orders.filter((o) => !isActiveStatus(o.status));
+
+  const hasZeroOrders = !isAuthenticated || !user || orders.length === 0;
 
   return (
     <View style={styles.container}>
@@ -119,96 +258,211 @@ export default function OrdersScreen() {
       >
         {/* Screen Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Your Fuel Orders</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>Your Fuel Orders</Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={fetchOrders}
+              style={styles.refreshButton}
+            >
+              <RotateCcw size={14} color="#1D4D3E" />
+            </TouchableOpacity>
+          </View>
           <Text style={styles.subtitle}>
             Live express pickup tracker & one-tap gym reorders
           </Text>
         </View>
 
-        {/* Active Live Order Card */}
-        {activeOrderId && (
-          <View style={styles.activeSection}>
-            <Text style={styles.sectionHeading}>ACTIVE ORDER</Text>
-            <View style={styles.activeCard}>
-              <View style={styles.activeBadgeRow}>
-                <View style={styles.preparingBadge}>
-                  <Text style={styles.preparingBadgeText}>● PREPARING</Text>
-                </View>
-                <Text style={styles.activePin}>PIN #{activeOrderId}</Text>
-              </View>
-
-              <Text style={styles.activeItemsTitle}>
-                1x Low-Fat Paneer Quinoa Bowl + 1x Peanut Butter Shake
-              </Text>
-
-              <View style={styles.etaRow}>
-                <Clock size={14} color="#1D4D3E" />
-                <Text style={styles.etaText}>
-                  Ready in ~4 mins at Cult.fit HSR Express Counter
-                </Text>
-              </View>
-
-              <View style={styles.activeMacroRow}>
-                <Sparkles size={14} color="#1D4D3E" />
-                <Text style={styles.activeMacroText}>
-                  60g Protein • 800 kcal • Confirmed Auto-Logged
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                activeOpacity={0.88}
-                onPress={() => router.push(`/orders/${activeOrderId}`)}
-                style={styles.trackButton}
-              >
-                <Text style={styles.trackButtonText}>Track Live Order</Text>
-                <ChevronRight size={18} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color="#1D4D3E" />
+            <Text style={styles.loadingText}>Fetching your orders...</Text>
           </View>
-        )}
-
-        {/* Past Orders Section */}
-        <View style={styles.pastSection}>
-          <Text style={styles.sectionHeading}>PAST ORDERS</Text>
-
-          {PAST_ORDERS.map((order) => (
-            <View key={order.id} style={styles.pastCard}>
-              <View style={styles.pastCardHeader}>
-                <View>
-                  <Text style={styles.orderNumberText}>#{order.orderNumber}</Text>
-                  <Text style={styles.orderDateText}>{order.date}</Text>
-                </View>
-                <View style={styles.completedBadge}>
-                  <CheckCircle2 size={12} color="#059669" />
-                  <Text style={styles.completedBadgeText}>PICKED UP</Text>
-                </View>
-              </View>
-
-              <Text style={styles.pastItemsText} numberOfLines={2}>
-                {order.itemsText}
-              </Text>
-
-              <View style={styles.pastMetaRow}>
-                <Text style={styles.pastPriceText}>₹{order.totalPrice}</Text>
-                <Text style={styles.pastMacroText}>
-                  {order.proteinGrams}g Protein • {order.calories} kcal
-                </Text>
-              </View>
-
-              <View style={styles.pastCardFooter}>
-                <Text style={styles.pastKioskText}>{order.kiosk}</Text>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => handleReorder(order)}
-                  style={styles.reorderBtn}
-                >
-                  <RotateCcw size={13} color="#FFFFFF" />
-                  <Text style={styles.reorderBtnText}>1-Tap Reorder</Text>
-                </TouchableOpacity>
-              </View>
+        ) : hasZeroOrders ? (
+          /* Clean Empty State */
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconCircle}>
+              <RotateCcw size={32} color="#1D4D3E" />
             </View>
-          ))}
-        </View>
+            <Text style={styles.emptyText}>
+              No orders yet — order fresh post-workout fuel in 5 mins
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => router.push('/(order)')}
+              style={styles.browseMenuButton}
+            >
+              <Text style={styles.browseMenuButtonText}>Browse Menu</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            {/* Active Live Orders */}
+            {activeOrders.length > 0 && (
+              <View style={styles.activeSection}>
+                <Text style={styles.sectionHeading}>ACTIVE ORDER</Text>
+                {activeOrders.map((order) => {
+                  const items = parseOrderItems(order.items);
+                  const itemsSummary =
+                    items.length > 0
+                      ? items.map((i) => `${i.quantity}x ${i.name}`).join(' + ')
+                      : 'NutriFlexs Fuel Meal';
+                  const kioskName =
+                    order.outlet?.name ||
+                    order.outlet?.gym?.name ||
+                    'Cult.fit HSR Express Counter';
+                  const statusUpper = (order.status || '').toUpperCase();
+                  const statusLabel =
+                    statusUpper === 'READY_FOR_PICKUP'
+                      ? '● READY FOR PICKUP'
+                      : statusUpper === 'ORDER_PLACED'
+                      ? '● ORDER PLACED'
+                      : '● PREPARING';
+
+                  const protein =
+                    order.totalProtein ||
+                    items.reduce((s, i) => s + i.proteinGrams * i.quantity, 0);
+                  const calories =
+                    order.totalCalories ||
+                    items.reduce((s, i) => s + i.calories * i.quantity, 0);
+
+                  return (
+                    <View key={order.id} style={styles.activeCard}>
+                      <View style={styles.activeBadgeRow}>
+                        <View
+                          style={[
+                            styles.preparingBadge,
+                            statusUpper === 'READY_FOR_PICKUP' &&
+                              styles.readyBadge,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.preparingBadgeText,
+                              statusUpper === 'READY_FOR_PICKUP' &&
+                                styles.readyBadgeText,
+                            ]}
+                          >
+                            {statusLabel}
+                          </Text>
+                        </View>
+                        <Text style={styles.activePin}>
+                          PIN #{order.orderNumber}
+                        </Text>
+                      </View>
+
+                      <Text style={styles.activeItemsTitle} numberOfLines={2}>
+                        {itemsSummary}
+                      </Text>
+
+                      <View style={styles.etaRow}>
+                        <Clock size={14} color="#1D4D3E" />
+                        <Text style={styles.etaText}>
+                          Ready in ~{order.estimatedPrepMinutes || 4} mins at{' '}
+                          {kioskName}
+                        </Text>
+                      </View>
+
+                      <View style={styles.activeMacroRow}>
+                        <Sparkles size={14} color="#1D4D3E" />
+                        <Text style={styles.activeMacroText}>
+                          {protein}g Protein • {calories} kcal • Confirmed
+                          Auto-Logged
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        activeOpacity={0.88}
+                        onPress={() =>
+                          router.push(
+                            `/orders/${order.orderNumber || order.id}`
+                          )
+                        }
+                        style={styles.trackButton}
+                      >
+                        <Text style={styles.trackButtonText}>
+                          Track Live Order
+                        </Text>
+                        <ChevronRight size={18} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Past Orders Section */}
+            {pastOrders.length > 0 && (
+              <View style={styles.pastSection}>
+                <Text style={styles.sectionHeading}>PAST ORDERS</Text>
+                {pastOrders.map((order) => {
+                  const items = parseOrderItems(order.items);
+                  const itemsSummary =
+                    items.length > 0
+                      ? items.map((i) => `${i.quantity}x ${i.name}`).join(', ')
+                      : 'NutriFlexs Fuel Meal';
+                  const kioskName =
+                    order.outlet?.name ||
+                    order.outlet?.gym?.name ||
+                    'Cult.fit HSR Express Counter';
+                  const dateStr = formatOrderDate(order.createdAt);
+                  const protein =
+                    order.totalProtein ||
+                    items.reduce((s, i) => s + i.proteinGrams * i.quantity, 0);
+                  const calories =
+                    order.totalCalories ||
+                    items.reduce((s, i) => s + i.calories * i.quantity, 0);
+
+                  return (
+                    <View key={order.id} style={styles.pastCard}>
+                      <View style={styles.pastCardHeader}>
+                        <View>
+                          <Text style={styles.orderNumberText}>
+                            #{order.orderNumber}
+                          </Text>
+                          <Text style={styles.orderDateText}>{dateStr}</Text>
+                        </View>
+                        <View style={styles.completedBadge}>
+                          <CheckCircle2 size={12} color="#059669" />
+                          <Text style={styles.completedBadgeText}>
+                            PICKED UP
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text style={styles.pastItemsText} numberOfLines={2}>
+                        {itemsSummary}
+                      </Text>
+
+                      <View style={styles.pastMetaRow}>
+                        <Text style={styles.pastPriceText}>
+                          ₹{order.totalAmount}
+                        </Text>
+                        <Text style={styles.pastMacroText}>
+                          {protein}g Protein • {calories} kcal
+                        </Text>
+                      </View>
+
+                      <View style={styles.pastCardFooter}>
+                        <Text style={styles.pastKioskText}>{kioskName}</Text>
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={() => handleReorder(items)}
+                          style={styles.reorderBtn}
+                        >
+                          <RotateCcw size={13} color="#FFFFFF" />
+                          <Text style={styles.reorderBtnText}>
+                            1-Tap Reorder
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -226,15 +480,89 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 16,
   },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   title: {
     fontSize: 20,
     fontWeight: '800',
     color: '#111827',
   },
+  refreshButton: {
+    padding: 6,
+    backgroundColor: '#E8F1ED',
+    borderRadius: 8,
+  },
   subtitle: {
     fontSize: 12,
     color: '#6B7280',
     marginTop: 2,
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  emptyContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: '#EBECE8',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+      default: {},
+    }),
+  },
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#E8F1ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 20,
+    maxWidth: 280,
+  },
+  browseMenuButton: {
+    backgroundColor: '#1D4D3E',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  browseMenuButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
   sectionHeading: {
     fontSize: 11,
@@ -252,6 +580,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1.5,
     borderColor: '#1D4D3E',
+    marginBottom: 12,
     ...Platform.select({
       ios: {
         shadowColor: '#1D4D3E',
@@ -281,6 +610,12 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '800',
     color: '#B45309',
+  },
+  readyBadge: {
+    backgroundColor: '#ECFDF5',
+  },
+  readyBadgeText: {
+    color: '#065F46',
   },
   activePin: {
     fontSize: 14,

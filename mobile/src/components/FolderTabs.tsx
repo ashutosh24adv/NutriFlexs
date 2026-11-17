@@ -23,7 +23,7 @@ export const FolderTabs: React.FC<FolderTabsProps> = ({
   activeTab,
   onTabChange,
   orderSubtext = 'Ready in 5 min',
-  trackSubtext = '1,170 kcal left',
+  trackSubtext = '2,000 kcal left',
 }) => {
   return (
     <View style={styles.container}>

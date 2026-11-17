@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors } from '../../src/theme/colors';
@@ -20,10 +21,26 @@ import { MealScannerModal } from '../../src/components/MealScannerModal';
 import { WaterTracker } from '../../src/components/WaterTracker';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthSync } from '../../src/services/useHealthSync';
-import { useDiaryStore } from '../../src/store/diaryStore';
+import { useDiaryStore, diaryActions } from '../../src/store/diaryStore';
+import { useAuthStore } from '../../src/store/authStore';
+import { API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL } from '../../src/config/api';
 
 type TimeframeOption = '1d' | '1w' | '1m' | '1y' | 'All Time';
 const TIMEFRAME_OPTIONS: TimeframeOption[] = ['1d', '1w', '1m', '1y', 'All Time'];
+
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const SecureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
+    if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
+      const keys = ['token', 'auth_token', 'jwt_token'];
+      for (const k of keys) {
+        const val = await SecureStore.getItemAsync(k);
+        if (val) return val;
+      }
+    }
+  } catch {}
+  return null;
+}
 
 export default function TrackTodayScreen() {
   const router = useRouter();
@@ -33,6 +50,48 @@ export default function TrackTodayScreen() {
   const [loggerMode, setLoggerMode] = useState<'search' | 'quick-add' | 'water'>('search');
   const [scannerModalVisible, setScannerModalVisible] = useState(false);
   const [selectedSlotForLog, setSelectedSlotForLog] = useState<MealSlot | undefined>(undefined);
+
+  const authStore = useAuthStore();
+  const { user } = authStore;
+
+  const authGoal = (authStore as any)?.nutritionGoal || (user as any)?.nutritionGoal;
+  const authCalorieTarget =
+    authGoal?.calorieTarget ||
+    authGoal?.calories ||
+    authGoal?.dailyCalorieGoal ||
+    (user as any)?.calorieTarget ||
+    (user as any)?.dailyCalorieGoal ||
+    (authStore as any)?.calorieTarget;
+
+  const authProteinTarget =
+    authGoal?.proteinTarget ||
+    authGoal?.protein ||
+    authGoal?.proteinGrams ||
+    (user as any)?.proteinTarget ||
+    (user as any)?.proteinGoal ||
+    (authStore as any)?.proteinTarget;
+
+  const authCarbsTarget =
+    authGoal?.carbsTarget ||
+    authGoal?.carbs ||
+    authGoal?.carbsGrams ||
+    (user as any)?.carbsTarget ||
+    (user as any)?.carbohydrateGoal ||
+    (authStore as any)?.carbsTarget;
+
+  const authFatTarget =
+    authGoal?.fatsTarget ||
+    authGoal?.fat ||
+    authGoal?.fatGrams ||
+    (user as any)?.fatsTarget ||
+    (user as any)?.fatGoal ||
+    (authStore as any)?.fatsTarget;
+
+  const authWaterGoal =
+    authGoal?.waterGoalMl ||
+    authGoal?.water ||
+    (user as any)?.waterGoalMl ||
+    (authStore as any)?.waterGoalMl;
 
   // Real native biometric telemetry (active burned adjusts calorie budget)
   const {
@@ -56,28 +115,205 @@ export default function TrackTodayScreen() {
     setWaterMl,
   } = useDiaryStore();
 
-  const calorieGoal = targets.calories || 2000;
-  const foodCalories = todayCalories; // strictly real food logged
+  const todayDateStr = new Date().toISOString().split('T')[0];
+
+  // Real hydrated data from GET /api/mobile/nutrition/summary?date=YYYY-MM-DD
+  const [remoteSummary, setRemoteSummary] = useState<{
+    targets?: {
+      calories?: number;
+      proteinGrams?: number;
+      carbsGrams?: number;
+      fatGrams?: number;
+      waterMl?: number;
+    };
+    consumed?: {
+      calories?: number;
+      protein?: number;
+      carbs?: number;
+      fat?: number;
+    };
+    meals?: MealHistoryItem[];
+    waterMl?: number;
+  } | null>(null);
+
+  const fetchSummary = useCallback(async () => {
+    try {
+      const token = await getAuthToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const urls = [
+        `${API_BASE_URL}/api/mobile/nutrition/summary?date=${todayDateStr}`,
+        `${LOCAL_USB_URL}/api/mobile/nutrition/summary?date=${todayDateStr}`,
+        `${LOCAL_LAN_URL}/api/mobile/nutrition/summary?date=${todayDateStr}`,
+        `http://localhost:3000/api/mobile/nutrition/summary?date=${todayDateStr}`,
+      ];
+
+      for (const url of urls) {
+        try {
+          const res = await fetch(url, { method: 'GET', headers });
+          if (res.ok) {
+            const data = await res.json();
+            const summary = data.summary || data;
+
+            // Normalize targets
+            const rawTargets = summary.targets || {};
+            const fetchedTargets = {
+              calories: rawTargets.calories || rawTargets.calorieTarget || rawTargets.dailyCalorieGoal || authCalorieTarget || 2000,
+              proteinGrams: rawTargets.proteinGrams || rawTargets.proteinTarget || rawTargets.proteinGoal || authProteinTarget || 120,
+              carbsGrams: rawTargets.carbsGrams || rawTargets.carbsTarget || rawTargets.carbohydrateGoal || authCarbsTarget || 250,
+              fatGrams: rawTargets.fatGrams || rawTargets.fatsTarget || rawTargets.fatGoal || authFatTarget || 65,
+              waterMl: rawTargets.waterMl || rawTargets.waterGoalMl || rawTargets.waterGoal || authWaterGoal || 3000,
+            };
+
+            // Normalize meals/foodLogs
+            const rawFoodLogs = summary.foodLogs || summary.meals || [];
+            const mappedMeals: MealHistoryItem[] = rawFoodLogs.map((log: any) => {
+              const mealTypeStr = (log.mealType || log.category || 'Lunch').toString();
+              const category = mealTypeStr.charAt(0).toUpperCase() + mealTypeStr.slice(1).toLowerCase();
+              return {
+                id: log.id || `m_${Math.random()}`,
+                title: log.foodNameSnapshot || log.name || log.title || 'Logged Meal',
+                category: (['Breakfast', 'Lunch', 'Snacks', 'Dinner'].includes(category) ? category : 'Lunch') as any,
+                calories: Math.round(log.calories || 0),
+                macros: {
+                  protein: Math.round(log.protein || 0),
+                  carbs: Math.round(log.carbohydrates || log.carbs || 0),
+                  fat: Math.round(log.fat || log.fats || 0),
+                },
+                autoLoggedFromOrder: Boolean(log.orderItemId || log.autoLoggedFromOrder),
+              };
+            });
+
+            // Normalize water
+            const waterVal =
+              summary.water?.amountMl ??
+              summary.water?.currentMl ??
+              summary.waterLog?.amountMl ??
+              summary.waterLog?.currentMl ??
+              summary.waterMl;
+            if (typeof waterVal === 'number' && waterVal >= 0) {
+              setWaterMl(waterVal);
+            }
+
+            // Consumed macros
+            const consumed = summary.consumed || {
+              calories: mappedMeals.reduce((acc, m) => acc + m.calories, 0),
+              protein: mappedMeals.reduce((acc, m) => acc + m.macros.protein, 0),
+              carbs: mappedMeals.reduce((acc, m) => acc + m.macros.carbs, 0),
+              fat: mappedMeals.reduce((acc, m) => acc + m.macros.fat, 0),
+            };
+
+            setRemoteSummary({
+              targets: fetchedTargets,
+              consumed,
+              meals: mappedMeals,
+              waterMl: typeof waterVal === 'number' ? waterVal : undefined,
+            });
+            break;
+          }
+        } catch {
+          // try next url
+        }
+      }
+    } catch (e) {
+      // offline fallback
+    }
+  }, [todayDateStr, setWaterMl, authCalorieTarget, authProteinTarget, authCarbsTarget, authFatTarget, authWaterGoal]);
+
+  useEffect(() => {
+    fetchSummary();
+  }, [fetchSummary]);
+
+  const calorieGoal =
+    authCalorieTarget ||
+    (remoteSummary?.targets?.calories && remoteSummary.targets.calories !== 2000 ? remoteSummary.targets.calories : null) ||
+    remoteSummary?.targets?.calories ||
+    (targets.calories && targets.calories !== 2000 ? targets.calories : null) ||
+    2000;
+  const activeMeals = remoteSummary?.meals !== undefined ? remoteSummary.meals : todayMeals;
+
+  const foodCalories = remoteSummary?.consumed?.calories !== undefined
+    ? remoteSummary.consumed.calories
+    : activeMeals.reduce((acc, m) => acc + m.calories, 0);
+
   const burnCalories = telemetry.activeBurned || 0; // strictly real active calories burned
   // Remaining = Goal - Food Logged + Active Calories Burned
   const caloriesRemaining = Math.max(0, calorieGoal - foodCalories + burnCalories);
 
   const carbs = {
-    current: todayCarbs,
-    target: targets.carbsGrams || 250,
+    current: remoteSummary?.consumed?.carbs !== undefined
+      ? remoteSummary.consumed.carbs
+      : activeMeals.reduce((acc, m) => acc + m.macros.carbs, 0),
+    target: authCarbsTarget || (remoteSummary?.targets?.carbsGrams && remoteSummary.targets.carbsGrams !== 250 ? remoteSummary.targets.carbsGrams : null) || remoteSummary?.targets?.carbsGrams || targets.carbsGrams || 250,
   };
   const protein = {
-    current: todayProtein,
-    target: targets.proteinGrams || 120,
+    current: remoteSummary?.consumed?.protein !== undefined
+      ? remoteSummary.consumed.protein
+      : activeMeals.reduce((acc, m) => acc + m.macros.protein, 0),
+    target: authProteinTarget || (remoteSummary?.targets?.proteinGrams && remoteSummary.targets.proteinGrams !== 120 ? remoteSummary.targets.proteinGrams : null) || remoteSummary?.targets?.proteinGrams || targets.proteinGrams || 120,
   };
   const fat = {
-    current: todayFat,
-    target: targets.fatGrams || 65,
+    current: remoteSummary?.consumed?.fat !== undefined
+      ? remoteSummary.consumed.fat
+      : activeMeals.reduce((acc, m) => acc + m.macros.fat, 0),
+    target: authFatTarget || (remoteSummary?.targets?.fatGrams && remoteSummary.targets.fatGrams !== 65 ? remoteSummary.targets.fatGrams : null) || remoteSummary?.targets?.fatGrams || targets.fatGrams || 65,
   };
+  const waterGoal = authWaterGoal || remoteSummary?.targets?.waterMl || targets.waterMl || 3000;
+
+  // Compute streakDays dynamically (0 for new user, never hardcoded 5)
+  const dynamicStreakDays = React.useMemo(() => {
+    if (typeof (remoteSummary as any)?.streakDays === 'number') {
+      return (remoteSummary as any).streakDays;
+    }
+    if (todayMeals.length === 0 && dateGroups.length === 0) {
+      return 0;
+    }
+    return streakDays || 0;
+  }, [remoteSummary, todayMeals.length, dateGroups.length, streakDays]);
 
   const nutritionScore = calculateNutritionScore(calorieGoal, protein.target);
 
-  // 4 Primary Quick Action Buttons (conforming to Swiggy/Zomato fitness style)
+  // Wire water logging (+250ml, +500ml) to POST /api/mobile/nutrition/water
+  const handleLogWater = async (amount: number) => {
+    addWater(amount);
+    const newTotal = waterMl + amount;
+    setActiveNotice(`Hydration logged: +${amount}ml (Total: ${(newTotal / 1000).toFixed(2)}L)`);
+
+    try {
+      const token = await getAuthToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const urls = [
+        `${API_BASE_URL}/api/mobile/nutrition/water`,
+        `${LOCAL_USB_URL}/api/mobile/nutrition/water`,
+        `${LOCAL_LAN_URL}/api/mobile/nutrition/water`,
+        'http://localhost:3000/api/mobile/nutrition/water',
+      ];
+
+      for (const url of urls) {
+        try {
+          const res = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              date: todayDateStr,
+              amountMl: amount,
+              waterMl: newTotal,
+            }),
+          });
+          if (res.ok) {
+            break;
+          }
+        } catch {}
+      }
+    } catch (e) {
+      console.warn('[WaterLog] Error syncing water:', e);
+    }
+  };
+
+  // 4 Primary Quick Action Buttons
   const quickActions = [
     {
       id: 'search',
@@ -117,8 +353,7 @@ export default function TrackTodayScreen() {
       icon: 'water-outline' as const,
       color: '#0284C7',
       onPress: () => {
-        addWater(250);
-        setActiveNotice(`Hydration logged: +250ml (Total: ${((waterMl + 250) / 1000).toFixed(2)}L)`);
+        handleLogWater(250);
       },
     },
   ];
@@ -133,8 +368,60 @@ export default function TrackTodayScreen() {
     setLoggerModalVisible(true);
   };
 
+  // Wire delete meal to DELETE /api/mobile/nutrition/food-log/[id]
   const handleMealPress = (meal: MealHistoryItem) => {
-    setActiveNotice(`Viewing: ${meal.title} (${meal.calories} kcal)`);
+    Alert.alert(
+      meal.title,
+      `${meal.calories} kcal • P: ${meal.macros?.protein}g  C: ${meal.macros?.carbs}g  F: ${meal.macros?.fat}g\n\nManage this logged meal:`,
+      [
+        { text: 'Keep', style: 'cancel' },
+        {
+          text: 'Delete Meal',
+          style: 'destructive',
+          onPress: async () => {
+            // Delete locally first for responsive UI
+            diaryActions.deleteMeal(meal.id);
+            setRemoteSummary((prev) => {
+              if (!prev || !prev.meals) return prev;
+              const nextMeals = prev.meals.filter((m) => m.id !== meal.id);
+              return {
+                ...prev,
+                meals: nextMeals,
+                consumed: {
+                  calories: nextMeals.reduce((s, m) => s + m.calories, 0),
+                  protein: nextMeals.reduce((s, m) => s + m.macros.protein, 0),
+                  carbs: nextMeals.reduce((s, m) => s + m.macros.carbs, 0),
+                  fat: nextMeals.reduce((s, m) => s + m.macros.fat, 0),
+                },
+              };
+            });
+            setActiveNotice(`Deleted: ${meal.title}`);
+
+            try {
+              const token = await getAuthToken();
+              const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+              if (token) headers['Authorization'] = `Bearer ${token}`;
+
+              const urls = [
+                `${API_BASE_URL}/api/mobile/nutrition/food-log/${meal.id}`,
+                `${LOCAL_USB_URL}/api/mobile/nutrition/food-log/${meal.id}`,
+                `${LOCAL_LAN_URL}/api/mobile/nutrition/food-log/${meal.id}`,
+                `http://localhost:3000/api/mobile/nutrition/food-log/${meal.id}`,
+              ];
+
+              for (const url of urls) {
+                try {
+                  const res = await fetch(url, { method: 'DELETE', headers });
+                  if (res.ok) break;
+                } catch {}
+              }
+            } catch (err) {
+              console.warn('[DeleteMeal] Error syncing delete:', err);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -149,7 +436,7 @@ export default function TrackTodayScreen() {
           <View style={styles.streakBadge}>
             <Ionicons name="flame" size={14} color="#EA580C" style={{ marginRight: 4 }} />
             <Text style={styles.streakText}>
-              {streakDays > 0 ? `${streakDays} Day Streak` : '0 Day Streak'}
+              {dynamicStreakDays > 0 ? `${dynamicStreakDays} Day Streak` : '0 Day Streak'}
             </Text>
           </View>
 
@@ -198,7 +485,7 @@ export default function TrackTodayScreen() {
           targetCalories={calorieGoal}
           remaining={caloriesRemaining}
           activeBurned={burnCalories}
-          streakDays={streakDays}
+          streakDays={dynamicStreakDays}
           onPress={() => router.push('/health-connections')}
         />
 
@@ -257,17 +544,16 @@ export default function TrackTodayScreen() {
         <View style={styles.waterSection}>
           <WaterTracker
             currentMl={waterMl}
-            goalMl={3000}
+            goalMl={waterGoal}
             onAddWater={(ml) => {
-              addWater(ml);
-              setActiveNotice(`Hydration logged: +${ml}ml (Total: ${((waterMl + ml) / 1000).toFixed(2)}L)`);
+              handleLogWater(ml);
             }}
           />
         </View>
 
         {/* Structured Meal History Diary Section with Real Empty States */}
         <MealDiarySection
-          meals={todayMeals}
+          meals={activeMeals}
           groups={dateGroups}
           onPressMeal={handleMealPress}
           onAddMeal={(slot) => handleLogNewMeal(slot)}
@@ -292,10 +578,37 @@ export default function TrackTodayScreen() {
             },
           });
           setActiveNotice(`Logged: ${meal.name} (${meal.calories} kcal)`);
+          fetchSummary();
         }}
-        onWaterLogged={(newTotalMl) => {
+        onWaterLogged={async (newTotalMl) => {
           setWaterMl(newTotalMl);
           setActiveNotice(`Water updated: ${(newTotalMl / 1000).toFixed(2)}L`);
+          try {
+            const token = await getAuthToken();
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const urls = [
+              `${API_BASE_URL}/api/mobile/nutrition/water`,
+              `${LOCAL_USB_URL}/api/mobile/nutrition/water`,
+              `${LOCAL_LAN_URL}/api/mobile/nutrition/water`,
+              'http://localhost:3000/api/mobile/nutrition/water',
+            ];
+            for (const u of urls) {
+              try {
+                const res = await fetch(u, {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({
+                    date: todayDateStr,
+                    totalMl: newTotalMl,
+                    mode: 'set',
+                  }),
+                });
+                if (res.ok) break;
+              } catch {}
+            }
+          } catch {}
+          fetchSummary();
         }}
         initialWaterMl={waterMl}
       />
@@ -306,6 +619,7 @@ export default function TrackTodayScreen() {
         onClose={() => setScannerModalVisible(false)}
         onMealLogged={(meal) => {
           setActiveNotice(`AI Logged: ${meal.title} (${meal.calories} kcal)`);
+          fetchSummary();
         }}
       />
     </View>

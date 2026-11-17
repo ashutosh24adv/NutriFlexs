@@ -28,6 +28,12 @@ import {
 import Svg, { Polygon } from 'react-native-svg';
 import RazorpayCheckout from 'react-native-razorpay';
 import { useCartStore } from '../src/store/cartStore';
+import {
+  API_BASE_URL,
+  LOCAL_USB_URL,
+  LOCAL_LAN_URL,
+  showDiagnosticAlert,
+} from '../src/constants/config';
 
 // Default logged-in user profile for express checkout
 const DEFAULT_USER = {
@@ -174,40 +180,57 @@ export default function CartScreen() {
     if (itemsList.length === 0) return;
 
     setIsProcessingPayment(true);
-    setProcessingStatus('Creating order in Neon PostgreSQL...');
+    setProcessingStatus('Creating your order...');
 
-    const API_BASE = (process.env.EXPO_PUBLIC_API_URL || 'https://nutri-flexs.vercel.app').replace(/\/$/, '');
+    const candidateUrls = [API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL];
     const totalAmountInPaise = Math.round(toPay * 100);
 
-    let res: Response;
-    try {
-      // Call POST /api/mobile/orders to create order in Neon DB and obtain razorpayOrderId
-      res = await fetch(`${API_BASE}/api/mobile/orders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: itemsList.map((item) => ({
-            id: item.id,
-            productId: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            proteinGrams: item.proteinGrams,
-            calories: item.calories,
-            imageUrl: item.imageUrl,
-          })),
-          kioskLocation,
-          totalAmount: toPay,
-          trainerCode: trainerDiscountApplied ? trainerCode : undefined,
-          passApplied,
-          user: DEFAULT_USER,
-        }),
-      });
-    } catch (fetchErr: any) {
+    let res: Response | null = null;
+    let lastError: any = null;
+
+    for (const baseUrl of candidateUrls) {
+      try {
+        const targetUrl = `${baseUrl.replace(/\/$/, '')}/api/mobile/orders`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+        const response = await fetch(targetUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            items: itemsList.map((item) => ({
+              id: item.id,
+              productId: item.id,
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+              proteinGrams: item.proteinGrams,
+              calories: item.calories,
+              imageUrl: item.imageUrl,
+            })),
+            kioskLocation,
+            totalAmount: toPay,
+            trainerCode: trainerDiscountApplied ? trainerCode : undefined,
+            passApplied,
+            user: DEFAULT_USER,
+          }),
+        });
+
+        clearTimeout(timeoutId);
+        res = response;
+        break; // Successfully connected to host!
+      } catch (fetchErr: any) {
+        lastError = fetchErr;
+        console.warn(`[CartCheckout] Failed connecting to ${baseUrl}:`, fetchErr?.message || fetchErr);
+      }
+    }
+
+    if (!res) {
       setIsProcessingPayment(false);
-      const errorMessage =
-        fetchErr?.message || 'Network request failed. Please check your connection to the server.';
-      Alert.alert('Order Creation Failed', errorMessage);
+      showDiagnosticAlert(lastError, API_BASE_URL, () => {
+        handleInitiateCheckout();
+      });
       return;
     }
 

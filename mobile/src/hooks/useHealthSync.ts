@@ -48,7 +48,7 @@ export interface UseHealthSyncReturn {
 
 /**
  * useHealthSync - Hook providing 100% real native health telemetry,
- * OS permissions, dynamic calorie budget recalculation, and Neon Postgres sync.
+ * OS permissions, dynamic calorie budget recalculation, and database sync.
  */
 export function useHealthSync(): UseHealthSyncReturn {
   const [telemetry, setTelemetry] = useState<HealthTelemetry>(

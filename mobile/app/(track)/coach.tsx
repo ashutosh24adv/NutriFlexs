@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { typography } from '../../src/theme/typography';
@@ -20,9 +21,44 @@ import {
   HelpCircle,
   Plus,
   Flame,
+  SlidersHorizontal,
 } from 'lucide-react-native';
 import { useHealthSync } from '../../src/services/useHealthSync';
 import { useDiaryStore } from '../../src/store/diaryStore';
+import { API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL } from '../../src/config/api';
+
+const HURDLES = [
+  'Lack of consistency',
+  'Lack of time',
+  'Difficulty tracking calories',
+  'Unhealthy food habits',
+  'Unclear nutrition info',
+  'Late night cravings',
+  'Post-workout fatigue',
+];
+
+const FOCUS_AREAS = [
+  'Hit daily protein target',
+  'Clean hydration baseline',
+  'Pre/post-workout fueling',
+  'Consistent deficit / surplus',
+  'Better sleep & recovery',
+  'Quick kiosk meal planning',
+];
+
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const SecureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
+    if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
+      const keys = ['token', 'auth_token', 'jwt_token'];
+      for (const k of keys) {
+        const val = await SecureStore.getItemAsync(k);
+        if (val) return val;
+      }
+    }
+  } catch {}
+  return null;
+}
 
 interface PromptQA {
   question: string;
@@ -100,6 +136,108 @@ export default function TrackCoachScreen() {
   const router = useRouter();
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Progressive Contextual Coaching Check-in State
+  const [selectedHurdles, setSelectedHurdles] = useState<string[]>([
+    'Lack of consistency',
+    'Difficulty tracking calories',
+  ]);
+  const [selectedFocus, setSelectedFocus] = useState<string[]>([
+    'Hit daily protein target',
+  ]);
+  const [isSavingGoals, setIsSavingGoals] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await getAuthToken();
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const urls = [
+          `${API_BASE_URL}/api/mobile/auth/me`,
+          `${LOCAL_USB_URL}/api/mobile/auth/me`,
+          `${LOCAL_LAN_URL}/api/mobile/auth/me`,
+          'http://localhost:3000/api/mobile/auth/me',
+        ];
+
+        for (const url of urls) {
+          try {
+            const res = await fetch(url, { method: 'GET', headers });
+            if (res.ok) {
+              const data = await res.json();
+              const goals = data.user?.nutritionGoal || data.goals || data.user?.goals;
+              if (goals) {
+                if (Array.isArray(goals.barriers) && goals.barriers.length > 0) {
+                  setSelectedHurdles(goals.barriers);
+                }
+                const focus = goals.accomplishments || goals.focusAreas;
+                if (Array.isArray(focus) && focus.length > 0) {
+                  setSelectedFocus(focus);
+                }
+              }
+              break;
+            }
+          } catch {}
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const handleToggleHurdle = (hurdle: string) => {
+    setSelectedHurdles((prev) =>
+      prev.includes(hurdle) ? prev.filter((h) => h !== hurdle) : [...prev, hurdle]
+    );
+    setSavedSuccess(false);
+  };
+
+  const handleToggleFocus = (focus: string) => {
+    setSelectedFocus((prev) =>
+      prev.includes(focus) ? prev.filter((f) => f !== focus) : [...prev, focus]
+    );
+    setSavedSuccess(false);
+  };
+
+  const handleSaveCoachingFocus = async () => {
+    setIsSavingGoals(true);
+    try {
+      const token = await getAuthToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const payload = {
+        barriers: selectedHurdles,
+        accomplishments: selectedFocus,
+        focusAreas: selectedFocus,
+      };
+
+      const urls = [
+        `${API_BASE_URL}/api/mobile/nutrition/goals`,
+        `${LOCAL_USB_URL}/api/mobile/nutrition/goals`,
+        `${LOCAL_LAN_URL}/api/mobile/nutrition/goals`,
+        'http://localhost:3000/api/mobile/nutrition/goals',
+      ];
+
+      for (const url of urls) {
+        try {
+          const res = await fetch(url, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(payload),
+          });
+          if (res.ok) break;
+        } catch {}
+      }
+
+      setSavedSuccess(true);
+      setToastMessage('Coaching hurdles & focus areas personalized successfully!');
+    } catch (e) {
+      console.warn('[Coach] Error saving goals:', e);
+    } finally {
+      setIsSavingGoals(false);
+    }
+  };
 
   const { targets, telemetry } = useHealthSync();
   const {
@@ -183,6 +321,91 @@ export default function TrackCoachScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Progressive Contextual Coaching Personalization Card */}
+        <View style={styles.contextualCard}>
+          <View style={styles.contextualHeader}>
+            <View style={styles.contextualTitleRow}>
+              <View style={styles.contextualIconCircle}>
+                <SlidersHorizontal size={16} color="#1D4D3E" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.contextualTitle}>Personalize your coaching</Text>
+                <Text style={styles.contextualSub}>What's your biggest hurdle?</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Hurdles Multi-Select Chips */}
+          <Text style={styles.chipSectionLabel}>Select your current obstacles:</Text>
+          <View style={styles.chipsWrap}>
+            {HURDLES.map((hurdle) => {
+              const isSelected = selectedHurdles.includes(hurdle);
+              return (
+                <TouchableOpacity
+                  key={hurdle}
+                  activeOpacity={0.75}
+                  onPress={() => handleToggleHurdle(hurdle)}
+                  style={[styles.chipPill, isSelected && styles.chipPillActive]}
+                >
+                  {isSelected && (
+                    <CheckCircle2 size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  )}
+                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                    {hurdle}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Focus Areas Multi-Select Chips */}
+          <Text style={[styles.chipSectionLabel, { marginTop: spacing.md }]}>
+            What do you want to focus on?
+          </Text>
+          <View style={styles.chipsWrap}>
+            {FOCUS_AREAS.map((focus) => {
+              const isSelected = selectedFocus.includes(focus);
+              return (
+                <TouchableOpacity
+                  key={focus}
+                  activeOpacity={0.75}
+                  onPress={() => handleToggleFocus(focus)}
+                  style={[styles.chipPill, isSelected && styles.chipPillActiveFocus]}
+                >
+                  {isSelected && (
+                    <CheckCircle2 size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  )}
+                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                    {focus}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Save Directly to PUT /api/mobile/nutrition/goals */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleSaveCoachingFocus}
+            disabled={isSavingGoals}
+            style={[styles.saveCoachingBtn, savedSuccess && styles.saveCoachingBtnSuccess]}
+          >
+            {isSavingGoals ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : savedSuccess ? (
+              <>
+                <CheckCircle2 size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.saveCoachingBtnText}>Preferences Saved to Goals</Text>
+              </>
+            ) : (
+              <>
+                <Sparkles size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.saveCoachingBtnText}>Save Coaching Personalization</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
 
         {/* 1. Daily Readiness & Metabolic State Card */}
         <View style={styles.readinessCard}>
@@ -699,5 +922,100 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamilies.regular,
     color: '#4B5563',
     lineHeight: 16,
+  },
+  contextualCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#C6DED4',
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    shadowColor: '#1D4D3E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  contextualHeader: {
+    marginBottom: spacing.sm,
+  },
+  contextualTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  contextualIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E8F1ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  contextualTitle: {
+    fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamilies.bold,
+    color: '#111111',
+  },
+  contextualSub: {
+    fontSize: typography.sizes.xs,
+    fontFamily: typography.fontFamilies.medium,
+    color: '#1D4D3E',
+    marginTop: 1,
+  },
+  chipSectionLabel: {
+    fontSize: 11,
+    fontFamily: typography.fontFamilies.bold,
+    color: '#374151',
+    marginBottom: 6,
+  },
+  chipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  chipPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+  },
+  chipPillActive: {
+    backgroundColor: '#1D4D3E',
+    borderColor: '#1D4D3E',
+  },
+  chipPillActiveFocus: {
+    backgroundColor: '#0F766E',
+    borderColor: '#0F766E',
+  },
+  chipText: {
+    fontSize: 11,
+    fontFamily: typography.fontFamilies.medium,
+    color: '#4B5563',
+  },
+  chipTextActive: {
+    color: '#FFFFFF',
+    fontFamily: typography.fontFamilies.bold,
+  },
+  saveCoachingBtn: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1D4D3E',
+    paddingVertical: 10,
+    borderRadius: radii.pill,
+  },
+  saveCoachingBtnSuccess: {
+    backgroundColor: '#059669',
+  },
+  saveCoachingBtnText: {
+    fontSize: typography.sizes.xs,
+    fontFamily: typography.fontFamilies.bold,
+    color: '#FFFFFF',
   },
 });

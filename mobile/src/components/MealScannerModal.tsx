@@ -209,10 +209,10 @@ export const MealScannerModal: React.FC<MealScannerModalProps> = ({
     }
   };
 
-  const handleConfirmLog = () => {
+  const handleConfirmLog = async () => {
     if (!scanResult) return;
 
-    diaryActions.addMeal({
+    const loggedMeal = {
       title: scanResult.mealTitle,
       category: selectedSlot,
       calories: Math.round(scanResult.totals.calories),
@@ -221,19 +221,81 @@ export const MealScannerModal: React.FC<MealScannerModalProps> = ({
         carbs: Math.round(scanResult.totals.carbs),
         fat: Math.round(scanResult.totals.fats),
       },
-    });
+    };
+
+    // 1. Immediately log to local diary store for instant UI reactivity
+    diaryActions.addMeal(loggedMeal);
 
     if (onMealLogged) {
-      onMealLogged({
-        title: scanResult.mealTitle,
-        category: selectedSlot,
-        calories: Math.round(scanResult.totals.calories),
-        macros: {
-          protein: Math.round(scanResult.totals.protein),
-          carbs: Math.round(scanResult.totals.carbs),
-          fat: Math.round(scanResult.totals.fats),
-        },
-      });
+      onMealLogged(loggedMeal);
+    }
+
+    // 2. Persist to backend database via POST /api/mobile/nutrition/food-log
+    const todayStr = new Date().toISOString().split('T')[0];
+    const foodLogPayload = {
+      foodNameSnapshot: scanResult.mealTitle,
+      foodName: scanResult.mealTitle,
+      title: scanResult.mealTitle,
+      name: scanResult.mealTitle,
+      mealType: selectedSlot.toUpperCase(),
+      slot: selectedSlot,
+      category: selectedSlot,
+      calories: Math.round(scanResult.totals.calories),
+      protein: Math.round(scanResult.totals.protein),
+      carbohydrates: Math.round(scanResult.totals.carbs),
+      carbs: Math.round(scanResult.totals.carbs),
+      fat: Math.round(scanResult.totals.fats),
+      fats: Math.round(scanResult.totals.fats),
+      quantity: 1,
+      unit: 'serving',
+      dateKey: todayStr,
+      date: todayStr,
+    };
+
+    try {
+      let token: string | null = null;
+      try {
+        const SecureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
+        if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
+          token =
+            (await SecureStore.getItemAsync('token')) ||
+            (await SecureStore.getItemAsync('auth_token')) ||
+            (await SecureStore.getItemAsync('jwt_token'));
+        }
+      } catch {
+        // Fallback
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const endpointsToTry = [
+        `${API_BASE_URL}/api/mobile/nutrition/food-log`,
+        `${LOCAL_USB_URL}/api/mobile/nutrition/food-log`,
+        `${LOCAL_LAN_URL}/api/mobile/nutrition/food-log`,
+        'http://localhost:3000/api/mobile/nutrition/food-log',
+      ];
+
+      for (const endpoint of endpointsToTry) {
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(foodLogPayload),
+          });
+          if (res.ok) {
+            break;
+          }
+        } catch {
+          // try next url
+        }
+      }
+    } catch (err) {
+      console.warn('[MealScannerModal] Failed persisting food log to server:', err);
     }
 
     onClose();

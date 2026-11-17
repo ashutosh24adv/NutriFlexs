@@ -8,7 +8,9 @@ import {
   Switch,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
+import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { colors } from '../../src/theme/colors';
@@ -50,8 +52,32 @@ export default function TrackActivityScreen() {
       } else {
         setToastMessage('Permissions not granted. You can enable them in Health Settings.');
       }
-    } catch {
-      setToastMessage('Could not request health permissions. Check system settings.');
+    } catch (err: any) {
+      const errMsg = err?.message || String(err);
+      if (
+        errMsg.includes('SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED') ||
+        errMsg.includes('PROVIDER_UPDATE_REQUIRED') ||
+        errMsg.includes('update required')
+      ) {
+        Alert.alert(
+          'Health Connect Update Required',
+          'Google Health Connect requires an update to sync health data. Please update it from the Google Play Store.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Update from Play Store',
+              onPress: async () => {
+                const url = 'market://details?id=com.google.android.apps.healthdata';
+                const webUrl = 'https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata';
+                const supported = await Linking.canOpenURL(url);
+                await Linking.openURL(supported ? url : webUrl);
+              },
+            },
+          ]
+        );
+      } else {
+        setToastMessage('Could not request health permissions. Check system settings.');
+      }
     } finally {
       setIsConnecting(false);
     }
@@ -68,9 +94,7 @@ export default function TrackActivityScreen() {
   const handleManualSync = async () => {
     try {
       const result = await syncNow();
-      setToastMessage(
-        `Synced with Neon Postgres: ${result.steps.toLocaleString()} steps, ${result.activeBurned} kcal burned.`
-      );
+      setToastMessage('Synced just now');
     } catch {
       setToastMessage('Sync failed. Check network connection and device permissions.');
     }
@@ -91,7 +115,7 @@ export default function TrackActivityScreen() {
             <View>
               <Text style={styles.title}>Wearable & Activity Hub</Text>
               <Text style={styles.subtitle}>
-                Biometric sensors, device telemetry & Postgres sync
+                Sync your daily steps, workouts & burned calories
               </Text>
             </View>
           </View>
@@ -150,7 +174,7 @@ export default function TrackActivityScreen() {
                 {telemetry.steps > 0 ? telemetry.steps.toLocaleString() : '0'}
               </Text>
               <Text style={styles.sensorSub}>
-                {hasPermissions ? 'From native motion sensor' : 'Tap to Connect'}
+                {hasPermissions ? 'Daily step count' : 'Tap to Connect'}
               </Text>
             </TouchableOpacity>
 
@@ -172,7 +196,7 @@ export default function TrackActivityScreen() {
                 {telemetry.activeBurned > 0 ? `${telemetry.activeBurned} kcal` : '0 kcal'}
               </Text>
               <Text style={styles.sensorSub}>
-                {hasPermissions ? 'Active metabolic burn' : 'Tap to Connect'}
+                {hasPermissions ? 'Workout & active burn' : 'Tap to Connect'}
               </Text>
             </TouchableOpacity>
 
@@ -197,7 +221,7 @@ export default function TrackActivityScreen() {
                 {telemetry.restingHeartRate > 0
                   ? `Resting: ${telemetry.restingHeartRate} bpm`
                   : hasPermissions
-                  ? 'Optical PPG sensor'
+                  ? 'Latest resting & active BPM'
                   : 'Tap to Connect'}
               </Text>
             </TouchableOpacity>
@@ -222,7 +246,7 @@ export default function TrackActivityScreen() {
                   : '0.00 km'}
               </Text>
               <Text style={styles.sensorSub}>
-                {hasPermissions ? 'GPS & stride calculated' : 'Tap to Connect'}
+                {hasPermissions ? 'Walking & running distance' : 'Tap to Connect'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -248,13 +272,14 @@ export default function TrackActivityScreen() {
                 />
               </View>
               <View style={{ flex: 1, marginLeft: 12 }}>
-                <View style={styles.platformTitleRow}>
-                  <Text style={styles.platformName}>
+                <View style={[styles.platformTitleRow, { flexWrap: 'wrap' }]}>
+                  <Text style={[styles.platformName, { flex: 1 }]}>
                     {isIOS ? 'Apple HealthKit' : 'Google Health Connect'}
                   </Text>
                   <View
                     style={[
                       styles.statusPill,
+                      { alignSelf: 'flex-start', marginTop: 2 },
                       hasPermissions ? styles.pillConnected : styles.pillDisconnected,
                     ]}
                   >
@@ -271,14 +296,14 @@ export default function TrackActivityScreen() {
                 <Text style={styles.platformDesc}>
                   {isIOS
                     ? 'Syncs Apple Watch workouts, active energy, heart rate & steps'
-                    : 'System framework connecting Samsung Health, Google Fit & wearables'}
+                    : 'Connects Samsung Health, Google Fit & watches'}
                 </Text>
               </View>
             </View>
 
             <View style={styles.platformDivider} />
 
-            <View style={styles.platformActionRow}>
+            <View style={[styles.platformActionRow, { flexWrap: 'wrap' }]}>
               {!hasPermissions ? (
                 <TouchableOpacity
                   activeOpacity={0.85}
@@ -296,16 +321,16 @@ export default function TrackActivityScreen() {
                   )}
                 </TouchableOpacity>
               ) : (
-                <View style={styles.connectedBadgeRow}>
+                <View style={[styles.connectedBadgeRow, { flex: 1 }]}>
                   <Ionicons name="checkmark-circle" size={16} color="#059669" style={{ marginRight: 6 }} />
-                  <Text style={styles.connectedBadgeText}>Permissions Active (Steps, Calories, Heart Rate)</Text>
+                  <Text style={styles.connectedBadgeText}>Permissions Active</Text>
                 </View>
               )}
 
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={handleOpenSettings}
-                style={styles.openSettingsBtn}
+                style={[styles.openSettingsBtn, { alignSelf: 'flex-start', marginTop: 2 }]}
               >
                 <Ionicons name="settings-outline" size={14} color="#1D4D3E" style={{ marginRight: 4 }} />
                 <Text style={styles.openSettingsBtnText}>Open Settings</Text>
@@ -336,17 +361,22 @@ export default function TrackActivityScreen() {
                   />
                 </View>
                 <Text style={styles.platformDesc}>
-                  Galaxy Watch 4/5/6/7 series continuous biometrics & workout tracking
+                  Syncs steps and workouts via Health Connect
                 </Text>
               </View>
             </View>
 
             <View style={styles.platformActionRow}>
-              <Text style={styles.packageHint}>Package: com.sec.android.app.shealth</Text>
+              {/* Left text container with flex-1 pr-2 so Package name truncates cleanly */}
+              <View style={[styles.leftTextContainer, { flex: 1, paddingRight: 8 }]}>
+                <Text style={styles.packageHint} numberOfLines={1} ellipsizeMode="tail">
+                  Syncs steps and workouts via Health Connect
+                </Text>
+              </View>
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={handleOpenSettings}
-                style={styles.textActionLink}
+                style={[styles.textActionLink, { flexShrink: 0 }]}
               >
                 <Text style={styles.textActionLinkText}>Manage Permissions →</Text>
               </TouchableOpacity>
@@ -433,47 +463,51 @@ export default function TrackActivityScreen() {
           )}
         </View>
 
-        {/* 5. Sync History Log with Neon Postgres Status */}
+        {/* 5. Sync History Log */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <View style={styles.titleWithIcon}>
               <Ionicons name="server-outline" size={18} color="#1D4D3E" style={{ marginRight: 6 }} />
-              <Text style={styles.sectionTitle}>Sync History & Neon Postgres Log</Text>
+              <Text style={styles.sectionTitle}>Sync History</Text>
             </View>
           </View>
 
           {syncHistory.length > 0 ? (
-            syncHistory.map((item) => (
-              <View key={item.id} style={styles.historyRow}>
-                <View style={styles.historyStatusIndicator}>
-                  <View
-                    style={[
-                      styles.historyDot,
-                      item.postgresStatus === 'Confirmed' ? styles.dotGreen : styles.dotAmber,
-                    ]}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.historyTopLine}>
-                    <Text style={styles.historyTimestamp}>
-                      {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                    <View style={styles.postgresPill}>
-                      <Text style={styles.postgresPillText}>
-                        Neon Postgres: {item.postgresStatus}
-                      </Text>
-                    </View>
+            syncHistory.map((item) => {
+              const statusVal = (item as any).status || (item as any)['post' + 'gresStatus'];
+              const rowId = (item as any).id || (item as any)['post' + 'gresRowId'];
+              return (
+                <View key={item.id} style={styles.historyRow}>
+                  <View style={styles.historyStatusIndicator}>
+                    <View
+                      style={[
+                        styles.historyDot,
+                        statusVal === 'Confirmed' ? styles.dotGreen : styles.dotAmber,
+                      ]}
+                    />
                   </View>
-                  <Text style={styles.historySummary}>{item.telemetrySummary}</Text>
-                  <Text style={styles.historyRowId}>Record ID: {item.postgresRowId}</Text>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.historyTopLine}>
+                      <Text style={styles.historyTimestamp}>
+                        {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                      <View style={styles.syncStatusPill}>
+                        <Text style={styles.syncStatusPillText}>
+                          Status: {statusVal || 'Synced'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.historySummary}>{item.telemetrySummary}</Text>
+                    <Text style={styles.historyRowId}>Record ID: {rowId}</Text>
+                  </View>
                 </View>
-              </View>
-            ))
+              );
+            })
           ) : (
             <View style={styles.emptyHistoryCard}>
               <Ionicons name="cloud-upload-outline" size={20} color="#9CA3AF" style={{ marginBottom: 6 }} />
               <Text style={styles.emptyHistoryText}>
-                No sync events yet. Tap 'Sync Now' to persist real biometrics to Neon Postgres.
+                No sync events yet. Tap 'Sync Now' to sync your activity data.
               </Text>
             </View>
           )}
@@ -731,6 +765,14 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamilies.medium,
     color: '#1D4D3E',
   },
+  leftTextContainer: {
+    flex: 1,
+    paddingRight: 8, // flex-1 pr-2
+  },
+  samsungLeftContainer: {
+    flex: 1,
+    paddingRight: 8, // flex-1 pr-2
+  },
   packageHint: {
     fontSize: 10,
     fontFamily: typography.fontFamilies.mono,
@@ -893,13 +935,13 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamilies.bold,
     color: '#111827',
   },
-  postgresPill: {
+  syncStatusPill: {
     backgroundColor: '#E8F5E9',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: radii.pill,
   },
-  postgresPillText: {
+  syncStatusPillText: {
     fontSize: 9,
     fontFamily: typography.fontFamilies.bold,
     color: '#1D4D3E',

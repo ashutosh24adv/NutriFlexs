@@ -92,7 +92,22 @@ model User {
   activityLevel                  String?
   primaryNutritionGoal           String?
   calorieRolloverEnabled         Boolean  @default(false)
-  notificationsEnabled           Boolean  @default(false)
+  notificationsEnabled           Boolean  @default(true)
+
+  // Mobile Athlete Baseline & Nutrition Fields
+  passBalance                    Float    @default(0)
+  sex                            String?
+  dateOfBirth                    DateTime?
+  workoutFrequency               String?
+  primaryGoal                    String?
+  desiredTargetWeightKg          Float?
+  goalDays                       Int?
+  goalPace                       String?
+  dietPreference                 String?
+  barriers                       String[] @default([])
+  accomplishments                String[] @default([])
+  dietitianConsulted             String?
+  calorieRollover                Boolean  @default(false)
 
   createdAt                DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -109,6 +124,8 @@ model User {
   createdStaffAccessCodes StaffAccessCode[] @relation("CreatedAccessCodes")
   nutritionGoal    NutritionGoal?
   foodLogs         FoodLog[]
+  waterLogs        WaterLog[]
+  dailyHealthMetrics DailyHealthMetric[]
   customFoods      FoodItem[]     @relation("CustomFoodItems")
   favoriteFoods    FavoriteFood[]
   savedMeals       SavedMeal[]
@@ -601,16 +618,76 @@ model FoodLog {
 }
 
 model NutritionGoal {
-  id               String   @id @default(uuid())
-  userId           String   @unique
-  dailyCalorieGoal Int?
-  proteinGoal      Float?
-  carbohydrateGoal Float?
-  fatGoal          Float?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                    String    @id @default(uuid())
+  userId                String    @unique
+  dailyCalorieGoal      Int?
+  proteinGoal           Float?
+  carbohydrateGoal      Float?
+  fatGoal               Float?
+  calorieTarget         Int?
+  proteinTarget         Float?
+  carbsTarget           Float?
+  fatsTarget            Float?
+  waterGoalMl           Int?      @default(3000)
+  onboardingCompleted   Boolean   @default(false)
+  sex                   String?
+  dateOfBirth           DateTime?
+  heightCm              Float?
+  weightKg              Float?
+  workoutFrequency      String?
+  primaryGoal           String?
+  desiredTargetWeightKg Float?
+  goalDays              Int?
+  goalPace              String?
+  dietPreference        String?
+  barriers              String[]  @default([])
+  accomplishments       String[]  @default([])
+  dietitianConsulted    String?
+  calorieRollover       Boolean   @default(false)
+  notificationsEnabled  Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WaterLog {
+  id        String   @id @default(uuid())
+  userId    String
+  dateKey   String   // "YYYY-MM-DD"
+  amountMl  Int      @default(0)
+  loggedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dateKey])
+  @@index([userId, dateKey])
+}
+
+model DailyHealthMetric {
+  id              String   @id @default(uuid())
+  userId          String
+  dateKey         String   // "YYYY-MM-DD"
+  steps           Int      @default(0)
+  activeCalories  Float    @default(0)
+  restingCalories Float    @default(0)
+  totalCalories   Float    @default(0)
+  avgHeartRate    Float    @default(0)
+  waterIntakeMl   Float    @default(0)
+  workoutsCount   Int      @default(0)
+  hydrationMl     Float    @default(0)
+  source          String?  @default("Native Health Bridge")
+  rawPayload      String?
+  syncedAt        DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dateKey])
+  @@index([userId, dateKey])
 }
 
 model BlogPost {

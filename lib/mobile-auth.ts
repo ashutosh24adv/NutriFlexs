@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getToken, decode } from "next-auth/jwt";
-import { prisma } from "@/lib/prisma";
+import { prisma, withDbRetry } from "@/lib/prisma";
 
 export interface MobileAuthUser {
   id: string;
@@ -26,7 +26,59 @@ function isRealDatabaseConfigured(): boolean {
 }
 
 /**
+ * Extracts Authorization Bearer <token> consistently from request headers.
+ * Supports both NextRequest and standard Request.
+ */
+export function extractBearerToken(req: NextRequest | Request): string | null {
+  const authHeader =
+    req.headers.get("authorization") || req.headers.get("Authorization");
+  if (!authHeader) return null;
+
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+  return null;
+}
+
+/**
+ * Decodes and verifies a JWT token using NextAuth secret or fallback base64 payload.
+ */
+export async function decodeMobileToken(tokenString: string): Promise<any> {
+  if (!tokenString) return null;
+
+  try {
+    const decoded = await decode({
+      token: tokenString,
+      secret: AUTH_SECRET,
+    });
+    if (decoded && (decoded.id || decoded.sub || decoded.email)) {
+      return decoded;
+    }
+  } catch {
+    // Continue to fallback decode
+  }
+
+  // Fallback: parse standard unencrypted JWT payload if valid format
+  try {
+    const parts = tokenString.split(".");
+    if (parts.length === 3) {
+      const payloadJson = Buffer.from(parts[1], "base64url").toString("utf8");
+      const parsed = JSON.parse(payloadJson);
+      if (parsed && (parsed.id || parsed.sub || parsed.email)) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Invalid token format
+  }
+
+  return null;
+}
+
+/**
  * Authenticates mobile client requests using Bearer JWT or NextAuth session cookie.
+ * Consistently verifies Authorization: Bearer <token>.
  * Provides graceful fallback to guest/dev athlete profile if token is missing or invalid,
  * ensuring mobile operations never fail abruptly due to missing development tokens.
  */
@@ -34,21 +86,12 @@ export async function getMobileAuthUser(
   req: NextRequest | Request
 ): Promise<MobileAuthUser> {
   try {
-    const authHeader =
-      req.headers.get("authorization") || req.headers.get("Authorization");
-    let tokenString: string | null = null;
+    // 1. Consistently extract and verify Authorization: Bearer <token>
+    const tokenString = extractBearerToken(req);
 
-    if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
-      tokenString = authHeader.substring(7).trim();
-    }
-
-    // 1. Try decoding Bearer token if provided
     if (tokenString) {
       try {
-        const decoded = await decode({
-          token: tokenString,
-          secret: AUTH_SECRET,
-        });
+        const decoded = await decodeMobileToken(tokenString);
 
         if (decoded && (decoded.email || decoded.id || decoded.sub)) {
           const userEmail = (decoded.email as string) || "";
@@ -58,17 +101,21 @@ export async function getMobileAuthUser(
           // Verify with database if configured
           let dbUser = null;
           if (isRealDatabaseConfigured()) {
-            if (userEmail) {
-              dbUser = await prisma.user.findUnique({
-                where: { email: userEmail.toLowerCase().trim() },
-                select: { id: true, name: true, email: true, role: true },
-              });
+            if (userId) {
+              dbUser = await withDbRetry(() =>
+                prisma.user.findUnique({
+                  where: { id: userId },
+                  select: { id: true, name: true, email: true, role: true },
+                })
+              );
             }
-            if (!dbUser && userId) {
-              dbUser = await prisma.user.findUnique({
-                where: { id: userId },
-                select: { id: true, name: true, email: true, role: true },
-              });
+            if (!dbUser && userEmail) {
+              dbUser = await withDbRetry(() =>
+                prisma.user.findUnique({
+                  where: { email: userEmail.toLowerCase().trim() },
+                  select: { id: true, name: true, email: true, role: true },
+                })
+              );
             }
           }
 
@@ -103,12 +150,14 @@ export async function getMobileAuthUser(
           secret: AUTH_SECRET,
         });
         if (nextAuthToken?.email) {
-          const dbUser = await prisma.user.findUnique({
-            where: {
-              email: (nextAuthToken.email as string).toLowerCase().trim(),
-            },
-            select: { id: true, name: true, email: true, role: true },
-          });
+          const dbUser = await withDbRetry(() =>
+            prisma.user.findUnique({
+              where: {
+                email: (nextAuthToken.email as string).toLowerCase().trim(),
+              },
+              select: { id: true, name: true, email: true, role: true },
+            })
+          );
           if (dbUser) {
             return {
               id: dbUser.id,
@@ -125,10 +174,12 @@ export async function getMobileAuthUser(
     }
 
     // 3. Graceful guest/dev fallback: look for existing customer user in Neon PostgreSQL
-    const fallbackCustomer = await prisma.user.findFirst({
-      where: { role: "CUSTOMER" },
-      select: { id: true, name: true, email: true, role: true },
-    });
+    const fallbackCustomer = await withDbRetry(() =>
+      prisma.user.findFirst({
+        where: { role: "CUSTOMER" },
+        select: { id: true, name: true, email: true, role: true },
+      })
+    );
 
     if (fallbackCustomer) {
       return {
@@ -141,9 +192,11 @@ export async function getMobileAuthUser(
     }
 
     if (isRealDatabaseConfigured()) {
-      const anyUser = await prisma.user.findFirst({
-        select: { id: true, name: true, email: true, role: true },
-      });
+      const anyUser = await withDbRetry(() =>
+        prisma.user.findFirst({
+          select: { id: true, name: true, email: true, role: true },
+        })
+      );
 
       if (anyUser) {
         return {

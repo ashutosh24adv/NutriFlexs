@@ -1,16 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { typography } from '../../src/theme/typography';
 import { spacing } from '../../src/theme/spacing';
 import { radii } from '../../src/theme/radii';
-import { StackedBarChart } from '../../src/components/StackedBarChart';
+import { StackedBarChart, DailyMacroData } from '../../src/components/StackedBarChart';
 import { MealLoggerModal } from '../../src/components/MealLoggerModal';
 import { Ionicons } from '@expo/vector-icons';
 import { useDiaryStore } from '../../src/store/diaryStore';
 import { useHealthSync } from '../../src/services/useHealthSync';
+import { API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL } from '../../src/config/api';
 
 type TimeframeOption = '1d' | '1w' | '1m' | '1y' | 'All Time';
 const TIMEFRAME_OPTIONS: TimeframeOption[] = ['1d', '1w', '1m', '1y', 'All Time'];
+
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const SecureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
+    if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
+      const keys = ['token', 'auth_token', 'jwt_token'];
+      for (const k of keys) {
+        const val = await SecureStore.getItemAsync(k);
+        if (val) return val;
+      }
+    }
+  } catch {}
+  return null;
+}
 
 export default function TrackTrendsScreen() {
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeOption>('1w');
@@ -18,8 +33,8 @@ export default function TrackTrendsScreen() {
   const [loggerModalVisible, setLoggerModalVisible] = useState(false);
 
   const { targets } = useHealthSync();
-  const targetCalories = targets.calories || 2000;
-  const targetProtein = targets.proteinGrams || 120;
+  const [remoteTargets, setRemoteTargets] = useState<{ calories: number; proteinGrams: number } | null>(null);
+  const [remoteTrends, setRemoteTrends] = useState<DailyMacroData[] | null>(null);
 
   const {
     todayMeals,
@@ -34,7 +49,79 @@ export default function TrackTrendsScreen() {
     waterMl,
   } = useDiaryStore();
 
-  const weekData = get7DayHistory();
+  const todayDateStr = new Date().toISOString().split('T')[0];
+
+  // Fetch real 7-day bars from GET /api/mobile/nutrition/summary?date=YYYY-MM-DD
+  const fetchSummary = useCallback(async () => {
+    try {
+      const token = await getAuthToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const urls = [
+        `${API_BASE_URL}/api/mobile/nutrition/summary?date=${todayDateStr}`,
+        `${LOCAL_USB_URL}/api/mobile/nutrition/summary?date=${todayDateStr}`,
+        `${LOCAL_LAN_URL}/api/mobile/nutrition/summary?date=${todayDateStr}`,
+        `http://localhost:3000/api/mobile/nutrition/summary?date=${todayDateStr}`,
+      ];
+
+      for (const url of urls) {
+        try {
+          const res = await fetch(url, { method: 'GET', headers });
+          if (res.ok) {
+            const data = await res.json();
+            const summary = data.summary || data;
+
+            if (summary.targets) {
+              setRemoteTargets({
+                calories: summary.targets.calories || summary.targets.dailyCalorieGoal || 2000,
+                proteinGrams: summary.targets.proteinGrams || summary.targets.proteinGoal || 120,
+              });
+            }
+
+            const rawTrends = summary.trends || summary.history || summary.sevenDayTrends;
+            if (Array.isArray(rawTrends) && rawTrends.length > 0) {
+              const mapped: DailyMacroData[] = rawTrends.map((t: any) => {
+                const dateStr = t.date || t.dateStr || '';
+                let dayName = t.day || t.dayName;
+                if (!dayName && dateStr) {
+                  const d = new Date(dateStr);
+                  if (!isNaN(d.getTime())) {
+                    dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+                  }
+                }
+                return {
+                  day: dayName || 'Day',
+                  dateStr,
+                  protein: Math.round(t.protein || 0),
+                  carbs: Math.round(t.carbohydrates || t.carbs || 0),
+                  fat: Math.round(t.fat || t.fats || 0),
+                  calories: Math.round(t.calories || 0),
+                  isToday: Boolean(t.isToday ?? (dateStr === todayDateStr)),
+                };
+              });
+              setRemoteTrends(mapped);
+            }
+            break;
+          }
+        } catch {
+          // try next url
+        }
+      }
+    } catch (e) {
+      // offline fallback
+    }
+  }, [todayDateStr]);
+
+  useEffect(() => {
+    fetchSummary();
+  }, [fetchSummary]);
+
+  const targetCalories = remoteTargets?.calories || targets.calories || 2000;
+  const targetProtein = remoteTargets?.proteinGrams || targets.proteinGrams || 120;
+
+  // Real 7-day bars fetched from backend summary, with fallback to real local history
+  const weekData = remoteTrends && remoteTrends.length > 0 ? remoteTrends : get7DayHistory();
   const hasLoggedData = todayMeals.length > 0 || weekData.some((d) => d.calories > 0);
   const nutritionScore = calculateNutritionScore(targetCalories, targetProtein);
 
@@ -230,10 +317,12 @@ export default function TrackTrendsScreen() {
               },
             });
             setStatusMessage(`Logged ${meal.name} (${meal.calories} kcal)`);
+            fetchSummary();
           }}
           onWaterLogged={(newTotalMl) => {
             setWaterMl(newTotalMl);
             setStatusMessage(`Water logged: ${(newTotalMl / 1000).toFixed(2)}L`);
+            fetchSummary();
           }}
           initialWaterMl={waterMl}
         />

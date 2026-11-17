@@ -3,7 +3,7 @@
  * Integrates Apple HealthKit (iOS), Android Health Connect, and detected underlying
  * data sources (Samsung Health, Google Fit, Apple Watch, Strava, Garmin, etc.).
  *
- * Persists real biometric telemetry into Neon PostgreSQL via /api/mobile/health-sync.
+ * Persists real biometric telemetry via /api/mobile/health-sync.
  */
 
 import { Platform, Alert } from 'react-native';
@@ -658,7 +658,15 @@ class HealthSyncService {
         'Install Google Health Connect from the Play Store to sync Samsung Health and Google Fit.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Settings / Store', onPress: () => openHealthConnectSettings() },
+          {
+            text: 'Open Play Store',
+            onPress: async () => {
+              const url = 'market://details?id=com.google.android.apps.healthdata';
+              const webUrl = 'https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata';
+              const supported = await Linking.canOpenURL(url);
+              await Linking.openURL(supported ? url : webUrl);
+            },
+          },
         ]
       );
       this.permissions.overallStatus = 'not_supported';
@@ -667,39 +675,64 @@ class HealthSyncService {
     }
 
     try {
-      // 1. Check SDK Status
-      let status = SdkAvailabilityStatus.SDK_UNAVAILABLE;
+      // 1. Check SDK Status - Catch SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED in JS before calling native requestPermission()
+      let status: number = SdkAvailabilityStatus.SDK_UNAVAILABLE;
       if (typeof HealthConnect.getSdkStatus === 'function') {
-        status = await HealthConnect.getSdkStatus();
+        try {
+          status = await HealthConnect.getSdkStatus();
+        } catch (sdkErr) {
+          console.warn('[HealthSync] HealthConnect.getSdkStatus error:', sdkErr);
+        }
       }
 
-      if (status === SdkAvailabilityStatus.SDK_UNAVAILABLE) {
+      if (
+        status === SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED ||
+        status === (HealthConnect?.SdkAvailabilityStatus?.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED ?? 2) ||
+        status === 2
+      ) {
         Alert.alert(
-          'Health Connect Not Installed',
-          'Install Google Health Connect from the Play Store to sync Samsung Health and Google Fit.',
+          'Health Connect Update Required',
+          'Google Health Connect requires an update to sync health data. Please update it from the Google Play Store.',
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings / Store', onPress: () => openHealthConnectSettings() },
-          ]
-        );
-        this.permissions.overallStatus = 'sdk_unavailable';
-        this.telemetry.status = 'sdk_unavailable';
-        this.telemetry.errorMessage = 'Google Health Connect is not installed.';
-        this.notify();
-        return false;
-      }
-
-      if (status === SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED) {
-        Alert.alert(
-          'Update Required',
-          'Google Health Connect requires an update to sync health data.',
-          [
-            { text: 'Update', onPress: () => openHealthConnectSettings() },
+            {
+              text: 'Update from Play Store',
+              onPress: async () => {
+                const url = 'market://details?id=com.google.android.apps.healthdata';
+                const webUrl = 'https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata';
+                const supported = await Linking.canOpenURL(url);
+                await Linking.openURL(supported ? url : webUrl);
+              },
+            },
           ]
         );
         this.permissions.overallStatus = 'sdk_unavailable';
         this.telemetry.status = 'sdk_unavailable';
         this.telemetry.errorMessage = 'Google Health Connect requires an update.';
+        this.notify();
+        return false;
+      }
+
+      if (status === SdkAvailabilityStatus.SDK_UNAVAILABLE || status === 1) {
+        Alert.alert(
+          'Health Connect Not Installed',
+          'Install Google Health Connect from the Play Store to sync Samsung Health and Google Fit.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Install',
+              onPress: async () => {
+                const url = 'market://details?id=com.google.android.apps.healthdata';
+                const webUrl = 'https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata';
+                const supported = await Linking.canOpenURL(url);
+                await Linking.openURL(supported ? url : webUrl);
+              },
+            },
+          ]
+        );
+        this.permissions.overallStatus = 'sdk_unavailable';
+        this.telemetry.status = 'sdk_unavailable';
+        this.telemetry.errorMessage = 'Google Health Connect is not installed.';
         this.notify();
         return false;
       }
@@ -715,6 +748,35 @@ class HealthSyncService {
         granted = await HealthConnect.requestPermission(HEALTH_PERMISSIONS);
       } catch (error: any) {
         console.warn('[HealthSync] Health Connect requestPermission error:', error);
+        const errMsg = error?.message || String(error);
+        if (
+          errMsg.includes('SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED') ||
+          errMsg.includes('PROVIDER_UPDATE_REQUIRED') ||
+          errMsg.includes('update required')
+        ) {
+          Alert.alert(
+            'Health Connect Update Required',
+            'Google Health Connect requires an update to sync health data. Please update it from the Google Play Store.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Update from Play Store',
+                onPress: async () => {
+                  const url = 'market://details?id=com.google.android.apps.healthdata';
+                  const webUrl = 'https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata';
+                  const supported = await Linking.canOpenURL(url);
+                  await Linking.openURL(supported ? url : webUrl);
+                },
+              },
+            ]
+          );
+          this.permissions.overallStatus = 'sdk_unavailable';
+          this.telemetry.status = 'sdk_unavailable';
+          this.telemetry.errorMessage = 'Google Health Connect requires an update.';
+          this.notify();
+          return false;
+        }
+
         Alert.alert(
           'Health Connect Error',
           error?.message || 'Permission request could not be opened.',
@@ -785,6 +847,20 @@ class HealthSyncService {
   public async openHealthConnectSettings(): Promise<void> {
     if (Platform.OS === 'android') {
       try {
+        if (HealthConnect && typeof HealthConnect.getSdkStatus === 'function') {
+          const status = await HealthConnect.getSdkStatus();
+          if (
+            status === SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED ||
+            status === (HealthConnect?.SdkAvailabilityStatus?.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED ?? 2) ||
+            status === 2
+          ) {
+            const url = 'market://details?id=com.google.android.apps.healthdata';
+            const webUrl = 'https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata';
+            const supported = await Linking.canOpenURL(url);
+            await Linking.openURL(supported ? url : webUrl);
+            return;
+          }
+        }
         if (HealthConnect && typeof HealthConnect.openHealthConnectSettings === 'function') {
           await HealthConnect.openHealthConnectSettings();
           return;
@@ -793,14 +869,10 @@ class HealthSyncService {
         console.warn('[HealthSync] Failed opening Health Connect settings, trying Play Store:', e);
       }
       try {
-        const playStoreUrl = 'market://details?id=com.google.android.apps.healthdata';
+        const url = 'market://details?id=com.google.android.apps.healthdata';
         const webUrl = 'https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata';
-        const canOpen = await Linking.canOpenURL(playStoreUrl);
-        if (canOpen) {
-          await Linking.openURL(playStoreUrl);
-        } else {
-          await Linking.openURL(webUrl);
-        }
+        const supported = await Linking.canOpenURL(url);
+        await Linking.openURL(supported ? url : webUrl);
       } catch (e) {
         console.warn('[HealthSync] Failed opening Play Store URL:', e);
       }
@@ -838,7 +910,7 @@ class HealthSyncService {
   /**
    * Performs 100% real native biometric query without mock or timer data.
    * Queries today's values from midnight to current timestamp.
-   * Persists results to Neon Postgres via /api/mobile/health-sync.
+   * Persists results to backend database via /api/mobile/health-sync.
    */
   public async syncNow(): Promise<HealthTelemetry> {
     this.telemetry.isSyncing = true;
@@ -848,7 +920,7 @@ class HealthSyncService {
     try {
       const realTelemetry = await this.fetchTodayHealthTelemetry();
 
-      // Persist real telemetry to Neon Postgres
+      // Persist real telemetry to database
       const persisted = await this.syncToBackend(realTelemetry);
 
       // Record Sync History Entry
@@ -1191,7 +1263,7 @@ class HealthSyncService {
   }
 
   // ---------------------------------------------------------------------------
-  // Neon PostgreSQL Sync Integration
+  // Cloud Telemetry Sync Integration
   // ---------------------------------------------------------------------------
 
   public async syncToBackend(telemetry: HealthTelemetry): Promise<boolean> {
@@ -1261,4 +1333,11 @@ export const healthSyncService = new HealthSyncService();
 
 export async function openHealthConnectSettings(): Promise<void> {
   return healthSyncService.openHealthConnectSettings();
+}
+
+export async function openHealthConnectPlayStore(): Promise<void> {
+  const url = 'market://details?id=com.google.android.apps.healthdata';
+  const webUrl = 'https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata';
+  const supported = await Linking.canOpenURL(url);
+  await Linking.openURL(supported ? url : webUrl);
 }

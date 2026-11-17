@@ -24,7 +24,7 @@ import Svg, { Circle, Rect } from 'react-native-svg';
 export default function OrderTrackerScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
-  const orderId = params?.id || 'NF-429';
+  const orderId = params?.id || 'NF-Latest';
 
   // 5-minute countdown (300 seconds initial, starting at 252s for realistic ~4m12s)
   const [secondsRemaining, setSecondsRemaining] = useState(252);
@@ -275,7 +275,7 @@ export default function OrderTrackerScreen() {
                 1. Order Received
               </Text>
               <Text style={styles.stepSub}>
-                Kiosk kitchen display confirmed • Order #NF-429
+                Kiosk kitchen display confirmed • Order #{orderId}
               </Text>
             </View>
           </View>
