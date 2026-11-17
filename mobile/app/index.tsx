@@ -13,15 +13,10 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Platform,
-} from 'react-native';
+import * as ReactNative from 'react-native';
+const { View, Text, StyleSheet, Platform } = ReactNative;
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -34,10 +29,27 @@ import Animated, {
 import { authActions } from '../src/store/useAuthStore';
 
 // Safe haptic feedback trigger
+function getHapticsModule(): any {
+  try {
+    // @ts-ignore
+    if (typeof require !== 'undefined') {
+      return require('expo-haptics');
+    }
+  } catch {
+    // safe fallback
+  }
+  return null;
+}
+
 async function triggerCrispHaptic(): Promise<void> {
   try {
+    const Haptics = getHapticsModule();
     if (Haptics && typeof Haptics.impactAsync === 'function') {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle?.Medium || 'medium');
+      return;
+    }
+    if (Platform.OS === 'android' || Platform.OS === 'ios') {
+      (ReactNative as any).Vibration?.vibrate?.(25);
     }
   } catch {
     // Safe no-op on web / simulators without haptic engine
