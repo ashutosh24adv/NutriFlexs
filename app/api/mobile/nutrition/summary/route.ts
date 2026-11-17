@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       : getLocalDateString();
 
     // 1. Fetch user's nutrition goals & baseline
-    const [goalRecord, userRecord] = await withDbRetry(() =>
+    const [initialGoalRecord, userRecord] = await withDbRetry(() =>
       Promise.all([
         prisma.nutritionGoal.findUnique({
           where: { userId },
@@ -48,39 +48,87 @@ export async function GET(req: NextRequest) {
             proteinGoalGrams: true,
             customDailyProteinGoal: true,
             weightKg: true,
+            heightCm: true,
+            sex: true,
+            dateOfBirth: true,
+            workoutFrequency: true,
+            primaryGoal: true,
           },
         }),
       ])
     );
 
-    // If no NutritionGoal exists yet, return a sensible empty state
-    if (!goalRecord) {
-      return NextResponse.json({
-        success: true,
-        date: targetDate,
-        targets: { calories: 0, protein: 0, carbs: 0, fat: 0, waterMl: 0, calorieTarget: 0, proteinTarget: 0, carbsTarget: 0, fatsTarget: 0, waterGoalMl: 0, proteinGrams: 0, carbsGrams: 0, fatGrams: 0 },
-        goals: null,
-        nutritionGoal: null,
-        consumed: { calories: 0, protein: 0, carbs: 0, fat: 0 },
-        remaining: { calories: 0, protein: 0, carbs: 0, fat: 0 },
-        water: { amountMl: 0, goalMl: 0 },
-        waterLog: null,
-        foodLogs: [],
-        meals: { BREAKFAST: [], LUNCH: [], SNACKS: [], DINNER: [] },
-        trends: [],
-      });
+    let goalRecord = initialGoalRecord;
+    if (!goalRecord && userRecord) {
+      const weight = userRecord.weightKg && userRecord.weightKg > 0 ? userRecord.weightKg : 70;
+      const height = userRecord.heightCm && userRecord.heightCm > 0 ? userRecord.heightCm : 175;
+      const isFemale = (userRecord.sex || "").toLowerCase().includes("female");
+      let age = 25;
+      if (userRecord.dateOfBirth) {
+        const diffMs = Date.now() - new Date(userRecord.dateOfBirth).getTime();
+        const computedAge = Math.floor(diffMs / (365.25 * 24 * 60 * 60 * 1000));
+        if (computedAge >= 14 && computedAge <= 100) age = computedAge;
+      }
+      const bmr = 10 * weight + 6.25 * height - 5 * age + (isFemale ? -161 : 5);
+      const freq = (userRecord.workoutFrequency || "").toLowerCase();
+      let activityMult = 1.4;
+      if (freq.includes("7+") || freq.includes("daily")) activityMult = 1.725;
+      else if (freq.includes("4-6") || freq.includes("5")) activityMult = 1.55;
+      else if (freq.includes("0-4") || freq.includes("1-3")) activityMult = 1.35;
+      let tdee = bmr * activityMult;
+      const pGoal = (userRecord.primaryGoal || "").toLowerCase();
+      if (pGoal.includes("lose")) tdee -= 400;
+      else if (pGoal.includes("build") || pGoal.includes("muscle")) tdee += 300;
+      const dailyCalorieGoal = Math.max(1200, Math.min(4500, Math.round(tdee / 50) * 50));
+      const proteinGoal =
+        userRecord.customDailyProteinGoal ||
+        userRecord.proteinGoalGrams ||
+        Math.max(60, Math.min(260, Math.round(weight * 1.8)));
+      const fatGoal = Math.max(40, Math.min(120, Math.round((dailyCalorieGoal * 0.25) / 9)));
+      const carbCalories = dailyCalorieGoal - proteinGoal * 4 - fatGoal * 9;
+      const carbohydrateGoal = Math.max(100, Math.min(600, Math.round(carbCalories / 4)));
+
+      try {
+        goalRecord = await withDbRetry(() =>
+          prisma.nutritionGoal.create({
+            data: {
+              userId,
+              dailyCalorieGoal,
+              proteinGoal,
+              carbohydrateGoal,
+              fatGoal,
+              calorieTarget: dailyCalorieGoal,
+              proteinTarget: proteinGoal,
+              carbsTarget: carbohydrateGoal,
+              fatsTarget: fatGoal,
+              waterGoalMl: 3000,
+              onboardingCompleted: true,
+              sex: userRecord.sex,
+              dateOfBirth: userRecord.dateOfBirth,
+              heightCm: userRecord.heightCm,
+              weightKg: userRecord.weightKg,
+              workoutFrequency: userRecord.workoutFrequency,
+              primaryGoal: userRecord.primaryGoal,
+            },
+          })
+        );
+      } catch {
+        goalRecord = await withDbRetry(() =>
+          prisma.nutritionGoal.findUnique({ where: { userId } })
+        );
+      }
     }
 
-    const targetCalories = goalRecord.calorieTarget ?? goalRecord.dailyCalorieGoal ?? 0;
+    const targetCalories = goalRecord?.calorieTarget ?? goalRecord?.dailyCalorieGoal ?? 2000;
     const targetProtein =
-      goalRecord.proteinTarget ??
-      goalRecord.proteinGoal ??
+      goalRecord?.proteinTarget ??
+      goalRecord?.proteinGoal ??
       userRecord?.customDailyProteinGoal ??
       userRecord?.proteinGoalGrams ??
-      0;
-    const targetCarbs = goalRecord.carbsTarget ?? goalRecord.carbohydrateGoal ?? 0;
-    const targetFat = goalRecord.fatsTarget ?? goalRecord.fatGoal ?? 0;
-    const targetWater = goalRecord.waterGoalMl ?? 0;
+      120;
+    const targetCarbs = goalRecord?.carbsTarget ?? goalRecord?.carbohydrateGoal ?? 250;
+    const targetFat = goalRecord?.fatsTarget ?? goalRecord?.fatGoal ?? 65;
+    const targetWater = goalRecord?.waterGoalMl ?? 3000;
 
     // 2. Fetch food logs for targetDate
     const logs = await withDbRetry(() =>

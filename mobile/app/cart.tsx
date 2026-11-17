@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,12 +23,17 @@ import {
   CreditCard,
   ChevronRight,
   Info,
-  Check,
+  Wallet,
 } from 'lucide-react-native';
 import Svg, { Polygon } from 'react-native-svg';
 import RazorpayCheckout from 'react-native-razorpay';
 import { useCartStore } from '../src/store/cartStore';
 import { useAuthStore } from '../src/store/authStore';
+import { getAuthToken } from '../src/services/apiClient';
+import {
+  validateCoupon,
+  checkoutWithWallet,
+} from '../src/services/walletService';
 import {
   API_BASE_URL,
   LOCAL_USB_URL,
@@ -36,39 +41,38 @@ import {
   showDiagnosticAlert,
 } from '../src/constants/config';
 
-// No static DEFAULT_USER — real user data comes from useAuthStore
-
 export default function CartScreen() {
   const router = useRouter();
-  const { user, isAuthenticated, passBalance } = useAuthStore();
+  const { user, isAuthenticated, passBalance, updateProfile } = useAuthStore();
   const isAuthed = Boolean(isAuthenticated && user && !user.isGuest);
+  const walletBalance = isAuthed ? (passBalance || 0) : 0;
+
   const {
     itemsList,
     totalCount,
     itemTotal,
     totalProtein,
     totalCalories,
-    discount,
-    discountLabel,
-    taxesAndPackaging,
-    toPay,
-    passApplied,
-    trainerCode,
-    trainerDiscountApplied,
     autoLogToDiary,
     kioskLocation,
     increment,
     decrement,
     clearCart,
-    setPassApplied,
-    applyTrainerCode,
-    removeTrainerCode,
     setAutoLogToDiary,
     placeOrder,
   } = useCartStore();
 
-  const [inputCode, setInputCode] = useState('');
-  const [codeMessage, setCodeMessage] = useState<{ text: string; isError?: boolean } | null>(null);
+  // Coupon State
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [couponDiscount, setCouponDiscount] = useState<number>(0);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [couponMessage, setCouponMessage] = useState<{ text: string; isError?: boolean } | null>(null);
+
+  // Wallet Toggle State (defaults to true if wallet has positive balance)
+  const [useWallet, setUseWallet] = useState<boolean>(true);
+
+  // Payment State
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>('');
   const [showSimulatedSheet, setShowSimulatedSheet] = useState(false);
@@ -79,29 +83,72 @@ export default function CartScreen() {
   } | null>(null);
   const [selectedUpi, setSelectedUpi] = useState('Google Pay');
 
-  // Enforce zero fake discount if user has no active pass balance
-  React.useEffect(() => {
-    if ((!isAuthed || passBalance <= 0) && passApplied) {
-      setPassApplied(false);
-    }
-  }, [isAuthed, passBalance, passApplied, setPassApplied]);
-
-  // Detect whether real native Razorpay module is linked or running in standard Expo Go
+  // Detect whether native Razorpay module is linked or running in standard Expo Go
   const isNativeRazorpayAvailable =
     typeof RazorpayCheckout !== 'undefined' &&
     typeof (RazorpayCheckout as any)?.open === 'function';
 
-  const handleApplyCode = () => {
-    const res = applyTrainerCode(inputCode);
-    setCodeMessage({ text: res.message, isError: !res.success });
-    if (res.success) {
-      setInputCode('');
+  // Bill Calculations
+  const subtotal = itemTotal;
+  const discount = Math.min(subtotal, couponDiscount);
+  const netFood = Math.max(0, subtotal - discount);
+  const taxesAndPackaging = netFood > 0 ? Math.round(netFood * 0.05) + 15 : 0;
+  const totalBill = netFood + taxesAndPackaging;
+
+  // Wallet deduction: can cover up to 100% of totalBill
+  const maxWalletDeduction = (useWallet && walletBalance > 0)
+    ? Math.min(walletBalance, totalBill)
+    : 0;
+  const finalPayable = Math.max(0, totalBill - maxWalletDeduction);
+
+  /**
+   * Applies coupon via POST /api/mobile/coupons/validate
+   */
+  const handleApplyCoupon = async () => {
+    const codeToTest = couponInput.trim().toUpperCase();
+    if (!codeToTest) {
+      setCouponMessage({ text: 'Please enter a coupon code', isError: true });
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+    setCouponMessage(null);
+
+    try {
+      const res = await validateCoupon(codeToTest, itemTotal);
+      if (res.valid) {
+        setAppliedCoupon(res.code);
+        setCouponDiscount(res.discount);
+        setCouponMessage({
+          text: res.message || `Coupon ${res.code} applied! Saved ₹${res.discount}`,
+          isError: false,
+        });
+        setCouponInput('');
+      } else {
+        setCouponMessage({
+          text: res.error || res.message || 'Invalid coupon code. Try WELCOME10 or FIT50',
+          isError: true,
+        });
+      }
+    } catch (err: any) {
+      setCouponMessage({
+        text: err?.message || 'Could not validate coupon. Try WELCOME10 or FIT50',
+        isError: true,
+      });
+    } finally {
+      setIsValidatingCoupon(false);
     }
   };
 
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setCouponInput('');
+    setCouponMessage(null);
+  };
+
   /**
-   * Completes payment verification, records food log if toggled,
-   * clears the cart and routes user to live order tracker.
+   * Completes post-payment verification and diary logging
    */
   const handlePaymentVerificationSuccess = async (
     paymentResult: {
@@ -111,15 +158,18 @@ export default function CartScreen() {
     },
     orderId: string
   ) => {
-    setProcessingStatus('Verifying HMAC payment signature...');
-    const API_BASE = (process.env.EXPO_PUBLIC_API_URL || 'https://nutri-flexs.vercel.app').replace(/\/$/, '');
+    setProcessingStatus('Verifying payment with bank...');
+    const API_BASE = (process.env.EXPO_PUBLIC_API_URL || API_BASE_URL || 'https://nutri-flexs.vercel.app').replace(/\/$/, '');
+    const token = await getAuthToken();
 
     try {
-      // 1. Call POST /api/payments/verify with payment verification payload
       try {
         await fetch(`${API_BASE}/api/payments/verify`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({
             orderId,
             razorpayOrderId: paymentResult.razorpay_order_id,
@@ -131,13 +181,22 @@ export default function CartScreen() {
         console.warn('Backend payment verification fetch warning:', verifyErr);
       }
 
-      // 2. Auto-log to health diary (if toggled)
+      // If wallet balance was used for part of payment, deduct from authStore
+      if (maxWalletDeduction > 0) {
+        const remaining = Math.max(0, walletBalance - maxWalletDeduction);
+        updateProfile({ passBalance: remaining });
+      }
+
+      // Auto-log to health diary if toggled
       if (autoLogToDiary) {
         setProcessingStatus('Logging meal to Health Diary...');
         try {
           await fetch(`${API_BASE}/api/nutrition/logs`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
             body: JSON.stringify({
               mealType: 'LUNCH',
               notes: `NutriFlexs Express Order (${orderId}) at ${kioskLocation}`,
@@ -156,12 +215,12 @@ export default function CartScreen() {
         }
       }
 
-      // 3. Clear cart & update store order status
+      // Clear cart & update store order status
       placeOrder(orderId);
       setIsProcessingPayment(false);
       setShowSimulatedSheet(false);
 
-      // 4. Navigate to /orders/[id]
+      // Navigate to order screen
       router.push(`/orders/${orderId}`);
     } catch (err: any) {
       console.error('Post-verification handling error:', err);
@@ -174,26 +233,101 @@ export default function CartScreen() {
 
   /**
    * Main checkout entry point:
-   * 1. Resolves full base URL and calls POST /api/mobile/orders to create order in Neon DB and obtain razorpayOrderId
-   * 2. Inspects response: if response.ok is false or data.razorpayOrderId is missing/empty,
-   *    extracts error and displays Alert.alert('Order Creation Failed', errorMessage).
-   * 3. Verifies razorpayOrderId starts with 'order_' before proceeding to RazorpayCheckout.open.
-   * 4. Opens real RazorpayCheckout.open({ key, order_id: data.razorpayOrderId, amount: data.amountInPaise, currency: 'INR', ... })
-   * 5. Handles Expo Go fallback gracefully with informative banner & alert
+   * - If wallet covers 100% (finalPayable === 0), checkout directly via POST /api/mobile/orders/wallet-checkout
+   * - If partial or no wallet, pay remainder via Razorpay
    */
   const handleInitiateCheckout = async () => {
     if (itemsList.length === 0) return;
 
     setIsProcessingPayment(true);
+
+    // CASE 1: 100% Covered by Wallet
+    if (finalPayable === 0 && maxWalletDeduction > 0) {
+      setProcessingStatus('Processing 100% Wallet Payment...');
+      try {
+        const walletResult = await checkoutWithWallet({
+          items: itemsList.map((item) => ({
+            id: item.id,
+            productId: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            proteinGrams: item.proteinGrams,
+            calories: item.calories,
+            imageUrl: item.imageUrl,
+          })),
+          kioskLocation,
+          totalAmount: totalBill,
+          discount,
+          couponCode: appliedCoupon || undefined,
+          user: isAuthed && user
+            ? { name: user.name, email: user.email, phone: user.phone || '' }
+            : undefined,
+        });
+
+        if (walletResult.success) {
+          // Deduct from wallet balance in authStore
+          const remaining = typeof walletResult.passBalance === 'number'
+            ? walletResult.passBalance
+            : Math.max(0, walletBalance - maxWalletDeduction);
+          updateProfile({ passBalance: remaining });
+
+          const orderId = walletResult.orderId || walletResult.order?.id || `NF-${Math.floor(1000 + Math.random() * 9000)}`;
+
+          // Auto-log to diary if toggled
+          if (autoLogToDiary) {
+            const API_BASE = (process.env.EXPO_PUBLIC_API_URL || API_BASE_URL || 'https://nutri-flexs.vercel.app').replace(/\/$/, '');
+            const token = await getAuthToken();
+            fetch(`${API_BASE}/api/nutrition/logs`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({
+                mealType: 'LUNCH',
+                notes: `NutriFlexs Express Order (${orderId}) at ${kioskLocation}`,
+                calories: totalCalories,
+                protein: totalProtein,
+                items: itemsList.map((i) => ({
+                  name: i.name,
+                  calories: i.calories,
+                  protein: i.proteinGrams,
+                  quantity: i.quantity,
+                })),
+              }),
+            }).catch(() => null);
+          }
+
+          placeOrder(orderId);
+          setIsProcessingPayment(false);
+          router.push(`/orders/${orderId}`);
+          return;
+        } else {
+          throw new Error(walletResult.error || 'Wallet payment was not accepted');
+        }
+      } catch (walletErr: any) {
+        setIsProcessingPayment(false);
+        Alert.alert(
+          'Wallet Checkout',
+          walletErr?.message || 'Wallet checkout could not be completed. You can pay with Razorpay or retry.'
+        );
+        return;
+      }
+    }
+
+    // CASE 2: Pay via Razorpay (either full or remainder)
     setProcessingStatus('Creating your order...');
 
     const candidateUrls = [API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL];
-    const totalAmountInPaise = Math.round(toPay * 100);
+    const totalAmountInPaise = Math.round(finalPayable * 100);
+    const token = await getAuthToken();
 
     let res: Response | null = null;
     let lastError: any = null;
 
     for (const baseUrl of candidateUrls) {
+      if (!baseUrl) continue;
       try {
         const targetUrl = `${baseUrl.replace(/\/$/, '')}/api/mobile/orders`;
         const controller = new AbortController();
@@ -201,7 +335,10 @@ export default function CartScreen() {
 
         const response = await fetch(targetUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           signal: controller.signal,
           body: JSON.stringify({
             items: itemsList.map((item) => ({
@@ -215,18 +352,19 @@ export default function CartScreen() {
               imageUrl: item.imageUrl,
             })),
             kioskLocation,
-            totalAmount: toPay,
-            trainerCode: trainerDiscountApplied ? trainerCode : undefined,
-            passApplied,
+            totalAmount: finalPayable,
+            discount,
+            couponCode: appliedCoupon || undefined,
+            walletAmountUsed: maxWalletDeduction,
             user: isAuthed && user
               ? { name: user.name, email: user.email, phone: user.phone || '' }
-              : { name: '', email: '', phone: '' },
+              : { name: 'Guest', email: 'guest@nutriflexs.com', phone: '9999999999' },
           }),
         });
 
         clearTimeout(timeoutId);
         res = response;
-        break; // Successfully connected to host!
+        break;
       } catch (fetchErr: any) {
         lastError = fetchErr;
         console.warn(`[CartCheckout] Failed connecting to ${baseUrl}:`, fetchErr?.message || fetchErr);
@@ -244,11 +382,10 @@ export default function CartScreen() {
     let data: any = null;
     try {
       data = await res.json();
-    } catch (parseErr) {
+    } catch {
       data = null;
     }
 
-    // Inspect JSON response: if response.ok is false or data.razorpayOrderId is missing/empty
     if (!res.ok || !data?.razorpayOrderId) {
       setIsProcessingPayment(false);
       const errorMessage =
@@ -259,7 +396,6 @@ export default function CartScreen() {
       return;
     }
 
-    // Verify that razorpayOrderId starts with 'order_'
     const razorpayOrderId = String(data.razorpayOrderId).trim();
     if (!razorpayOrderId.startsWith('order_')) {
       setIsProcessingPayment(false);
@@ -271,7 +407,7 @@ export default function CartScreen() {
     }
 
     const orderId = data.orderId || data.order?.id || `NF-${Math.floor(1000 + Math.random() * 9000)}`;
-    const amountInPaise = data.amountInPaise || data.amount || totalAmountInPaise;
+    const amountInPaise = Math.round(data.amountInPaise || (data.amount > 1000 ? data.amount : totalAmountInPaise));
 
     const orderPayload = {
       orderId,
@@ -280,42 +416,37 @@ export default function CartScreen() {
     };
     setPendingOrderData(orderPayload);
 
-    // Fallback handling: If RazorpayCheckout is undefined (e.g. running in standard Expo Go without native prebuild)
+    // If native Razorpay is unavailable (Expo Go without dev build)
     if (!isNativeRazorpayAvailable) {
       setIsProcessingPayment(false);
       Alert.alert(
         'Native Razorpay Notice',
-        'Native Razorpay module requires a Development Build (`npx expo run:android` / `eas build`). In Expo Go, simulated verification can be enabled for UI review.',
+        'Native Razorpay module requires a Development Build. In Expo Go, simulated verification can be enabled for testing.',
         [
+          { text: 'Cancel', style: 'cancel' },
           {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Enable Simulated Verification',
-            onPress: () => {
-              setShowSimulatedSheet(true);
-            },
+            text: 'Simulate Payment',
+            onPress: () => setShowSimulatedSheet(true),
           },
         ]
       );
       return;
     }
 
-    // Real Native Razorpay Checkout invocation
-    setProcessingStatus('Launching Razorpay SDK...');
+    // Real Native Razorpay Checkout
+    setProcessingStatus('Launching 100% Secure Payment...');
     const options = {
-      key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_nutriflexs_demo',
+      key: data.keyId || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_nutriflexs_demo',
       order_id: razorpayOrderId,
       amount: amountInPaise,
       currency: 'INR',
       name: 'NutriFlexs',
-      description: 'NutriFlexs Express Order',
+      description: 'NutriFlexs Fresh Meal Order',
       image: 'https://nutriflexs.com/logo.png',
       prefill: {
-        email: (isAuthed && user?.email) ? user.email : '',
-        contact: (isAuthed && user?.phone) ? user.phone : '',
-        name: (isAuthed && user?.name) ? user.name : '',
+        email: isAuthed && user?.email ? user.email : '',
+        contact: isAuthed && user?.phone ? user.phone : '',
+        name: isAuthed && user?.name ? user.name : '',
       },
       theme: { color: '#1D4D3E' },
     };
@@ -325,15 +456,17 @@ export default function CartScreen() {
       await handlePaymentVerificationSuccess(paymentResult, orderId);
     } catch (error: any) {
       setIsProcessingPayment(false);
-      console.warn('Razorpay Checkout response:', error);
       const errorDescription =
         error?.error?.description ||
         error?.description ||
+        error?.message ||
         'Payment cancelled';
       const isCancellation =
         errorDescription.toLowerCase().includes('cancel') ||
         errorDescription.toLowerCase().includes('dismiss') ||
-        errorDescription.toLowerCase().includes('closed');
+        errorDescription.toLowerCase().includes('closed') ||
+        error?.code === 0;
+
       Alert.alert(
         isCancellation ? 'Payment Cancelled' : 'Payment Status',
         isCancellation
@@ -344,12 +477,12 @@ export default function CartScreen() {
   };
 
   /**
-   * Simulated payment confirmation handler for Expo Go UI review mode
+   * Simulated payment confirmation handler for Expo Go preview mode
    */
   const handleConfirmSimulatedPayment = async () => {
     if (!pendingOrderData) return;
     setIsProcessingPayment(true);
-    setProcessingStatus('Verifying simulated Razorpay signature...');
+    setProcessingStatus('Verifying simulated payment...');
 
     setTimeout(async () => {
       await handlePaymentVerificationSuccess(
@@ -376,7 +509,7 @@ export default function CartScreen() {
           <Text style={styles.backText}>Menu</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Fuel Cart & Checkout</Text>
+        <Text style={styles.headerTitle}>Cart & Checkout</Text>
 
         {itemsList.length > 0 ? (
           <TouchableOpacity onPress={clearCart} style={styles.clearBtn}>
@@ -391,22 +524,6 @@ export default function CartScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Fallback Banner for Standard Expo Go / Non-Prebuilt environments */}
-        {!isNativeRazorpayAvailable && (
-          <View style={styles.fallbackBanner}>
-            <View style={styles.fallbackHeader}>
-              <Info size={16} color="#B45309" />
-              <Text style={styles.fallbackTitle}>Expo Go Environment Detected</Text>
-            </View>
-            <Text style={styles.fallbackBody}>
-              Native Razorpay module requires a Development Build (
-              <Text style={styles.monoText}>npx expo run:android</Text> /{' '}
-              <Text style={styles.monoText}>eas build</Text>). In Expo Go, simulated
-              verification can be enabled for UI review.
-            </Text>
-          </View>
-        )}
-
         {/* Pickup Kiosk Banner */}
         <View style={styles.kioskBanner}>
           <View style={styles.kioskIconContainer}>
@@ -540,82 +657,94 @@ export default function CartScreen() {
               />
             </View>
 
-            {/* NutriFlexs Pass & Trainer Referral Section */}
+            {/* NutriFlexs Wallet & Coupon Section */}
             <View style={styles.benefitsCard}>
               <View style={styles.benefitsHeader}>
                 <Tag size={18} color="#1D4D3E" />
-                <Text style={styles.benefitsTitle}>Discounts & Athlete Perks</Text>
+                <Text style={styles.benefitsTitle}>Wallet & Offers</Text>
               </View>
 
-              {/* NutriFlexs Pass Toggle */}
-              <View style={styles.passRow}>
-                <View style={styles.passDetails}>
-                  <Text style={styles.passName}>NutriFlexs Athlete Pass</Text>
-                  <Text style={styles.passSub}>
-                    {isAuthed && passBalance > 0
-                      ? `₹${passBalance.toLocaleString('en-IN')} credits balance • 35% OFF all meal items`
-                      : 'No active Pass credits • Add Pass in Profile'}
+              {/* NutriFlexs Wallet Balance Toggle */}
+              <View style={styles.walletRow}>
+                <View style={styles.walletIconBox}>
+                  <Wallet size={18} color="#1D4D3E" />
+                </View>
+                <View style={styles.walletDetails}>
+                  <Text style={styles.walletName}>
+                    Use Wallet Balance (₹{walletBalance.toLocaleString('en-IN')} available)
+                  </Text>
+                  <Text style={styles.walletSub}>
+                    {walletBalance > 0
+                      ? maxWalletDeduction >= totalBill
+                        ? '100% of order covered by your wallet'
+                        : `₹${maxWalletDeduction} deducted from wallet`
+                      : 'No wallet balance • Top-up in Profile to enable 1-tap checkout'}
                   </Text>
                 </View>
                 <Switch
-                  value={isAuthed && passBalance > 0 ? passApplied : false}
-                  onValueChange={isAuthed && passBalance > 0 ? setPassApplied : undefined}
-                  disabled={!isAuthed || passBalance <= 0}
+                  value={walletBalance > 0 ? useWallet : false}
+                  onValueChange={walletBalance > 0 ? setUseWallet : undefined}
+                  disabled={walletBalance <= 0}
                   trackColor={{ false: '#D1D5DB', true: '#1D4D3E' }}
-                  thumbColor={passApplied && isAuthed && passBalance > 0 ? '#FFFFFF' : '#F9FAFB'}
+                  thumbColor={useWallet && walletBalance > 0 ? '#FFFFFF' : '#F9FAFB'}
                 />
               </View>
 
               {/* Divider */}
               <View style={styles.subDivider} />
 
-              {/* Trainer Referral Code */}
-              <View style={styles.trainerSection}>
-                <Text style={styles.trainerLabel}>Trainer Referral Code</Text>
-                {trainerDiscountApplied ? (
+              {/* Coupon Code Input */}
+              <View style={styles.couponSection}>
+                <Text style={styles.couponLabel}>Coupon Code</Text>
+                {appliedCoupon ? (
                   <View style={styles.appliedCodeRow}>
                     <View style={styles.appliedCodeChip}>
                       <Text style={styles.appliedCodeText}>
-                        ✓ {trainerCode} (10% OFF applied)
+                        ✓ {appliedCoupon} (−₹{couponDiscount} applied)
                       </Text>
                     </View>
-                    <TouchableOpacity onPress={removeTrainerCode}>
+                    <TouchableOpacity onPress={handleRemoveCoupon}>
                       <Text style={styles.removeCodeText}>Remove</Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
                   <View style={styles.codeInputRow}>
                     <TextInput
-                      value={inputCode}
+                      value={couponInput}
                       onChangeText={(text) => {
-                        setInputCode(text);
-                        setCodeMessage(null);
+                        setCouponInput(text);
+                        setCouponMessage(null);
                       }}
-                      placeholder="e.g. COACHAMIT or FIT10"
+                      placeholder="e.g. WELCOME10 or FIT50"
                       placeholderTextColor="#9CA3AF"
                       autoCapitalize="characters"
                       style={styles.codeInput}
                     />
                     <TouchableOpacity
                       activeOpacity={0.8}
-                      onPress={handleApplyCode}
+                      onPress={handleApplyCoupon}
+                      disabled={isValidatingCoupon}
                       style={styles.applyBtn}
                     >
-                      <Text style={styles.applyBtnText}>Apply</Text>
+                      {isValidatingCoupon ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.applyBtnText}>Apply</Text>
+                      )}
                     </TouchableOpacity>
                   </View>
                 )}
 
-                {codeMessage && (
+                {couponMessage && (
                   <Text
                     style={[
                       styles.codeMsgText,
-                      codeMessage.isError
+                      couponMessage.isError
                         ? styles.codeMsgError
                         : styles.codeMsgSuccess,
                     ]}
                   >
-                    {codeMessage.text}
+                    {couponMessage.text}
                   </Text>
                 )}
               </View>
@@ -627,13 +756,13 @@ export default function CartScreen() {
 
               <View style={styles.billRow}>
                 <Text style={styles.billLabel}>Item Total</Text>
-                <Text style={styles.billValue}>₹{itemTotal}</Text>
+                <Text style={styles.billValue}>₹{subtotal}</Text>
               </View>
 
               {discount > 0 && (
                 <View style={styles.billRow}>
                   <Text style={[styles.billLabel, styles.discountText]}>
-                    Discounts ({discountLabel})
+                    Coupon Discount ({appliedCoupon})
                   </Text>
                   <Text style={[styles.billValue, styles.discountText]}>
                     −₹{discount}
@@ -648,6 +777,17 @@ export default function CartScreen() {
                 <Text style={styles.billValue}>₹{taxesAndPackaging}</Text>
               </View>
 
+              {maxWalletDeduction > 0 && (
+                <View style={styles.billRow}>
+                  <Text style={[styles.billLabel, styles.walletUsedText]}>
+                    NutriFlexs Wallet Used
+                  </Text>
+                  <Text style={[styles.billValue, styles.walletUsedText]}>
+                    −₹{maxWalletDeduction}
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.billDivider} />
 
               <View style={styles.toPayRow}>
@@ -655,15 +795,15 @@ export default function CartScreen() {
                   <Text style={styles.toPayTitle}>To Pay</Text>
                   <Text style={styles.toPaySub}>Includes all taxes & packaging</Text>
                 </View>
-                <Text style={styles.toPayAmount}>₹{toPay}</Text>
+                <Text style={styles.toPayAmount}>₹{finalPayable}</Text>
               </View>
             </View>
 
-            {/* Razorpay Trust Badge */}
+            {/* 100% Secure Payment Trust Badge */}
             <View style={styles.trustBadge}>
               <ShieldCheck size={16} color="#059669" />
               <Text style={styles.trustBadgeText}>
-                Razorpay Verified 256-Bit SSL • HMAC-SHA256 Authenticated
+                100% Secure Payment • Bank Grade Protection
               </Text>
             </View>
           </>
@@ -683,19 +823,24 @@ export default function CartScreen() {
               <View style={styles.processingRow}>
                 <ActivityIndicator size="small" color="#FFFFFF" />
                 <Text style={styles.payBtnProcessingText}>
-                  {processingStatus || 'Connecting to Razorpay...'}
+                  {processingStatus || 'Connecting to Secure Checkout...'}
                 </Text>
               </View>
             ) : (
               <>
                 <View style={styles.payBtnLeft}>
-                  <Text style={styles.payBtnAmount}>₹{toPay}</Text>
+                  <Text style={styles.payBtnAmount}>₹{finalPayable}</Text>
                   <Text style={styles.payBtnItems}>
-                    {totalCount} {totalCount === 1 ? 'Item' : 'Items'} • Cult.fit HSR
+                    {totalCount} {totalCount === 1 ? 'Item' : 'Items'}
+                    {maxWalletDeduction > 0 ? ` • ₹${maxWalletDeduction} from wallet` : ' • Cult.fit HSR'}
                   </Text>
                 </View>
                 <View style={styles.payBtnRight}>
-                  <Text style={styles.payBtnText}>Pay ₹{toPay} via Razorpay / UPI</Text>
+                  <Text style={styles.payBtnText}>
+                    {finalPayable === 0
+                      ? 'Pay with NutriFlexs Wallet'
+                      : `Pay ₹${finalPayable} via Razorpay / UPI`}
+                  </Text>
                   <ChevronRight size={18} color="#FFFFFF" />
                 </View>
               </>
@@ -711,7 +856,7 @@ export default function CartScreen() {
             <View style={styles.paymentSheetHeader}>
               <View style={styles.razorpayBrand}>
                 <CreditCard size={20} color="#1D4D3E" />
-                <Text style={styles.razorpayBrandText}>Razorpay Express (Expo Go Preview)</Text>
+                <Text style={styles.razorpayBrandText}>100% Secure Payment (Expo Go Preview)</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setShowSimulatedSheet(false)}
@@ -722,8 +867,8 @@ export default function CartScreen() {
             </View>
 
             <View style={styles.sheetBody}>
-              <Text style={styles.sheetOrderLabel}>NutriFlexs Express Order • {pendingOrderData.orderId}</Text>
-              <Text style={styles.sheetPayAmount}>₹{toPay}</Text>
+              <Text style={styles.sheetOrderLabel}>NutriFlexs Order • {pendingOrderData.orderId}</Text>
+              <Text style={styles.sheetPayAmount}>₹{finalPayable}</Text>
               <Text style={styles.sheetSub}>Select Test Payment Method</Text>
 
               {['Google Pay', 'PhonePe', 'Paytm UPI', 'Gym Wallet / Card'].map((method) => (
@@ -749,18 +894,9 @@ export default function CartScreen() {
                 disabled={isProcessingPayment}
                 style={styles.confirmPayBtn}
               >
-                {isProcessingPayment ? (
-                  <View style={styles.processingRow}>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                    <Text style={styles.confirmPayText}>
-                      {processingStatus || 'Verifying Payment...'}
-                    </Text>
-                  </View>
-                ) : (
-                  <Text style={styles.confirmPayText}>
-                    Simulate Successful Verification ₹{toPay}
-                  </Text>
-                )}
+                <Text style={styles.confirmPayText}>
+                  {isProcessingPayment ? 'Processing...' : `Confirm ₹${finalPayable} Test Payment`}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -773,14 +909,15 @@ export default function CartScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F8F6', // Off-white canvas
+    backgroundColor: '#F7F8F6',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 54,
+    paddingBottom: 14,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#EBECE8',
@@ -793,7 +930,7 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#111827',
   },
   headerTitle: {
@@ -813,35 +950,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 110,
-  },
-  fallbackBanner: {
-    backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 14,
-  },
-  fallbackHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  fallbackTitle: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#92400E',
-  },
-  fallbackBody: {
-    fontSize: 11.5,
-    lineHeight: 16,
-    color: '#78350F',
-  },
-  monoText: {
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    fontWeight: '700',
-    color: '#1D4D3E',
   },
   kioskBanner: {
     flexDirection: 'row',
@@ -1095,22 +1203,31 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#111827',
   },
-  passRow: {
+  walletRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 6,
   },
-  passDetails: {
+  walletIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: '#E8F1ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  walletDetails: {
     flex: 1,
     paddingRight: 10,
   },
-  passName: {
+  walletName: {
     fontSize: 13.5,
     fontWeight: '700',
     color: '#1D4D3E',
   },
-  passSub: {
+  walletSub: {
     fontSize: 11,
     color: '#6B7280',
     marginTop: 2,
@@ -1120,8 +1237,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     marginVertical: 12,
   },
-  trainerSection: {},
-  trainerLabel: {
+  couponSection: {},
+  couponLabel: {
     fontSize: 12.5,
     fontWeight: '700',
     color: '#374151',
@@ -1133,7 +1250,7 @@ const styles = StyleSheet.create({
   },
   codeInput: {
     flex: 1,
-    height: 38,
+    height: 40,
     backgroundColor: '#F9FAFB',
     borderRadius: 8,
     borderWidth: 1,
@@ -1148,6 +1265,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 70,
   },
   applyBtnText: {
     color: '#FFFFFF',
@@ -1160,7 +1278,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#ECFDF5',
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#A7F3D0',
@@ -1169,12 +1287,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   appliedCodeText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#065F46',
   },
   removeCodeText: {
-    fontSize: 11.5,
+    fontSize: 12,
     color: '#DC2626',
     fontWeight: '700',
   },
@@ -1214,6 +1332,10 @@ const styles = StyleSheet.create({
   },
   discountText: {
     color: '#059669',
+    fontWeight: '700',
+  },
+  walletUsedText: {
+    color: '#1D4D3E',
     fontWeight: '700',
   },
   billDivider: {

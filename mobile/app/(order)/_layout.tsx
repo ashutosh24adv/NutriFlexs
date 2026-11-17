@@ -1,63 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/theme/colors';
-import { HeaderBand } from '../../src/components/HeaderBand';
-import { FolderTabs, type AppMode } from '../../src/components/FolderTabs';
-import { useAuthStore } from '../../src/store/authStore';
-import { useDiaryStore } from '../../src/store/diaryStore';
-import { useHealthSync } from '../../src/services/useHealthSync';
+import { DualModeHeader } from '../../src/components/DualModeHeader';
 
 export default function OrderLayout() {
-  const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
-  const isAuthed = Boolean(isAuthenticated && user && !user.isGuest);
-  const userName = isAuthed && user?.name?.trim() ? user.name.trim() : '';
-
-  const [selectedGym, setSelectedGym] = useState(user?.homeKiosk || 'Cult.fit HSR Layout');
-
-  useEffect(() => {
-    if (user?.homeKiosk) {
-      setSelectedGym(user.homeKiosk);
-    }
-  }, [user?.homeKiosk]);
-
-  // Dynamic live remaining calories for Track Health top switcher
-  const { todayCalories } = useDiaryStore();
-  const { targets, telemetry } = useHealthSync();
-  const calorieGoal = targets?.calories || 2000;
-  const foodCalories = todayCalories || 0;
-  const activeBurned = telemetry?.activeCaloriesBurned ?? telemetry?.activeBurned ?? 0;
-  const remainingCalories = Math.max(0, calorieGoal - foodCalories + activeBurned);
-  const trackSubtext = `${remainingCalories.toLocaleString()} kcal left`;
-
-  const handleTabChange = (tab: AppMode) => {
-    if (tab === 'track') {
-      router.replace('/(track)');
-    }
-  };
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" backgroundColor="#1D4D3E" />
 
-      {/* Solid Brand Green Header Band with Dynamic Initials */}
-      <HeaderBand
-        kioskLocation={selectedGym}
-        onSelectKiosk={(newKiosk) => setSelectedGym(newKiosk)}
-        userName={userName}
-        onAvatarPress={() => router.push('/(order)/profile')}
-      />
-
-      {/* Mode Switcher Folder Tabs */}
-      <FolderTabs
-        activeTab="order"
-        onTabChange={handleTabChange}
-        orderSubtext="Ready in 5 min"
-        trackSubtext={trackSubtext}
-      />
+      {/* Unified Brand Green Header with Kiosk Picker, Avatar Initials, & Mode Switcher */}
+      <DualModeHeader activeTab="order" />
 
       <Tabs
         screenOptions={{

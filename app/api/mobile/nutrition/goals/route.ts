@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     }
     const userId = authUser.id;
 
-    const [goal, user] = await withDbRetry(() =>
+    let [goal, user] = await withDbRetry(() =>
       Promise.all([
         prisma.nutritionGoal.findUnique({
           where: { userId },
@@ -40,16 +40,96 @@ export async function GET(req: NextRequest) {
             calorieRollover: true,
             notificationsEnabled: true,
             passBalance: true,
+            proteinGoalGrams: true,
+            customDailyProteinGoal: true,
           },
         }),
       ])
     );
+
+    if (!goal && user) {
+      const weight = user.weightKg && user.weightKg > 0 ? user.weightKg : 70;
+      const height = user.heightCm && user.heightCm > 0 ? user.heightCm : 175;
+      const isFemale = (user.sex || "").toLowerCase().includes("female");
+      let age = 25;
+      if (user.dateOfBirth) {
+        const diffMs = Date.now() - new Date(user.dateOfBirth).getTime();
+        const computedAge = Math.floor(diffMs / (365.25 * 24 * 60 * 60 * 1000));
+        if (computedAge >= 14 && computedAge <= 100) age = computedAge;
+      }
+      const bmr = 10 * weight + 6.25 * height - 5 * age + (isFemale ? -161 : 5);
+      const freq = (user.workoutFrequency || "").toLowerCase();
+      let activityMult = 1.4;
+      if (freq.includes("7+") || freq.includes("daily")) activityMult = 1.725;
+      else if (freq.includes("4-6") || freq.includes("5")) activityMult = 1.55;
+      else if (freq.includes("0-4") || freq.includes("1-3")) activityMult = 1.35;
+      let tdee = bmr * activityMult;
+      const pGoal = (user.primaryGoal || "").toLowerCase();
+      if (pGoal.includes("lose")) tdee -= 400;
+      else if (pGoal.includes("build") || pGoal.includes("muscle")) tdee += 300;
+      const dailyCalorieGoal = Math.max(1200, Math.min(4500, Math.round(tdee / 50) * 50));
+      const proteinGoal =
+        user.customDailyProteinGoal ||
+        user.proteinGoalGrams ||
+        Math.max(60, Math.min(260, Math.round(weight * 1.8)));
+      const fatGoal = Math.max(40, Math.min(120, Math.round((dailyCalorieGoal * 0.25) / 9)));
+      const carbCalories = dailyCalorieGoal - proteinGoal * 4 - fatGoal * 9;
+      const carbohydrateGoal = Math.max(100, Math.min(600, Math.round(carbCalories / 4)));
+
+      try {
+        goal = await withDbRetry(() =>
+          prisma.nutritionGoal.create({
+            data: {
+              userId,
+              dailyCalorieGoal,
+              proteinGoal,
+              carbohydrateGoal,
+              fatGoal,
+              calorieTarget: dailyCalorieGoal,
+              proteinTarget: proteinGoal,
+              carbsTarget: carbohydrateGoal,
+              fatsTarget: fatGoal,
+              waterGoalMl: 3000,
+              onboardingCompleted: true,
+              sex: user.sex,
+              dateOfBirth: user.dateOfBirth,
+              heightCm: user.heightCm,
+              weightKg: user.weightKg,
+              workoutFrequency: user.workoutFrequency,
+              primaryGoal: user.primaryGoal,
+            },
+          })
+        );
+      } catch {
+        goal = await withDbRetry(() =>
+          prisma.nutritionGoal.findUnique({ where: { userId } })
+        );
+      }
+    }
+
+    const targets = {
+      calories: goal?.calorieTarget ?? goal?.dailyCalorieGoal ?? 2000,
+      calorieTarget: goal?.calorieTarget ?? goal?.dailyCalorieGoal ?? 2000,
+      dailyCalorieGoal: goal?.dailyCalorieGoal ?? goal?.calorieTarget ?? 2000,
+      protein: goal?.proteinTarget ?? goal?.proteinGoal ?? user?.customDailyProteinGoal ?? user?.proteinGoalGrams ?? 120,
+      proteinTarget: goal?.proteinTarget ?? goal?.proteinGoal ?? user?.customDailyProteinGoal ?? user?.proteinGoalGrams ?? 120,
+      proteinGrams: goal?.proteinTarget ?? goal?.proteinGoal ?? user?.customDailyProteinGoal ?? user?.proteinGoalGrams ?? 120,
+      carbs: goal?.carbsTarget ?? goal?.carbohydrateGoal ?? 250,
+      carbsTarget: goal?.carbsTarget ?? goal?.carbohydrateGoal ?? 250,
+      carbsGrams: goal?.carbsTarget ?? goal?.carbohydrateGoal ?? 250,
+      fat: goal?.fatsTarget ?? goal?.fatGoal ?? 65,
+      fatsTarget: goal?.fatsTarget ?? goal?.fatGoal ?? 65,
+      fatGrams: goal?.fatsTarget ?? goal?.fatGoal ?? 65,
+      waterMl: goal?.waterGoalMl ?? 3000,
+      waterGoalMl: goal?.waterGoalMl ?? 3000,
+    };
 
     return NextResponse.json({
       success: true,
       goals: goal,
       nutritionGoal: goal,
       data: goal,
+      targets,
       user,
     });
   } catch (error: any) {
@@ -73,53 +153,75 @@ async function handleUpsertGoals(req: NextRequest) {
     const userId = authUser.id;
 
     const body = await req.json();
+    const targetObj = body.targets || body.goals || body.nutritionGoal || body;
 
     // Prepare calorie targets
+    const rawCal =
+      targetObj.dailyCalorieGoal ??
+      targetObj.calorieTarget ??
+      targetObj.calories ??
+      body.dailyCalorieGoal ??
+      body.calorieTarget ??
+      body.calories;
     const dailyCalorieGoal =
-      body.dailyCalorieGoal !== undefined
-        ? parseInt(String(body.dailyCalorieGoal), 10)
-        : body.calorieTarget !== undefined
-        ? parseInt(String(body.calorieTarget), 10)
-        : body.calories !== undefined
-        ? parseInt(String(body.calories), 10)
+      rawCal !== undefined && !isNaN(parseInt(String(rawCal), 10)) && parseInt(String(rawCal), 10) > 0
+        ? parseInt(String(rawCal), 10)
         : undefined;
 
     // Prepare protein targets
+    const rawProtein =
+      targetObj.proteinGoal ??
+      targetObj.proteinTarget ??
+      targetObj.proteinGrams ??
+      targetObj.protein ??
+      body.proteinGoal ??
+      body.proteinTarget ??
+      body.proteinGrams ??
+      body.protein;
     const proteinGoal =
-      body.proteinGoal !== undefined
-        ? parseFloat(String(body.proteinGoal))
-        : body.proteinTarget !== undefined
-        ? parseFloat(String(body.proteinTarget))
-        : body.protein !== undefined
-        ? parseFloat(String(body.protein))
+      rawProtein !== undefined && !isNaN(parseFloat(String(rawProtein))) && parseFloat(String(rawProtein)) > 0
+        ? parseFloat(String(rawProtein))
         : undefined;
 
     // Prepare carbohydrate targets
+    const rawCarbs =
+      targetObj.carbohydrateGoal ??
+      targetObj.carbsTarget ??
+      targetObj.carbsGrams ??
+      targetObj.carbs ??
+      body.carbohydrateGoal ??
+      body.carbsTarget ??
+      body.carbs;
     const carbohydrateGoal =
-      body.carbohydrateGoal !== undefined
-        ? parseFloat(String(body.carbohydrateGoal))
-        : body.carbsTarget !== undefined
-        ? parseFloat(String(body.carbsTarget))
-        : body.carbs !== undefined
-        ? parseFloat(String(body.carbs))
+      rawCarbs !== undefined && !isNaN(parseFloat(String(rawCarbs))) && parseFloat(String(rawCarbs)) > 0
+        ? parseFloat(String(rawCarbs))
         : undefined;
 
     // Prepare fat targets
+    const rawFat =
+      targetObj.fatGoal ??
+      targetObj.fatsTarget ??
+      targetObj.fatGrams ??
+      targetObj.fat ??
+      body.fatGoal ??
+      body.fatsTarget ??
+      body.fat;
     const fatGoal =
-      body.fatGoal !== undefined
-        ? parseFloat(String(body.fatGoal))
-        : body.fatsTarget !== undefined
-        ? parseFloat(String(body.fatsTarget))
-        : body.fat !== undefined
-        ? parseFloat(String(body.fat))
+      rawFat !== undefined && !isNaN(parseFloat(String(rawFat))) && parseFloat(String(rawFat)) > 0
+        ? parseFloat(String(rawFat))
         : undefined;
 
     // Water target in ml
+    const rawWater =
+      targetObj.waterGoalMl ??
+      targetObj.waterMl ??
+      targetObj.water ??
+      body.waterGoalMl ??
+      body.waterMl ??
+      body.water;
     const waterGoalMl =
-      body.waterGoalMl !== undefined
-        ? parseInt(String(body.waterGoalMl), 10)
-        : body.water !== undefined
-        ? parseInt(String(body.water), 10)
+      rawWater !== undefined && !isNaN(parseInt(String(rawWater), 10)) && parseInt(String(rawWater), 10) > 0
+        ? parseInt(String(rawWater), 10)
         : undefined;
 
     const onboardingCompleted =
@@ -337,12 +439,30 @@ async function handleUpsertGoals(req: NextRequest) {
       );
     }
 
+    const targets = {
+      calories: updatedGoal.calorieTarget ?? updatedGoal.dailyCalorieGoal ?? 2000,
+      calorieTarget: updatedGoal.calorieTarget ?? updatedGoal.dailyCalorieGoal ?? 2000,
+      dailyCalorieGoal: updatedGoal.dailyCalorieGoal ?? updatedGoal.calorieTarget ?? 2000,
+      protein: updatedGoal.proteinTarget ?? updatedGoal.proteinGoal ?? 120,
+      proteinTarget: updatedGoal.proteinTarget ?? updatedGoal.proteinGoal ?? 120,
+      proteinGrams: updatedGoal.proteinTarget ?? updatedGoal.proteinGoal ?? 120,
+      carbs: updatedGoal.carbsTarget ?? updatedGoal.carbohydrateGoal ?? 250,
+      carbsTarget: updatedGoal.carbsTarget ?? updatedGoal.carbohydrateGoal ?? 250,
+      carbsGrams: updatedGoal.carbsTarget ?? updatedGoal.carbohydrateGoal ?? 250,
+      fat: updatedGoal.fatsTarget ?? updatedGoal.fatGoal ?? 65,
+      fatsTarget: updatedGoal.fatsTarget ?? updatedGoal.fatGoal ?? 65,
+      fatGrams: updatedGoal.fatsTarget ?? updatedGoal.fatGoal ?? 65,
+      waterMl: updatedGoal.waterGoalMl ?? 3000,
+      waterGoalMl: updatedGoal.waterGoalMl ?? 3000,
+    };
+
     return NextResponse.json({
       success: true,
       message: "Nutrition goals updated successfully",
       goals: updatedGoal,
       nutritionGoal: updatedGoal,
       data: updatedGoal,
+      targets,
       user: updatedUser,
     });
   } catch (error: any) {

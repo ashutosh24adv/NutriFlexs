@@ -148,13 +148,34 @@ export default function ReorderScreen() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const fetchOrders = useCallback(async () => {
-    if (!isAuthenticated || !user) {
-      setOrders([]);
-      setIsLoading(false);
-      return;
-    }
-
+    setIsLoading(true);
     try {
+      if (!isAuthenticated || !user) {
+        setOrders([]);
+        return;
+      }
+
+      let token: string | null = null;
+      try {
+        const SecureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
+        if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
+          for (const key of ['token', 'jwt_token', 'auth_token']) {
+            const val = await SecureStore.getItemAsync(key);
+            if (val) {
+              token = val.trim();
+              break;
+            }
+          }
+        }
+      } catch {}
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const bases = [
         process.env.EXPO_PUBLIC_API_URL || 'https://nutri-flexs.vercel.app',
         'http://localhost:3000',
@@ -172,7 +193,7 @@ export default function ReorderScreen() {
           )}&email=${encodeURIComponent(user.email || '')}`;
           const res = await fetch(url, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
           });
           if (res.ok) {
             const data = await res.json();
@@ -197,7 +218,7 @@ export default function ReorderScreen() {
             const cleanBase = base.replace(/\/$/, '');
             const res = await fetch(`${cleanBase}/api/orders`, {
               method: 'GET',
-              headers: { 'Content-Type': 'application/json' },
+              headers,
             });
             if (res.ok) {
               const data = await res.json();
@@ -300,14 +321,14 @@ export default function ReorderScreen() {
             <ActivityIndicator size="small" color="#1D4D3E" />
             <Text style={styles.loadingText}>Fetching your past favorites...</Text>
           </View>
-        ) : hasZeroOrders || favoriteItems.length === 0 ? (
+        ) : orders.length === 0 || favoriteItems.length === 0 ? (
           /* Clean Empty State */
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconCircle}>
               <RotateCcw size={32} color="#1D4D3E" />
             </View>
             <Text style={styles.emptyText}>
-              No orders yet — order fresh post-workout fuel in 5 mins
+              No orders yet — grab a post-workout meal in 5 mins
             </Text>
             <TouchableOpacity
               activeOpacity={0.85}

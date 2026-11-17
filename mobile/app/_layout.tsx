@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Slot } from 'expo-router';
 import { colors } from '../src/theme/colors';
+import { registerForPushNotificationsAsync } from '../src/services/notifications';
+import { useAuthStore } from '../src/store/useAuthStore';
 
 /**
  * Root Mobile App Layout
@@ -11,6 +13,15 @@ import { colors } from '../src/theme/colors';
  * keeping splash, welcome, auth, and onboarding screens clean.
  */
 export default function RootLayout() {
+  const { isAuthenticated } = useAuthStore();
+
+  useEffect(() => {
+    // Configure channels and register push token on launch and authentication state change
+    registerForPushNotificationsAsync().catch((err) => {
+      console.warn('[RootLayout] Push notification registration error:', err);
+    });
+  }, [isAuthenticated]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" backgroundColor={colors.canvas} />

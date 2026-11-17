@@ -15,6 +15,9 @@ export interface CartItem {
 export interface CartState {
   items: Record<string, CartItem>;
   autoLogToDiary: boolean;
+  couponCode: string;
+  couponDiscount: number;
+  useWallet: boolean;
   passApplied: boolean;
   trainerCode: string;
   trainerDiscountApplied: boolean;
@@ -22,36 +25,15 @@ export interface CartState {
   activeOrderId: string | null;
 }
 
-const INITIAL_ITEMS: Record<string, CartItem> = {
-  '1': {
-    id: '1',
-    name: 'High Protein Peanut Butter Banana Shake',
-    price: 199,
-    quantity: 1,
-    proteinGrams: 32,
-    calories: 420,
-    prepTimeMinutes: 5,
-    isVeg: true,
-    imageUrl:
-      'https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&w=400&q=80',
-  },
-  '2': {
-    id: '2',
-    name: 'Low-Fat Paneer Quinoa Power Bowl',
-    price: 249,
-    quantity: 1,
-    proteinGrams: 28,
-    calories: 380,
-    prepTimeMinutes: 7,
-    isVeg: true,
-    imageUrl:
-      'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80',
-  },
-};
+// Cart starts completely empty (0 items) by default
+const INITIAL_ITEMS: Record<string, CartItem> = {};
 
 let state: CartState = {
   items: INITIAL_ITEMS,
   autoLogToDiary: true,
+  couponCode: '',
+  couponDiscount: 0,
+  useWallet: true,
   passApplied: false,
   trainerCode: '',
   trainerDiscountApplied: false,
@@ -123,7 +105,15 @@ export const cartActions = {
   },
 
   clearCart: () => {
-    state = { ...state, items: {} };
+    state = {
+      ...state,
+      items: {},
+      couponCode: '',
+      couponDiscount: 0,
+      passApplied: false,
+      trainerCode: '',
+      trainerDiscountApplied: false,
+    };
     notify();
   },
 
@@ -132,11 +122,37 @@ export const cartActions = {
     notify();
   },
 
+  setCoupon: (code: string, discount: number) => {
+    state = {
+      ...state,
+      couponCode: code.toUpperCase().trim(),
+      couponDiscount: Math.max(0, discount),
+      trainerCode: code.toUpperCase().trim(),
+      trainerDiscountApplied: discount > 0,
+    };
+    notify();
+  },
+
+  removeCoupon: () => {
+    state = {
+      ...state,
+      couponCode: '',
+      couponDiscount: 0,
+      trainerCode: '',
+      trainerDiscountApplied: false,
+    };
+    notify();
+  },
+
+  setUseWallet: (use: boolean) => {
+    state = { ...state, useWallet: use };
+    notify();
+  },
+
   setPassApplied: (applied: boolean) => {
     state = {
       ...state,
       passApplied: applied,
-      // If pass applied, trainer discount cannot double up with pass
       trainerDiscountApplied: applied ? false : state.trainerDiscountApplied,
     };
     notify();
@@ -145,24 +161,28 @@ export const cartActions = {
   applyTrainerCode: (code: string): { success: boolean; message: string } => {
     const cleaned = code.trim().toUpperCase();
     if (!cleaned) {
-      return { success: false, message: 'Please enter a valid trainer code' };
+      return { success: false, message: 'Please enter a valid coupon code' };
     }
-    if (cleaned === 'COACHAMIT' || cleaned === 'FIT10' || cleaned === 'TRAINER10') {
+    if (cleaned === 'COACHAMIT' || cleaned === 'FIT10' || cleaned === 'TRAINER10' || cleaned === 'WELCOME10') {
       state = {
         ...state,
+        couponCode: cleaned,
+        couponDiscount: 0, // Calculated dynamically or handled by validate
         trainerCode: cleaned,
         trainerDiscountApplied: true,
-        passApplied: false, // Trainer discount replaces pass
+        passApplied: false,
       };
       notify();
-      return { success: true, message: `Trainer code ${cleaned} applied (10% OFF)` };
+      return { success: true, message: `Coupon code ${cleaned} applied` };
     }
-    return { success: false, message: 'Invalid trainer code. Try COACHAMIT' };
+    return { success: false, message: 'Invalid coupon code. Try WELCOME10 or FIT50' };
   },
 
   removeTrainerCode: () => {
     state = {
       ...state,
+      couponCode: '',
+      couponDiscount: 0,
       trainerCode: '',
       trainerDiscountApplied: false,
     };
@@ -204,14 +224,15 @@ export function useCartStore() {
   const totalCalories = itemsList.reduce((acc, it) => acc + it.calories * it.quantity, 0);
 
   // Discount calculation
-  let discount = 0;
-  let discountLabel = '';
-  if (current.passApplied) {
-    discount = Math.round(itemTotal * 0.35); // 35% NutriFlexs Pass Discount
-    discountLabel = 'NutriFlexs Pass (35% OFF)';
-  } else if (current.trainerDiscountApplied) {
-    discount = Math.round(itemTotal * 0.10); // 10% Trainer Referral Discount
-    discountLabel = `Trainer ${current.trainerCode} (10% OFF)`;
+  let discount = current.couponDiscount || 0;
+  let discountLabel = current.couponCode ? `Coupon (${current.couponCode})` : '';
+
+  if (!discount && current.trainerDiscountApplied && current.trainerCode) {
+    discount = Math.round(itemTotal * 0.10);
+    discountLabel = `Coupon (${current.trainerCode} 10% OFF)`;
+  } else if (!discount && current.passApplied) {
+    discount = Math.round(itemTotal * 0.35);
+    discountLabel = 'NutriFlexs Wallet (35% OFF)';
   }
 
   // Taxes & Packaging: 5% GST on net food total + ₹15 eco-friendly packaging

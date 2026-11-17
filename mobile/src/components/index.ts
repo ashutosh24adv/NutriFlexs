@@ -1,4 +1,5 @@
-export * from './FolderTabs';
+export * from './DualModeHeader';
+export { FolderTabs } from './FolderTabs';
 export * from './HeaderBand';
 export * from './MacroBadge';
 export * from './MacroSummaryCard';

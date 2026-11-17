@@ -12,7 +12,6 @@ import { useRouter } from 'expo-router';
 import {
   ShieldCheck,
   MapPin,
-  Flame,
   CreditCard,
   UserCheck,
   Receipt,
@@ -23,27 +22,28 @@ import {
   Settings,
   LogIn,
   Lock,
+  Wallet,
 } from 'lucide-react-native';
 import { useAuthStore, computeAvatarInitials } from '../../src/store/authStore';
 import { cartActions } from '../../src/store/cartStore';
 
 export default function OrderProfileScreen() {
   const router = useRouter();
-  const { user, isAuthenticated, passBalance, topUpPass, signOut } = useAuthStore();
+  const { user, isAuthenticated, passBalance, signOut } = useAuthStore();
   const isGuest = !isAuthenticated || !user || Boolean(user.isGuest);
 
-  const handleTopUp = () => {
+  const handleOpenWallet = () => {
     if (isGuest) {
       router.push('/auth/login');
       return;
     }
-    topUpPass(500);
+    router.push('/wallet');
   };
 
   const handleSignOut = () => {
     Alert.alert(
       'Sign Out',
-      'Are you sure you want to sign out of your NutriFlexs athlete profile?',
+      'Are you sure you want to sign out of your NutriFlexs profile?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -80,13 +80,13 @@ export default function OrderProfileScreen() {
       >
         {/* Screen Title */}
         <View style={styles.header}>
-          <Text style={styles.title}>Fuel Profile</Text>
+          <Text style={styles.title}>My Profile</Text>
           <Text style={styles.subtitle}>
-            Athlete membership, kiosk pass & preferences
+            Account details, wallet & preferences
           </Text>
         </View>
 
-        {/* Athlete Identity Card OR Sign In Card */}
+        {/* Identity Card OR Sign In Card */}
         {isGuest ? (
           <View style={styles.guestCard}>
             <View style={styles.guestTopRow}>
@@ -96,7 +96,7 @@ export default function OrderProfileScreen() {
               <View style={styles.guestInfo}>
                 <Text style={styles.guestTitle}>Sign In / Create Account</Text>
                 <Text style={styles.guestSubtitle}>
-                  Access your athlete profile, orders, and kiosk express perks.
+                  Access your profile, orders, and kiosk express perks.
                 </Text>
               </View>
             </View>
@@ -111,8 +111,8 @@ export default function OrderProfileScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={styles.athleteCard}>
-            <View style={styles.athleteTopRow}>
+          <View style={styles.userCard}>
+            <View style={styles.userTopRow}>
               {/* Avatar Initials Circle */}
               <View style={styles.avatarCircle}>
                 <Text style={styles.avatarText}>
@@ -120,9 +120,9 @@ export default function OrderProfileScreen() {
                 </Text>
               </View>
 
-              <View style={styles.athleteInfo}>
+              <View style={styles.userInfo}>
                 <View style={styles.nameRow}>
-                  <Text style={styles.athleteName}>{user?.name || 'Athlete'}</Text>
+                  <Text style={styles.userName}>{user?.name || 'Member'}</Text>
                   <View style={styles.verifiedBadge}>
                     <ShieldCheck size={13} color="#059669" />
                     <Text style={styles.verifiedText}>{user?.membershipTier || 'MEMBER'}</Text>
@@ -133,9 +133,9 @@ export default function OrderProfileScreen() {
               </View>
             </View>
 
-            <View style={styles.athleteDivider} />
+            <View style={styles.userDivider} />
 
-            {/* Home Gym */}
+            {/* Home Kiosk */}
             <View style={styles.gymRow}>
               <MapPin size={16} color="#1D4D3E" />
               <Text style={styles.gymText}>
@@ -148,12 +148,12 @@ export default function OrderProfileScreen() {
           </View>
         )}
 
-        {/* NutriFlexs Pass Wallet Card */}
-        <View style={styles.passCard}>
-          <View style={styles.passHeader}>
-            <View style={styles.passTitleRow}>
-              <CreditCard size={18} color="#1D4D3E" />
-              <Text style={styles.passTitle}>NUTRIFLEXS PASS</Text>
+        {/* NutriFlexs Wallet Card */}
+        <View style={styles.walletCard}>
+          <View style={styles.walletHeader}>
+            <View style={styles.walletTitleRow}>
+              <Wallet size={18} color="#1D4D3E" />
+              <Text style={styles.walletTitle}>NUTRIFLEXS WALLET</Text>
             </View>
             <View style={isGuest ? styles.inactivePill : styles.activePill}>
               <Text style={isGuest ? styles.inactivePillText : styles.activePillText}>
@@ -163,71 +163,71 @@ export default function OrderProfileScreen() {
           </View>
 
           <View style={styles.balanceSection}>
-            <Text style={styles.balanceLabel}>Available Credits</Text>
+            <Text style={styles.balanceLabel}>Wallet Balance</Text>
             <Text style={styles.balanceAmount}>
               ₹{(isGuest ? 0 : passBalance).toLocaleString('en-IN')}
             </Text>
           </View>
 
-          <Text style={styles.passPerks}>
+          <Text style={styles.walletPerks}>
             {isGuest
-              ? '⚡ Sign in to activate your pass, get 35% OFF orders, and auto-pay at kiosks.'
-              : '⚡ 35% OFF every post-workout order • Priority Express pickup line'}
+              ? '⚡ Sign in to top-up wallet, 1-tap checkout, and fast kiosk pickup.'
+              : '⚡ 1-Tap checkout at gym kiosks • Fast pickup'}
           </Text>
 
-          <View style={styles.passActionsRow}>
+          <View style={styles.walletActionsRow}>
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={isGuest ? () => router.push('/auth/login') : handleTopUp}
+              onPress={handleOpenWallet}
               style={styles.topUpBtn}
             >
               <PlusCircle size={15} color="#FFFFFF" />
               <Text style={styles.topUpBtnText}>
-                {isGuest ? 'Sign In to Top-Up' : '+ Top-Up Pass'}
+                {isGuest ? 'Sign In to Top-Up' : '+ Top-Up Wallet'}
               </Text>
             </TouchableOpacity>
 
             {!isGuest && (
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => {}}
-                style={styles.managePassBtn}
+                onPress={() => router.push('/wallet')}
+                style={styles.manageWalletBtn}
               >
                 <Settings size={15} color="#1D4D3E" />
-                <Text style={styles.managePassBtnText}>Manage</Text>
+                <Text style={styles.manageWalletBtnText}>Manage</Text>
               </TouchableOpacity>
             )}
           </View>
         </View>
 
-        {/* Real Nutrition Goals & Kiosk Card */}
+        {/* Nutrition Goals & Kiosk Card */}
         {!isGuest && (
-          <View style={styles.trainerCard}>
-            <View style={styles.trainerHeader}>
+          <View style={styles.nutritionCard}>
+            <View style={styles.nutritionHeader}>
               <UserCheck size={18} color="#1D4D3E" />
-              <Text style={styles.trainerCardTitle}>Nutrition Goals & Kiosk</Text>
+              <Text style={styles.nutritionCardTitle}>Nutrition Goals & Kiosk</Text>
             </View>
 
-            <View style={styles.trainerBody}>
-              <View style={styles.trainerInfoRow}>
-                <Text style={styles.trainerInfoLabel}>Primary Goal</Text>
-                <Text style={styles.trainerInfoValue}>
+            <View style={styles.nutritionBody}>
+              <View style={styles.nutritionInfoRow}>
+                <Text style={styles.nutritionInfoLabel}>Primary Goal</Text>
+                <Text style={styles.nutritionInfoValue}>
                   {(user as any)?.nutritionGoal?.primaryGoal || (user as any)?.primaryGoal || 'Strength & Recovery'}
                 </Text>
               </View>
 
-              <View style={styles.trainerInfoRow}>
-                <Text style={styles.trainerInfoLabel}>Daily Target</Text>
-                <Text style={styles.trainerInfoValue}>
+              <View style={styles.nutritionInfoRow}>
+                <Text style={styles.nutritionInfoLabel}>Daily Target</Text>
+                <Text style={styles.nutritionInfoValue}>
                   {((user as any)?.nutritionGoal?.proteinTarget || (user as any)?.proteinTarget || 140)}g Protein • {((user as any)?.nutritionGoal?.calorieTarget || (user as any)?.calorieTarget || (user as any)?.dailyCalorieGoal || 2000).toLocaleString('en-IN')} kcal
                 </Text>
               </View>
 
-              {(user as any)?.trainerCode ? (
-                <View style={styles.trainerInfoRow}>
-                  <Text style={styles.trainerInfoLabel}>Trainer Code</Text>
-                  <View style={styles.trainerCodeChip}>
-                    <Text style={styles.trainerCodeText}>{(user as any).trainerCode}</Text>
+              {(user as any)?.trainerCode || (user as any)?.couponCode ? (
+                <View style={styles.nutritionInfoRow}>
+                  <Text style={styles.nutritionInfoLabel}>Coupon Code</Text>
+                  <View style={styles.couponCodeChip}>
+                    <Text style={styles.couponCodeText}>{(user as any).couponCode || (user as any).trainerCode}</Text>
                   </View>
                 </View>
               ) : null}
@@ -289,7 +289,7 @@ export default function OrderProfileScreen() {
             style={styles.signOutButton}
           >
             <LogOut size={16} color="#DC2626" />
-            <Text style={styles.signOutText}>Sign Out of NutriFlexs</Text>
+            <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -300,7 +300,7 @@ export default function OrderProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F8F6', // Off-white canvas
+    backgroundColor: '#F7F8F6',
   },
   scrollContent: {
     padding: 16,
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  athleteCard: {
+  userCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 16,
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
-  athleteTopRow: {
+  userTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-  athleteInfo: {
+  userInfo: {
     flex: 1,
   },
   nameRow: {
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  athleteName: {
+  userName: {
     fontSize: 16,
     fontWeight: '800',
     color: '#111827',
@@ -456,23 +456,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 1,
   },
-  streakBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-    marginTop: 6,
-  },
-  streakText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#B45309',
-  },
-  athleteDivider: {
+  userDivider: {
     height: 1,
     backgroundColor: '#F3F4F6',
     marginVertical: 12,
@@ -490,7 +474,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
   },
-  passCard: {
+  walletCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 18,
@@ -498,18 +482,18 @@ const styles = StyleSheet.create({
     borderColor: '#1D4D3E',
     marginBottom: 14,
   },
-  passHeader: {
+  walletHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
   },
-  passTitleRow: {
+  walletTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  passTitle: {
+  walletTitle: {
     fontSize: 12,
     fontWeight: '800',
     color: '#1D4D3E',
@@ -551,13 +535,13 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginTop: 2,
   },
-  passPerks: {
+  walletPerks: {
     fontSize: 11.5,
     color: '#4B5563',
     marginVertical: 8,
     lineHeight: 16,
   },
-  passActionsRow: {
+  walletActionsRow: {
     flexDirection: 'row',
     gap: 10,
     marginTop: 4,
@@ -577,7 +561,7 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '700',
   },
-  managePassBtn: {
+  manageWalletBtn: {
     backgroundColor: '#E8F1ED',
     flexDirection: 'row',
     alignItems: 'center',
@@ -587,12 +571,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
   },
-  managePassBtnText: {
+  manageWalletBtnText: {
     color: '#1D4D3E',
     fontSize: 12.5,
     fontWeight: '700',
   },
-  trainerCard: {
+  nutritionCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
@@ -600,40 +584,40 @@ const styles = StyleSheet.create({
     borderColor: '#EBECE8',
     marginBottom: 14,
   },
-  trainerHeader: {
+  nutritionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginBottom: 12,
   },
-  trainerCardTitle: {
+  nutritionCardTitle: {
     fontSize: 14,
     fontWeight: '800',
     color: '#111827',
   },
-  trainerBody: {},
-  trainerInfoRow: {
+  nutritionBody: {},
+  nutritionInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 5,
   },
-  trainerInfoLabel: {
+  nutritionInfoLabel: {
     fontSize: 12,
     color: '#6B7280',
   },
-  trainerInfoValue: {
+  nutritionInfoValue: {
     fontSize: 12.5,
     fontWeight: '700',
     color: '#111827',
   },
-  trainerCodeChip: {
+  couponCodeChip: {
     backgroundColor: '#ECFDF5',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
   },
-  trainerCodeText: {
+  couponCodeText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#065F46',

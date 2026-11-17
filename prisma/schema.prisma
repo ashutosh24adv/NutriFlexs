@@ -20,6 +20,7 @@ enum Role {
 enum OrderStatus {
   ORDER_PLACED
   ACCEPTED
+  CONFIRMED
   PREPARING
   READY_FOR_PICKUP
   COMPLETED
@@ -93,6 +94,7 @@ model User {
   primaryNutritionGoal           String?
   calorieRolloverEnabled         Boolean  @default(false)
   notificationsEnabled           Boolean  @default(true)
+  expoPushToken                  String?
 
   // Mobile Athlete Baseline & Nutrition Fields
   passBalance                    Float    @default(0)
@@ -272,6 +274,7 @@ model Order {
   totalProtein         Float         @default(0)
   totalCalories        Int           @default(0)
   paymentStatus        PaymentStatus @default(PENDING)
+  paymentMethod        String?       @default("RAZORPAY")
   trainerId            String?
   couponId             String?
   estimatedPrepMinutes Int           @default(3)
@@ -678,6 +681,7 @@ model DailyHealthMetric {
   waterIntakeMl   Float    @default(0)
   workoutsCount   Int      @default(0)
   hydrationMl     Float    @default(0)
+  distanceMeters  Float?   @default(0)
   source          String?  @default("Native Health Bridge")
   rawPayload      String?
   syncedAt        DateTime @default(now())

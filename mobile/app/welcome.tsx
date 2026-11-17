@@ -1,14 +1,12 @@
 /**
- * NutriFlexs Dual-Mode Welcome Gateway Screen
+ * NutriFlexs Welcome Gateway Screen
  *
- * Screen Features (Crisp Light Theme #1D4D3E + #F7F8F6):
- * - Top Header: NutriFlexs logo on left; clean Log In and Sign Up buttons on top right.
- * - Two prominent mode cards:
- *   1. "Order Food (Fuel Mode)":
- *      "5-min gym kiosk pickup • High-protein bowls, shakes & meals" -> routes to /(order).
- *   2. "Track Health (Health & Nutrition Mode)":
- *      "AI Snap-to-Calorie • Macro diary & wearable sync" ->
- *      if logged in, routes to /(track); if logged out, routes to /auth/signup?redirect=track.
+ * Light Theme (#F7F8F6 canvas, #1D4D3E forest green):
+ * - Top-right "Log In" / "Sign Up" pills
+ * - Clean, clutter-free layout (no dense bullet lists, badges, or footer clutter)
+ * - Two large visual cards:
+ *   1. "Order Food": High-protein meal imagery + subtitle "Fresh gym meals in 5 mins" -> opens /(order)
+ *   2. "Track Calories": Clean calorie & macro graphic + subtitle "Snap meals & track daily macros" -> opens /(track)
  */
 
 import React from 'react';
@@ -19,219 +17,174 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  Image,
   Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuthStore } from '../src/store/authStore';
-import { getAuthToken } from '../src/services/apiClient';
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  const { isAuthenticated, user } = useAuthStore();
 
   const handleOrderMode = async () => {
     try {
-      // @ts-ignore
-      const SecureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
-      if (SecureStore && typeof SecureStore.setItemAsync === 'function') {
-        await SecureStore.setItemAsync('last_active_mode', 'order');
+      const secureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
+      if (secureStore && typeof secureStore.setItemAsync === 'function') {
+        await secureStore.setItemAsync('last_active_mode', 'order');
       }
-    } catch {
-      // Safe fallback
-    }
+    } catch {}
+    try {
+      const asyncStorageMod = typeof require !== 'undefined' ? require('@react-native-async-storage/async-storage') : null;
+      const asyncStorage = asyncStorageMod?.default || asyncStorageMod;
+      if (asyncStorage && typeof asyncStorage.setItem === 'function') {
+        await asyncStorage.setItem('last_active_mode', 'order');
+      }
+    } catch {}
+
     router.replace('/(order)');
   };
 
   const handleTrackMode = async () => {
     try {
-      // @ts-ignore
-      const SecureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
-      if (SecureStore && typeof SecureStore.setItemAsync === 'function') {
-        await SecureStore.setItemAsync('last_active_mode', 'track');
+      const secureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
+      if (secureStore && typeof secureStore.setItemAsync === 'function') {
+        await secureStore.setItemAsync('last_active_mode', 'track');
       }
-    } catch {
-      // Safe fallback
-    }
+    } catch {}
+    try {
+      const asyncStorageMod = typeof require !== 'undefined' ? require('@react-native-async-storage/async-storage') : null;
+      const asyncStorage = asyncStorageMod?.default || asyncStorageMod;
+      if (asyncStorage && typeof asyncStorage.setItem === 'function') {
+        await asyncStorage.setItem('last_active_mode', 'track');
+      }
+    } catch {}
 
-    // Check if user is authenticated (store state or stored JWT token)
-    const token = await getAuthToken();
-    const isAuthed = (isAuthenticated && user && !user.isGuest) || Boolean(token);
-
-    if (isAuthed) {
-      router.replace('/(track)');
-    } else {
-      router.push('/auth/signup?redirect=track');
-    }
+    router.replace('/(track)');
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" backgroundColor="#F7F8F6" />
 
-      {/* Top Header */}
+      {/* Top Header with Brand Title and Top-Right Log In / Sign Up Pills */}
       <View style={styles.header}>
-        {/* NutriFlexs Logo on Left */}
-        <View style={styles.logoContainer}>
-          <View style={styles.logoIcon}>
+        <View style={styles.brandContainer}>
+          <View style={styles.brandIconCircle}>
             <Ionicons name="flash" size={16} color="#F59E0B" />
           </View>
-          <View>
-            <Text style={styles.logoTitle}>NUTRIFLEXS</Text>
-            <Text style={styles.logoSubtitle}>ATHLETIC FUEL & MACROS</Text>
-          </View>
+          <Text style={styles.brandName}>NUTRIFLEXS</Text>
         </View>
 
-        {/* Clean Log In and Sign Up Buttons on Top Right */}
-        <View style={styles.headerActions}>
+        <View style={styles.authPillsRow}>
           <TouchableOpacity
-            style={styles.loginButton}
+            style={styles.loginPill}
             onPress={() => router.push('/auth/login')}
             activeOpacity={0.7}
           >
-            <Text style={styles.loginButtonText}>Log In</Text>
+            <Text style={styles.loginPillText}>Log In</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.signupButton}
+            style={styles.signupPill}
             onPress={() => router.push('/auth/signup')}
             activeOpacity={0.8}
           >
-            <Text style={styles.signupButtonText}>Sign Up</Text>
+            <Text style={styles.signupPillText}>Sign Up</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Gateway Content */}
       <ScrollView
-        style={styles.scroll}
+        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Tagline */}
-        <View style={styles.heroSection}>
-          <View style={styles.heroBadge}>
-            <View style={styles.pulseDot} />
-            <Text style={styles.heroBadgeText}>DUAL-ENGINE ATHLETIC PLATFORM</Text>
-          </View>
-          <Text style={styles.heroTitle}>
-            Fuel Your Workout.{'\n'}
-            <Text style={styles.heroTitleHighlight}>Master Your Macros.</Text>
-          </Text>
-          <Text style={styles.heroSubtitle}>
-            Select your mode below to experience instant gym kiosk nutrition or precision AI calorie tracking.
-          </Text>
+        {/* Editorial Subheading */}
+        <View style={styles.titleSection}>
+          <Text style={styles.headingTitle}>Fuel Your Performance</Text>
+          <Text style={styles.headingSubtitle}>Choose how you want to experience NutriFlexs today</Text>
         </View>
 
-        {/* Mode Cards Container */}
+        {/* Two Large Visual Cards */}
         <View style={styles.cardsContainer}>
-          {/* Mode Card 1: Order Food (Fuel Mode) */}
+          {/* Card 1 — Order Food */}
           <TouchableOpacity
-            style={styles.card}
+            style={styles.visualCard}
             onPress={handleOrderMode}
-            activeOpacity={0.88}
+            activeOpacity={0.92}
           >
-            {/* Ambient Card Accent */}
-            <View style={[styles.cardAccentBar, { backgroundColor: '#F59E0B' }]} />
-
-            <View style={styles.cardHeaderRow}>
-              <View style={[styles.cardIconWrapper, { backgroundColor: 'rgba(245, 158, 11, 0.12)' }]}>
-                <Ionicons name="fast-food-outline" size={26} color="#F59E0B" />
-              </View>
-              <View style={styles.badgePillAmber}>
-                <Ionicons name="time-outline" size={12} color="#D97706" />
-                <Text style={styles.badgePillTextAmber}>5-MIN KIOSK PICKUP</Text>
-              </View>
-            </View>
-
-            <Text style={styles.cardTitle}>Order Food (Fuel Mode)</Text>
-            <Text style={styles.cardDescription}>
-              5-min gym kiosk pickup • High-protein bowls, shakes & meals
-            </Text>
-
-            {/* Feature Bullets */}
-            <View style={styles.featureList}>
-              <View style={styles.featureRow}>
-                <Ionicons name="checkmark-circle" size={16} color="#1D4D3E" />
-                <Text style={styles.featureText}>Macro-balanced protein bowls & recovery smoothies</Text>
-              </View>
-              <View style={styles.featureRow}>
-                <Ionicons name="checkmark-circle" size={16} color="#1D4D3E" />
-                <Text style={styles.featureText}>Ready immediately at Cult.fit HSR Layout kiosk</Text>
-              </View>
-              <View style={styles.featureRow}>
-                <Ionicons name="checkmark-circle" size={16} color="#1D4D3E" />
-                <Text style={styles.featureText}>Auto-syncs nutrition data directly to your daily diary</Text>
+            <View style={styles.imageContainer}>
+              <Image
+                source={{
+                  uri: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=900&auto=format&fit=crop&q=80',
+                }}
+                style={styles.cardImage}
+                resizeMode="cover"
+              />
+              <View style={styles.imageOverlayGradient} />
+              <View style={styles.floatingTag}>
+                <Ionicons name="restaurant" size={13} color="#FFFFFF" />
+                <Text style={styles.floatingTagText}>High Protein</Text>
               </View>
             </View>
 
-            {/* Action CTA */}
-            <View style={[styles.actionCta, { backgroundColor: '#1D4D3E' }]}>
-              <Text style={styles.actionCtaText}>Enter Fuel Mode</Text>
-              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+            <View style={styles.cardDetailsRow}>
+              <View style={styles.cardInfo}>
+                <Text style={styles.cardTitle}>Order Food</Text>
+                <Text style={styles.cardSubtitle}>Fresh gym meals in 5 mins</Text>
+              </View>
+
+              <View style={styles.arrowButton}>
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+              </View>
             </View>
           </TouchableOpacity>
 
-          {/* Mode Card 2: Track Health (Health & Nutrition Mode) */}
+          {/* Card 2 — Track Calories */}
           <TouchableOpacity
-            style={styles.card}
+            style={styles.visualCard}
             onPress={handleTrackMode}
-            activeOpacity={0.88}
+            activeOpacity={0.92}
           >
-            {/* Ambient Card Accent */}
-            <View style={[styles.cardAccentBar, { backgroundColor: '#1D4D3E' }]} />
+            <View style={styles.imageContainer}>
+              <Image
+                source={{
+                  uri: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=900&auto=format&fit=crop&q=80',
+                }}
+                style={styles.cardImage}
+                resizeMode="cover"
+              />
+              <View style={styles.imageOverlayGradient} />
 
-            <View style={styles.cardHeaderRow}>
-              <View style={[styles.cardIconWrapper, { backgroundColor: 'rgba(29, 77, 62, 0.1)' }]}>
-                <Ionicons name="analytics-outline" size={26} color="#1D4D3E" />
-              </View>
-              <View style={styles.badgePillGreen}>
-                <Ionicons name="sparkles" size={12} color="#1D4D3E" />
-                <Text style={styles.badgePillTextGreen}>AI POWERED</Text>
+              {/* Clean Macro Graphic Overlay */}
+              <View style={styles.macroGraphicBadge}>
+                <View style={styles.macroPillAmber}>
+                  <Text style={styles.macroPillLabel}>P</Text>
+                  <Text style={styles.macroPillVal}>48g</Text>
+                </View>
+                <View style={styles.macroPillEmerald}>
+                  <Text style={styles.macroPillLabel}>C</Text>
+                  <Text style={styles.macroPillVal}>55g</Text>
+                </View>
+                <View style={styles.macroPillBlue}>
+                  <Text style={styles.macroPillLabel}>F</Text>
+                  <Text style={styles.macroPillVal}>16g</Text>
+                </View>
               </View>
             </View>
 
-            <Text style={styles.cardTitle}>Track Health (Health & Nutrition Mode)</Text>
-            <Text style={styles.cardDescription}>
-              AI Snap-to-Calorie • Macro diary & wearable sync
-            </Text>
+            <View style={styles.cardDetailsRow}>
+              <View style={styles.cardInfo}>
+                <Text style={styles.cardTitle}>Track Calories</Text>
+                <Text style={styles.cardSubtitle}>Snap meals & track daily macros</Text>
+              </View>
 
-            {/* Feature Bullets */}
-            <View style={styles.featureList}>
-              <View style={styles.featureRow}>
-                <Ionicons name="checkmark-circle" size={16} color="#1D4D3E" />
-                <Text style={styles.featureText}>Snap a meal photo for instant AI macro breakdown</Text>
+              <View style={styles.arrowButton}>
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
               </View>
-              <View style={styles.featureRow}>
-                <Ionicons name="checkmark-circle" size={16} color="#1D4D3E" />
-                <Text style={styles.featureText}>Syncs Apple Health, Health Connect & Samsung Health</Text>
-              </View>
-              <View style={styles.featureRow}>
-                <Ionicons name="checkmark-circle" size={16} color="#1D4D3E" />
-                <Text style={styles.featureText}>Dynamic calorie budget, water tracker & coaching</Text>
-              </View>
-            </View>
-
-            {/* Action CTA */}
-            <View style={[styles.actionCta, { backgroundColor: '#1D4D3E' }]}>
-              <Text style={styles.actionCtaText}>
-                {isAuthenticated && user && !user.isGuest ? 'Enter Health Mode' : 'Start Free with Health Mode'}
-              </Text>
-              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
             </View>
           </TouchableOpacity>
-        </View>
-
-        {/* Footer info */}
-        <View style={styles.footer}>
-          <View style={styles.kioskLocationRow}>
-            <Ionicons name="location-sharp" size={14} color="#1D4D3E" />
-            <Text style={styles.kioskLocationText}>Cult.fit HSR Layout • Bengaluru</Text>
-          </View>
-          <Text style={styles.footerSubtext}>
-            NutriFlexs Unified Health OS • Trusted by Pro Athletes
-          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -241,7 +194,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F7F8F6', // Off-white canvas
+    backgroundColor: '#F7F8F6', // Warm Off-White brand background
     paddingTop: Platform.OS === 'android' ? 28 : 0,
   },
   header: {
@@ -250,250 +203,196 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EBECE8',
     backgroundColor: '#F7F8F6',
   },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  logoIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1D4D3E',
-    letterSpacing: 1.2,
-  },
-  logoSubtitle: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: '#6B7280',
-    letterSpacing: 0.8,
-  },
-  headerActions: {
+  brandContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  loginButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
+  brandIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandName: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#1D4D3E', // Forest Green
+    letterSpacing: 1.5,
+  },
+  authPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loginPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
   },
-  loginButtonText: {
+  loginPillText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1D4D3E',
   },
-  signupButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-    backgroundColor: '#1D4D3E',
+  signupPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#1D4D3E', // Forest Green
   },
-  signupButtonText: {
+  signupPillText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  scroll: {
+  scrollView: {
     flex: 1,
-    backgroundColor: '#F7F8F6',
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 40,
+    paddingTop: 16,
+    paddingBottom: 36,
   },
-  heroSection: {
-    marginBottom: 28,
+  titleSection: {
+    marginBottom: 20,
   },
-  heroBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(29, 77, 62, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(29, 77, 62, 0.2)',
-    marginBottom: 12,
-  },
-  pulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#1D4D3E',
-  },
-  heroBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#1D4D3E',
-    letterSpacing: 0.8,
-  },
-  heroTitle: {
-    fontSize: 27,
-    lineHeight: 34,
+  headingTitle: {
+    fontSize: 26,
     fontWeight: '800',
     color: '#111827',
-    letterSpacing: -0.5,
-    marginBottom: 8,
+    letterSpacing: -0.4,
+    marginBottom: 4,
   },
-  heroTitleHighlight: {
-    color: '#1D4D3E',
-  },
-  heroSubtitle: {
+  headingSubtitle: {
     fontSize: 14,
+    color: '#6B7280',
     lineHeight: 20,
-    color: '#4B5563',
   },
   cardsContainer: {
-    gap: 18,
-    marginBottom: 32,
+    gap: 20,
   },
-  card: {
-    position: 'relative',
+  visualCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 22,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    overflow: 'hidden',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  cardAccentBar: {
+  imageContainer: {
+    height: 190,
+    position: 'relative',
+    backgroundColor: '#EBECE8',
+  },
+  cardImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imageOverlayGradient: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 3,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
-  cardHeaderRow: {
+  floatingTag: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
-  },
-  cardIconWrapper: {
-    width: 46,
-    height: 46,
+    gap: 5,
+    backgroundColor: 'rgba(29, 77, 62, 0.88)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  badgePillAmber: {
+  floatingTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  macroGraphicBadge: {
+    position: 'absolute',
+    bottom: 14,
+    left: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 10,
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.25)',
+    gap: 6,
+    backgroundColor: 'rgba(17, 24, 39, 0.85)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
-  badgePillTextAmber: {
+  macroPillAmber: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  macroPillEmerald: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  macroPillBlue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  macroPillLabel: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#D97706',
-    letterSpacing: 0.5,
+    fontWeight: '800',
+    color: '#F59E0B',
   },
-  badgePillGreen: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 10,
-    backgroundColor: 'rgba(29, 77, 62, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(29, 77, 62, 0.22)',
-  },
-  badgePillTextGreen: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#1D4D3E',
-    letterSpacing: 0.5,
-  },
-  cardTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 6,
-  },
-  cardDescription: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#4B5563',
-    marginBottom: 16,
-  },
-  featureList: {
-    gap: 8,
-    marginBottom: 20,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F1',
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  featureText: {
-    fontSize: 12,
-    color: '#374151',
-    flex: 1,
-  },
-  actionCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 13,
-    borderRadius: 10,
-  },
-  actionCtaText: {
-    fontSize: 14,
+  macroPillVal: {
+    fontSize: 11,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  footer: {
-    alignItems: 'center',
-    gap: 6,
-    paddingTop: 8,
-  },
-  kioskLocationRow: {
+  cardDetailsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 18,
   },
-  kioskLocationText: {
-    fontSize: 12,
-    fontWeight: '600',
+  cardInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  cardTitle: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#1D4D3E', // Forest Green
+    marginBottom: 4,
+    letterSpacing: -0.2,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
     color: '#4B5563',
+    lineHeight: 19,
   },
-  footerSubtext: {
-    fontSize: 11,
-    color: '#9CA3AF',
+  arrowButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#1D4D3E',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

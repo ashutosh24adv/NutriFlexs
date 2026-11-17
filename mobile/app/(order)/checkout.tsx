@@ -376,7 +376,7 @@ export default function CheckoutScreen() {
           {discount > 0 && (
             <View style={styles.priceRow}>
               <Text style={[styles.priceLabel, { color: colors.brandGreen }]}>
-                {passApplied ? 'NutriFlexs Pass Discount (35%)' : `Trainer Code (${trainerCode})`}
+                {passApplied ? 'NutriFlexs Wallet Discount (35%)' : `Coupon Code (${trainerCode})`}
               </Text>
               <Text style={[styles.priceValue, { color: colors.brandGreen }]}>-₹{discount}</Text>
             </View>
@@ -399,7 +399,7 @@ export default function CheckoutScreen() {
         <View style={styles.securityBox}>
           <ShieldCheck size={16} color={colors.brandGreen} />
           <Text style={styles.securityText}>
-            Verified Cloud Backend • Razorpay 256-bit SSL Security
+            100% Secure Payment • Bank Grade Protection
           </Text>
         </View>
       </ScrollView>

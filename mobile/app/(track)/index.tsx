@@ -205,12 +205,32 @@ export default function TrackTodayScreen() {
               fat: mappedMeals.reduce((acc, m) => acc + m.macros.fat, 0),
             };
 
+            // Calculate consecutive logged days from backend summary/trends (0 for new users)
+            let calculatedStreak = 0;
+            if (Array.isArray(summary.trends) && summary.trends.length > 0) {
+              const rev = [...summary.trends].reverse();
+              for (let i = 0; i < rev.length; i++) {
+                const day = rev[i];
+                const dayHasLogs = (day.calories && day.calories > 0) || (i === 0 && mappedMeals.length > 0);
+                if (dayHasLogs) {
+                  calculatedStreak++;
+                } else if (i === 0) {
+                  // If today has no meal logged yet, allow streak to continue from yesterday
+                  continue;
+                } else {
+                  break;
+                }
+              }
+            } else if (mappedMeals.length > 0) {
+              calculatedStreak = 1;
+            }
+
             const apiStreakDays =
               typeof summary.streakDays === 'number'
                 ? summary.streakDays
                 : typeof summary.user?.streakDays === 'number'
                 ? summary.user.streakDays
-                : (mappedMeals.length === 0 ? 0 : undefined);
+                : calculatedStreak;
 
             setRemoteSummary({
               targets: fetchedTargets,

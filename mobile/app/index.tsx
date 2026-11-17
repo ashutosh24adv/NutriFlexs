@@ -1,19 +1,18 @@
 /**
  * NutriFlexs Cold-Start Brand Intro Screen
  *
- * 1.8-second Netflix-style brand reveal in crisp Light Theme:
- * - Warm Off-White canvas (#F7F8F6)
- * - Bold NUTRIFLEXS wordmark in Deep Forest Green (#1D4D3E) scaling smoothly (0.82 -> 1.05 -> 1.0)
- * - Shimmer light sweep overlay
- * - Subtle haptic pulse via Haptics.impactAsync(ImpactFeedbackStyle.Medium)
- *
- * After 1.8s:
- * - Checks expo-secure-store for stored JWT
- * - If present: hydrates useAuthStore via GET /api/mobile/auth/me and navigates to last active mode (/(track) or /(order))
- * - If not authenticated: navigates to /welcome
+ * 1.8-second Netflix-style zoom-through brand reveal:
+ * - Warm Off-White background (#F7F8F6)
+ * - Forest Green (#1D4D3E) brand palette
+ * - Bold NUTRIFLEXS wordmark scales into center with a crisp haptic pulse (Medium)
+ * - Wordmark then dramatically scales (1.0 -> 18.0) and fades out zooming straight through the letters
+ * - Concurrently hydrates useAuthStore:
+ *     - If authenticated: routes to /(track) or /(order) based on last active mode
+ *     - If unauthenticated: routes to /welcome
+ * - Uses router.replace(...)
  */
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -22,211 +21,195 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { useAuthStore, authActions } from '../src/store/authStore';
-import { apiClient, getAuthToken } from '../src/services/apiClient';
+import * as Haptics from 'expo-haptics';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+  withDelay,
+  Easing,
+  runOnJS,
+} from 'react-native-reanimated';
+import { authActions } from '../src/store/useAuthStore';
 
-// Safely resolve native modules across environments
-// @ts-ignore
-const Reanimated: any = typeof require !== 'undefined' ? (function () { try { return require('react-native-reanimated'); } catch { return null; } })() : null;
-// @ts-ignore
-const ExpoHaptics: any = typeof require !== 'undefined' ? (function () { try { return require('expo-haptics'); } catch { return null; } })() : null;
-// @ts-ignore
-const SecureStore: any = typeof require !== 'undefined' ? (function () { try { return require('expo-secure-store'); } catch { return null; } })() : null;
-
-export const ImpactFeedbackStyle = {
-  Light: 'light',
-  Medium: 'medium',
-  Heavy: 'heavy',
-} as const;
-
-export const Haptics = {
-  ImpactFeedbackStyle,
-  impactAsync: async (style: string = ImpactFeedbackStyle.Medium): Promise<void> => {
-    try {
-      if (ExpoHaptics && typeof ExpoHaptics.impactAsync === 'function') {
-        await ExpoHaptics.impactAsync(style);
-      }
-    } catch {
-      // Safe no-op in web/simulator environments
+// Safe haptic feedback trigger
+async function triggerCrispHaptic(): Promise<void> {
+  try {
+    if (Haptics && typeof Haptics.impactAsync === 'function') {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-  },
-};
+  } catch {
+    // Safe no-op on web / simulators without haptic engine
+  }
+}
 
 export default function BrandIntroScreen() {
   const router = useRouter();
-
-  // Animation state for smooth 60fps-120fps hardware rendering
-  const [scaleVal, setScaleVal] = useState(0.82);
-  const [opacityVal, setOpacityVal] = useState(0);
-  const [shimmerX, setShimmerX] = useState(-180);
-  const [shimmerOpacity, setShimmerOpacity] = useState(0);
-
-  // Pre-load auth check concurrently during the 1.8s animation
   const destinationRef = useRef<string | null>(null);
+  const hasNavigatedRef = useRef<boolean>(false);
+
+  // Reanimated shared values
+  const scale = useSharedValue(0.8);
+  const opacity = useSharedValue(0);
+  const taglineOpacity = useSharedValue(0);
+  const ambientScale = useSharedValue(0.9);
+
+  const navigateToDestination = () => {
+    if (hasNavigatedRef.current) return;
+    hasNavigatedRef.current = true;
+    const target = destinationRef.current || '/welcome';
+    router.replace(target);
+  };
 
   useEffect(() => {
     let isMounted = true;
 
-    // Concurrently verify auth & last active mode during the 1.8s reveal
-    async function checkAuthAndMode() {
+    // 1. Concurrently hydrate useAuthStore during the 1.8-second animation
+    async function performHydration() {
       try {
-        const token = await getAuthToken();
-        if (!token) {
-          destinationRef.current = '/welcome';
-          return;
-        }
+        const result = await authActions.hydrate();
 
-        // Token found: hydrate useAuthStore via GET /api/mobile/auth/me
-        try {
-          const res = await apiClient.get('/api/mobile/auth/me', {
-            suppressNetworkAlert: true,
-          });
-
-          if (res?.user) {
-            authActions.updateProfile(res.user);
-          } else {
-            await authActions.fetchMe();
-          }
-
-          // Determine last active mode (/(track) or /(order))
+        if (result.isAuthenticated && result.user) {
+          // Check last active mode (defaulting to /(order))
           let lastMode = 'order';
+
           try {
-            if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
-              const saved = await SecureStore.getItemAsync('last_active_mode');
+            const secureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
+            if (secureStore && typeof secureStore.getItemAsync === 'function') {
+              const saved = await secureStore.getItemAsync('last_active_mode');
               if (saved) lastMode = saved;
             }
-          } catch {
-            // Fallback to order
-          }
+          } catch {}
+
+          try {
+            const asyncStorageMod = typeof require !== 'undefined' ? require('@react-native-async-storage/async-storage') : null;
+            const asyncStorage = asyncStorageMod?.default || asyncStorageMod;
+            if (asyncStorage && typeof asyncStorage.getItem === 'function') {
+              const saved = await asyncStorage.getItem('last_active_mode');
+              if (saved) lastMode = saved;
+            }
+          } catch {}
 
           if (isMounted) {
             destinationRef.current = lastMode === 'track' ? '/(track)' : '/(order)';
           }
-        } catch (apiErr) {
+        } else {
           if (isMounted) {
             destinationRef.current = '/welcome';
           }
         }
-      } catch {
+      } catch (err) {
+        console.warn('[BrandIntroScreen] Hydration check fallback:', err);
         if (isMounted) {
           destinationRef.current = '/welcome';
         }
       }
     }
 
-    checkAuthAndMode();
+    performHydration();
 
-    // High-precision 1.8s (1800ms) Netflix-style brand reveal loop
-    const startTime = Date.now();
-    const DURATION = 1800;
-    let hapticFired = false;
-    let animationFrameId: number;
+    // 2. 1.8-second Netflix-style zoom-through animation
+    // Phase 1 (0 -> 750ms): Wordmark enters from 0.8 to 1.0 with haptic pulse
+    // Phase 2 (750ms -> 1800ms, ~1050ms): Dramatic scale 1.0 -> 18.0 zooming through screen into next route
+    try {
+      scale.value = withSequence(
+        withTiming(1.0, {
+          duration: 750,
+          easing: Easing.out(Easing.cubic),
+        }, (finished) => {
+          if (finished) {
+            runOnJS(triggerCrispHaptic)();
+          }
+        }),
+        withTiming(18.0, {
+          duration: 1050,
+          easing: Easing.in(Easing.cubic),
+        })
+      );
 
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(1, elapsed / DURATION);
+      // Fade in wordmark (0 -> 350ms), hold, then fade out zooming through (1200ms -> 1800ms)
+      opacity.value = withSequence(
+        withTiming(1.0, { duration: 350, easing: Easing.out(Easing.quad) }),
+        withDelay(
+          850,
+          withTiming(0.0, {
+            duration: 600,
+            easing: Easing.in(Easing.quad),
+          }, (finished) => {
+            if (finished) {
+              runOnJS(navigateToDestination)();
+            }
+          })
+        )
+      );
 
-      // Opacity: 0 -> 1 over first 400ms
-      const op = Math.min(1, elapsed / 400);
-      setOpacityVal(op);
+      // Tagline subtly fades in then fades out before the deep zoom
+      taglineOpacity.value = withSequence(
+        withTiming(1.0, { duration: 500, easing: Easing.out(Easing.quad) }),
+        withDelay(300, withTiming(0.0, { duration: 400, easing: Easing.in(Easing.quad) }))
+      );
 
-      // Smooth Scale: 0.82 -> 1.05 -> 1.0
-      let currentScale = 0.82;
-      if (elapsed <= 1000) {
-        // 0 to 1000ms: smooth scale from 0.82 to 1.05
-        const t = elapsed / 1000;
-        const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-        currentScale = 0.82 + (1.05 - 0.82) * ease;
-      } else if (elapsed <= 1600) {
-        // 1000ms to 1600ms: settle smoothly from 1.05 down to 1.00
-        const t = (elapsed - 1000) / 600;
-        const ease = 1 - Math.pow(1 - t, 2);
-        currentScale = 1.05 - (1.05 - 1.0) * ease;
-      } else {
-        // 1600ms to 1800ms: locked at 1.0
-        currentScale = 1.0;
+      // Ambient forest backdrop expands
+      ambientScale.value = withSequence(
+        withTiming(1.0, { duration: 750, easing: Easing.out(Easing.cubic) }),
+        withTiming(3.5, { duration: 1050, easing: Easing.in(Easing.cubic) })
+      );
+    } catch {
+      // Safe fallback if reanimated native driver is unsupported
+    }
+
+    // High-precision 1800ms safety timer guaranteeing navigation
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) {
+        navigateToDestination();
       }
-      setScaleVal(currentScale);
-
-      // Subtle haptic pulse at peak scale (~1000ms)
-      if (elapsed >= 1000 && !hapticFired) {
-        hapticFired = true;
-        Haptics.impactAsync(ImpactFeedbackStyle.Medium);
-      }
-
-      // Shimmer light sweep: -180px -> +180px over first 1400ms
-      if (elapsed <= 1400) {
-        const sweepT = elapsed / 1400;
-        const shimmerPos = -180 + 360 * sweepT;
-        setShimmerX(shimmerPos);
-        setShimmerOpacity(Math.sin(sweepT * Math.PI) * 0.85);
-      } else {
-        setShimmerOpacity(0);
-      }
-
-      if (progress < 1) {
-        animationFrameId = requestAnimationFrame(animate);
-      } else {
-        // 1.8 seconds complete: execute final navigation
-        const targetRoute = destinationRef.current || '/welcome';
-        router.replace(targetRoute);
-      }
-    };
-
-    animationFrameId = requestAnimationFrame(animate);
+    }, 1800);
 
     return () => {
       isMounted = false;
-      cancelAnimationFrame(animationFrameId);
+      clearTimeout(safetyTimer);
     };
   }, [router]);
+
+  const animatedWordmarkStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }],
+      opacity: opacity.value,
+    };
+  });
+
+  const animatedTaglineStyle = useAnimatedStyle(() => {
+    return {
+      opacity: taglineOpacity.value,
+    };
+  });
+
+  const animatedBackdropStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: ambientScale.value }],
+    };
+  });
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" backgroundColor="#F7F8F6" />
 
-      {/* Ambient Forest Glow in Background */}
-      <View style={styles.ambientGlow} />
+      {/* Ambient Forest Green Backdrop Glow */}
+      <Animated.View style={[styles.ambientGlow, animatedBackdropStyle]} />
 
-      {/* Brand Reveal Container */}
-      <View
-        style={[
-          styles.brandContainer,
-          {
-            opacity: opacityVal,
-            transform: [{ scale: scaleVal }],
-          },
-        ]}
-      >
-        {/* Core Bold NUTRIFLEXS Wordmark in Deep Forest Green */}
+      {/* Center Brand Zoom Container */}
+      <Animated.View style={[styles.brandWrapper, animatedWordmarkStyle]}>
         <View style={styles.wordmarkRow}>
-          <Text style={styles.brandText}>NUTRIFLEXS</Text>
+          <Text style={styles.brandWordmark}>NUTRIFLEXS</Text>
         </View>
 
-        {/* Shimmer Light Sweep Overlay */}
-        {shimmerOpacity > 0 && (
-          <View
-            pointerEvents="none"
-            style={[
-              styles.shimmerSweep,
-              {
-                opacity: shimmerOpacity,
-                transform: [{ translateX: shimmerX }],
-              },
-            ]}
-          >
-            <View style={styles.shimmerAmberTint} />
-            <View style={styles.shimmerEmeraldTint} />
-          </View>
-        )}
-
-        {/* Athletic Tagline */}
-        <View style={styles.taglineWrapper}>
+        <Animated.View style={[styles.taglineWrapper, animatedTaglineStyle]}>
           <View style={styles.taglineDivider} />
           <Text style={styles.taglineText}>ATHLETIC FUEL & NUTRITION OS</Text>
           <View style={styles.taglineDivider} />
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </View>
   );
 }
@@ -234,54 +217,36 @@ export default function BrandIntroScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F8F6', // Warm Off-White canvas
+    backgroundColor: '#F7F8F6', // Warm Off-White brand background
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   ambientGlow: {
     position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    backgroundColor: '#1D4D3E', // Forest green soft ambient tint
-    opacity: 0.04,
+    width: 360,
+    height: 360,
+    borderRadius: 180,
+    backgroundColor: '#1D4D3E', // Forest Green ambient tone
+    opacity: 0.05,
   },
-  brandContainer: {
+  brandWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-    paddingHorizontal: 28,
-    paddingVertical: 20,
-    overflow: 'hidden',
+    paddingHorizontal: 24,
   },
   wordmarkRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brandText: {
-    fontSize: 40,
+  brandWordmark: {
+    fontSize: 42,
     fontWeight: '900',
-    color: '#1D4D3E', // Crisp Deep Forest Green
-    letterSpacing: 4.5,
+    color: '#1D4D3E', // Deep Forest Green
+    letterSpacing: 5.5,
     textAlign: 'center',
-  },
-  shimmerSweep: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 80,
-    flexDirection: 'row',
-  },
-  shimmerAmberTint: {
-    flex: 1,
-    backgroundColor: '#F59E0B',
-    opacity: 0.2,
-  },
-  shimmerEmeraldTint: {
-    flex: 1,
-    backgroundColor: '#1D4D3E',
-    opacity: 0.15,
+    includeFontPadding: false,
   },
   taglineWrapper: {
     flexDirection: 'row',
@@ -290,15 +255,15 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   taglineDivider: {
-    width: 22,
+    width: 20,
     height: 1.5,
     backgroundColor: '#F59E0B',
-    opacity: 0.75,
+    opacity: 0.8,
   },
   taglineText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#F59E0B',
+    color: '#F59E0B', // Amber athletic accent
     letterSpacing: 2.2,
     textAlign: 'center',
   },

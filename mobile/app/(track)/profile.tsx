@@ -19,6 +19,8 @@ import { useAuthStore, computeAvatarInitials } from '../../src/store/authStore';
 import { cartActions } from '../../src/store/cartStore';
 import { useHealthSync } from '../../src/services/useHealthSync';
 import { API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL } from '../../src/config/api';
+import RazorpayCheckout from 'react-native-razorpay';
+import { createWalletOrder, verifyWalletPayment } from '../../src/services/walletService';
 import {
   ShieldCheck,
   MapPin,
@@ -35,6 +37,7 @@ import {
   Sparkles,
   LogIn,
   Lock,
+  Wallet,
 } from 'lucide-react-native';
 
 const SEX_OPTIONS = ['Male', 'Female', 'Prefer not to say'] as const;
@@ -71,9 +74,10 @@ async function getAuthToken(): Promise<string | null> {
 
 export default function TrackProfileScreen() {
   const router = useRouter();
-  const { user, passBalance, topUpPass, signOut, fetchMe, isLoading, isAuthenticated } = useAuthStore();
+  const { user, passBalance, updateProfile, topUpPass, signOut, fetchMe, isLoading, isAuthenticated } = useAuthStore();
   const { targets, updateTargets } = useHealthSync();
   const isGuest = !isAuthenticated || !user || Boolean(user.isGuest);
+  const [isProcessingTopUp, setIsProcessingTopUp] = useState(false);
 
   const [isEditingGoals, setIsEditingGoals] = useState(false);
   const [editCalories, setEditCalories] = useState(String(targets.calories || 2000));
@@ -222,20 +226,77 @@ export default function TrackProfileScreen() {
     }
   };
 
-  const handleTopUp = (amount: number) => {
+  const handleTopUp = async (amount: number) => {
     if (isGuest) {
       router.push('/auth/login');
       return;
     }
-    topUpPass(amount);
-    const newBal = (user?.passBalance || 0) + amount;
-    setFeedbackNotice(`Added ₹${amount} to NutriFlexs Pass. New balance: ₹${newBal.toLocaleString('en-IN')}`);
+
+    setIsProcessingTopUp(true);
+    try {
+      const orderData = await createWalletOrder(amount);
+      const isNativeRazorpayAvailable =
+        typeof RazorpayCheckout !== 'undefined' &&
+        typeof (RazorpayCheckout as any)?.open === 'function';
+
+      if (!isNativeRazorpayAvailable) {
+        router.push('/wallet');
+        setIsProcessingTopUp(false);
+        return;
+      }
+
+      const options = {
+        key: orderData.keyId || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_nutriflexs_demo',
+        order_id: orderData.razorpayOrderId,
+        amount: orderData.amount,
+        currency: orderData.currency || 'INR',
+        name: 'NutriFlexs',
+        description: `NutriFlexs Wallet Top-Up (₹${amount})`,
+        image: 'https://nutriflexs.com/logo.png',
+        prefill: {
+          email: user?.email || '',
+          contact: user?.phone || '',
+          name: user?.name || '',
+        },
+        theme: { color: '#1D4D3E' },
+      };
+
+      const paymentResult = await RazorpayCheckout.open(options);
+      const verifyRes = await verifyWalletPayment({
+        razorpay_order_id: paymentResult.razorpay_order_id,
+        razorpay_payment_id: paymentResult.razorpay_payment_id,
+        razorpay_signature: paymentResult.razorpay_signature,
+        amount,
+      });
+
+      if (verifyRes.success && typeof verifyRes.passBalance === 'number') {
+        updateProfile({ passBalance: verifyRes.passBalance });
+        setFeedbackNotice(`Added ₹${amount} to NutriFlexs Wallet. New balance: ₹${verifyRes.passBalance.toLocaleString('en-IN')}`);
+      } else {
+        topUpPass(amount);
+        const newBal = (user?.passBalance || 0) + amount;
+        setFeedbackNotice(`Added ₹${amount} to NutriFlexs Wallet. New balance: ₹${newBal.toLocaleString('en-IN')}`);
+      }
+    } catch (err: any) {
+      const errorDesc = err?.error?.description || err?.description || err?.message || 'Payment cancelled';
+      const isCancelled =
+        errorDesc.toLowerCase().includes('cancel') ||
+        errorDesc.toLowerCase().includes('dismiss') ||
+        errorDesc.toLowerCase().includes('closed') ||
+        err?.code === 0;
+
+      if (!isCancelled) {
+        Alert.alert('Top-Up Notice', errorDesc || 'Top-up could not be completed.');
+      }
+    } finally {
+      setIsProcessingTopUp(false);
+    }
   };
 
   const handleSignOut = () => {
     Alert.alert(
       'Sign Out',
-      'Are you sure you want to sign out of your NutriFlexs athlete profile?',
+      'Are you sure you want to sign out of your NutriFlexs profile?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -272,9 +333,9 @@ export default function TrackProfileScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Athlete Profile</Text>
+          <Text style={styles.title}>My Profile</Text>
           <Text style={styles.subtitle}>
-            Account identity, daily macro targets & pass wallet
+            Account details, daily macro targets & wallet
           </Text>
         </View>
 
@@ -298,7 +359,7 @@ export default function TrackProfileScreen() {
               <View style={styles.guestInfo}>
                 <Text style={styles.guestTitle}>Sign In / Create Account</Text>
                 <Text style={styles.guestSubtitle}>
-                  Sign in to access your athlete profile, daily macro sync, and pass wallet.
+                  Sign in to access your profile, daily macro sync, and wallet.
                 </Text>
               </View>
             </View>
@@ -323,7 +384,7 @@ export default function TrackProfileScreen() {
 
               <View style={styles.athleteInfo}>
                 <View style={styles.nameRow}>
-                  <Text style={styles.athleteName}>{user?.name || 'Athlete'}</Text>
+                  <Text style={styles.athleteName}>{user?.name || 'Member'}</Text>
                   <View style={styles.verifiedBadge}>
                     <ShieldCheck size={12} color="#059669" />
                     <Text style={styles.verifiedText}>{user?.membershipTier || 'MEMBER'}</Text>
@@ -361,12 +422,12 @@ export default function TrackProfileScreen() {
           </View>
         )}
 
-        {/* 2. NutriFlexs Pass Wallet Card */}
+        {/* 2. NutriFlexs Wallet Card */}
         <View style={styles.passCard}>
           <View style={styles.passHeader}>
             <View style={styles.passTitleRow}>
-              <CreditCard size={18} color="#1D4D3E" />
-              <Text style={styles.passTitle}>NUTRIFLEXS PASS</Text>
+              <Wallet size={18} color="#1D4D3E" />
+              <Text style={styles.passTitle}>NUTRIFLEXS WALLET</Text>
             </View>
             <View style={isGuest ? styles.inactivePill : styles.activePill}>
               <Text style={isGuest ? styles.inactivePillText : styles.activePillText}>
@@ -376,7 +437,7 @@ export default function TrackProfileScreen() {
           </View>
 
           <View style={styles.balanceSection}>
-            <Text style={styles.balanceLabel}>Available Credits</Text>
+            <Text style={styles.balanceLabel}>Wallet Balance</Text>
             <Text style={styles.balanceAmount}>
               ₹{(isGuest ? 0 : passBalance).toLocaleString('en-IN')}
             </Text>
@@ -386,9 +447,14 @@ export default function TrackProfileScreen() {
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => (isGuest ? router.push('/auth/login') : handleTopUp(500))}
+              disabled={isProcessingTopUp}
               style={styles.topUpPill}
             >
-              <PlusCircle size={14} color="#1D4D3E" style={{ marginRight: 4 }} />
+              {isProcessingTopUp ? (
+                <ActivityIndicator size="small" color="#1D4D3E" style={{ marginRight: 4 }} />
+              ) : (
+                <PlusCircle size={14} color="#1D4D3E" style={{ marginRight: 4 }} />
+              )}
               <Text style={styles.topUpText}>{isGuest ? 'Sign In to Top-Up' : '+₹500'}</Text>
             </TouchableOpacity>
 
@@ -396,18 +462,29 @@ export default function TrackProfileScreen() {
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => handleTopUp(1000)}
+                disabled={isProcessingTopUp}
                 style={styles.topUpPill}
               >
                 <PlusCircle size={14} color="#1D4D3E" style={{ marginRight: 4 }} />
                 <Text style={styles.topUpText}>+₹1,000</Text>
               </TouchableOpacity>
             )}
+
+            {!isGuest && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => router.push('/wallet')}
+                style={[styles.topUpPill, { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' }]}
+              >
+                <Text style={[styles.topUpText, { color: '#374151' }]}>View Wallet →</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <Text style={styles.passDisclaimer}>
             {isGuest
-              ? 'Sign in to activate pass credits & enable 1-tap checkout at Cult.fit kiosks.'
-              : 'Instant 1-tap checkout & auto-debit enabled at all Cult.fit gym kiosks.'}
+              ? 'Sign in to use wallet balance & enable 1-tap checkout at Cult.fit kiosks.'
+              : 'Instant 1-tap checkout enabled at all Cult.fit gym kiosks.'}
           </Text>
         </View>
 
@@ -825,9 +902,9 @@ export default function TrackProfileScreen() {
               <Sparkles size={18} color="#1D4D3E" />
             </View>
             <View>
-              <Text style={styles.linkCardTitle}>Wearable & Activity Hub</Text>
+              <Text style={styles.linkCardTitle}>Activity & Wearables</Text>
               <Text style={styles.linkCardSubtitle}>
-                Manage Apple Health, Samsung Health, sensors & sync logs
+                Manage watches, step tracking & sync logs
               </Text>
             </View>
           </View>
@@ -851,7 +928,7 @@ export default function TrackProfileScreen() {
             style={styles.signOutButton}
           >
             <LogOut size={16} color="#DC2626" style={{ marginRight: 8 }} />
-            <Text style={styles.signOutText}>Sign Out of Athlete Account</Text>
+            <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
