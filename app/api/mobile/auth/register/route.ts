@@ -344,13 +344,13 @@ export async function POST(req: NextRequest) {
     const avatarInitials =
       nameParts.length >= 2
         ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()
-        : (user.name || "NM").substring(0, 2).toUpperCase();
+        : (user.name || user.email || "NF").substring(0, 2).toUpperCase();
 
     const formattedUser = {
       id: user.id,
       name: user.name,
       email: user.email,
-      phone: user.phone || "+91 98765 43210",
+      phone: user.phone || null,
       membershipTier: "PRO",
       homeKiosk: "Cult.fit HSR Layout, Bengaluru",
       passBalance: user.passBalance ?? 0,

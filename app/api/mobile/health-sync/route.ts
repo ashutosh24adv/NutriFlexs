@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getMobileAuthUser } from "@/lib/mobile-auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -25,28 +26,30 @@ export interface MobileHealthSyncPayload {
  */
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const authUser = await getMobileAuthUser(req);
     let user = null;
 
-    if (session?.user?.email) {
+    if (authUser) {
       user = await prisma.user.findUnique({
-        where: { email: session.user.email.toLowerCase().trim() },
+        where: { id: authUser.id },
         select: { id: true, name: true, email: true },
       });
     }
 
     if (!user) {
-      // Fallback to primary customer user for mobile dev client
-      user = await prisma.user.findFirst({
-        where: { role: "CUSTOMER" },
-        select: { id: true, name: true, email: true },
-      });
+      const session = await getServerSession(authOptions);
+      if (session?.user?.email) {
+        user = await prisma.user.findUnique({
+          where: { email: session.user.email.toLowerCase().trim() },
+          select: { id: true, name: true, email: true },
+        });
+      }
     }
 
     if (!user) {
       return NextResponse.json(
-        { success: false, error: "No user found in database" },
-        { status: 404 }
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
       );
     }
 
@@ -101,7 +104,15 @@ export async function POST(req: NextRequest) {
 
     let targetUser = null;
 
-    if (userId) {
+    const authUser = await getMobileAuthUser(req);
+    if (authUser) {
+      targetUser = await prisma.user.findUnique({
+        where: { id: authUser.id },
+        select: { id: true, name: true, email: true },
+      });
+    }
+
+    if (!targetUser && userId) {
       targetUser = await prisma.user.findUnique({
         where: { id: userId },
         select: { id: true, name: true, email: true },
@@ -116,34 +127,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (!targetUser) {
-      // Fallback to active customer athlete in database
-      targetUser = await prisma.user.findFirst({
-        where: { role: "CUSTOMER" },
-        select: { id: true, name: true, email: true },
-      });
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     const syncRecordId = `sync_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const recordedTimestamp = syncedAt || new Date().toISOString();
-
-    // If targetUser exists, ensure nutritionGoal is associated
-    if (targetUser) {
-      const existingGoal = await prisma.nutritionGoal.findUnique({
-        where: { userId: targetUser.id },
-      });
-
-      if (!existingGoal) {
-        await prisma.nutritionGoal.create({
-          data: {
-            userId: targetUser.id,
-            dailyCalorieGoal: 2000,
-            proteinGoal: 120,
-            carbohydrateGoal: 250,
-            fatGoal: 65,
-          },
-        });
-      }
-    }
 
     return NextResponse.json({
       success: true,

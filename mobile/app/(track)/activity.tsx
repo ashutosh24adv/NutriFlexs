@@ -384,41 +384,7 @@ export default function TrackActivityScreen() {
           </View>
         </View>
 
-        {/* 3. Detected Underlying Sources */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeaderRow}>
-            <View style={styles.titleWithIcon}>
-              <Ionicons name="git-branch-outline" size={18} color="#1D4D3E" style={{ marginRight: 6 }} />
-              <Text style={styles.sectionTitle}>Detected Underlying Sources</Text>
-            </View>
-          </View>
 
-          {sources.length > 0 ? (
-            sources.map((src) => (
-              <View key={src.id} style={styles.sourceItemRow}>
-                <View style={styles.sourceIconBox}>
-                  <Text style={{ fontSize: 18 }}>{src.icon}</Text>
-                </View>
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.sourceName}>{src.name}</Text>
-                  <Text style={styles.sourcePackage}>{src.packageName}</Text>
-                </View>
-                <View style={styles.sourceCountBadge}>
-                  <Text style={styles.sourceCountText}>{src.recordCount} records</Text>
-                </View>
-              </View>
-            ))
-          ) : (
-            <View style={styles.emptySourceCard}>
-              <Ionicons name="information-circle-outline" size={20} color="#9CA3AF" style={{ marginBottom: 6 }} />
-              <Text style={styles.emptySourceText}>
-                {hasPermissions
-                  ? 'No external provider records detected for today yet. Workouts from Galaxy Watch, Samsung Health, or Google Fit will appear here when synced.'
-                  : 'Connect Health Connect or HealthKit above to detect sync sources.'}
-              </Text>
-            </View>
-          )}
-        </View>
 
         {/* 4. Workout Sessions List */}
         <View style={styles.sectionCard}>

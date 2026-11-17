@@ -438,8 +438,11 @@ async function callGeminiVision(
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Authenticate mobile client with Bearer JWT / cookie (with graceful guest fallback)
+    // 1. Authenticate mobile client with Bearer JWT / cookie
     const user = await getMobileAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     // 2. Validate request payload with Zod
     let body: any;

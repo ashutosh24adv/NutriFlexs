@@ -28,6 +28,7 @@ import {
 import Svg, { Polygon } from 'react-native-svg';
 import RazorpayCheckout from 'react-native-razorpay';
 import { useCartStore } from '../src/store/cartStore';
+import { useAuthStore } from '../src/store/authStore';
 import {
   API_BASE_URL,
   LOCAL_USB_URL,
@@ -35,15 +36,12 @@ import {
   showDiagnosticAlert,
 } from '../src/constants/config';
 
-// Default logged-in user profile for express checkout
-const DEFAULT_USER = {
-  name: 'Ashu',
-  email: 'ashu@nutriflexs.com',
-  phone: '+91 99999 88888',
-};
+// No static DEFAULT_USER — real user data comes from useAuthStore
 
 export default function CartScreen() {
   const router = useRouter();
+  const { user, isAuthenticated, passBalance } = useAuthStore();
+  const isAuthed = Boolean(isAuthenticated && user && !user.isGuest);
   const {
     itemsList,
     totalCount,
@@ -80,6 +78,13 @@ export default function CartScreen() {
     amount: number;
   } | null>(null);
   const [selectedUpi, setSelectedUpi] = useState('Google Pay');
+
+  // Enforce zero fake discount if user has no active pass balance
+  React.useEffect(() => {
+    if ((!isAuthed || passBalance <= 0) && passApplied) {
+      setPassApplied(false);
+    }
+  }, [isAuthed, passBalance, passApplied, setPassApplied]);
 
   // Detect whether real native Razorpay module is linked or running in standard Expo Go
   const isNativeRazorpayAvailable =
@@ -213,7 +218,9 @@ export default function CartScreen() {
             totalAmount: toPay,
             trainerCode: trainerDiscountApplied ? trainerCode : undefined,
             passApplied,
-            user: DEFAULT_USER,
+            user: isAuthed && user
+              ? { name: user.name, email: user.email, phone: user.phone || '' }
+              : { name: '', email: '', phone: '' },
           }),
         });
 
@@ -306,9 +313,9 @@ export default function CartScreen() {
       description: 'NutriFlexs Express Order',
       image: 'https://nutriflexs.com/logo.png',
       prefill: {
-        email: DEFAULT_USER.email,
-        contact: DEFAULT_USER.phone,
-        name: DEFAULT_USER.name,
+        email: (isAuthed && user?.email) ? user.email : '',
+        contact: (isAuthed && user?.phone) ? user.phone : '',
+        name: (isAuthed && user?.name) ? user.name : '',
       },
       theme: { color: '#1D4D3E' },
     };
@@ -319,11 +326,20 @@ export default function CartScreen() {
     } catch (error: any) {
       setIsProcessingPayment(false);
       console.warn('Razorpay Checkout response:', error);
-      const errorMsg =
+      const errorDescription =
+        error?.error?.description ||
         error?.description ||
-        error?.message ||
-        'Payment cancelled or incomplete. You can retry checkout anytime.';
-      Alert.alert('Payment Status', errorMsg);
+        'Payment cancelled';
+      const isCancellation =
+        errorDescription.toLowerCase().includes('cancel') ||
+        errorDescription.toLowerCase().includes('dismiss') ||
+        errorDescription.toLowerCase().includes('closed');
+      Alert.alert(
+        isCancellation ? 'Payment Cancelled' : 'Payment Status',
+        isCancellation
+          ? 'No amount was deducted. You can retry anytime.'
+          : errorDescription
+      );
     }
   };
 
@@ -536,14 +552,17 @@ export default function CartScreen() {
                 <View style={styles.passDetails}>
                   <Text style={styles.passName}>NutriFlexs Athlete Pass</Text>
                   <Text style={styles.passSub}>
-                    ₹1,500 credits balance • 35% OFF all meal items
+                    {isAuthed && passBalance > 0
+                      ? `₹${passBalance.toLocaleString('en-IN')} credits balance • 35% OFF all meal items`
+                      : 'No active Pass credits • Add Pass in Profile'}
                   </Text>
                 </View>
                 <Switch
-                  value={passApplied}
-                  onValueChange={setPassApplied}
+                  value={isAuthed && passBalance > 0 ? passApplied : false}
+                  onValueChange={isAuthed && passBalance > 0 ? setPassApplied : undefined}
+                  disabled={!isAuthed || passBalance <= 0}
                   trackColor={{ false: '#D1D5DB', true: '#1D4D3E' }}
-                  thumbColor={passApplied ? '#FFFFFF' : '#F9FAFB'}
+                  thumbColor={passApplied && isAuthed && passBalance > 0 ? '#FFFFFF' : '#F9FAFB'}
                 />
               </View>
 

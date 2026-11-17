@@ -14,6 +14,9 @@ export async function DELETE(
 ) {
   try {
     const authUser = await getMobileAuthUser(req);
+    if (!authUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const userId = authUser.id;
     const logId = params.id;
 

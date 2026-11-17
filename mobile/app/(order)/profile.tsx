@@ -24,7 +24,7 @@ import {
   LogIn,
   Lock,
 } from 'lucide-react-native';
-import { useAuthStore } from '../../src/store/authStore';
+import { useAuthStore, computeAvatarInitials } from '../../src/store/authStore';
 import { cartActions } from '../../src/store/cartStore';
 
 export default function OrderProfileScreen() {
@@ -116,7 +116,7 @@ export default function OrderProfileScreen() {
               {/* Avatar Initials Circle */}
               <View style={styles.avatarCircle}>
                 <Text style={styles.avatarText}>
-                  {user?.avatarInitials || (user?.name ? user.name.split(' ').map((p: string) => p[0]).join('').slice(0, 2).toUpperCase() : 'ME')}
+                  {computeAvatarInitials(user?.name)}
                 </Text>
               </View>
 

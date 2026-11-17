@@ -14,7 +14,7 @@ export default function TrackLayout() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
   const isAuthed = Boolean(isAuthenticated && user && !user.isGuest);
-  const userName = isAuthed && user?.name?.trim() ? user.name.trim() : 'Nutri Member';
+  const userName = isAuthed && user?.name?.trim() ? user.name.trim() : '';
 
   const [selectedGym, setSelectedGym] = useState(user?.homeKiosk || 'Cult.fit HSR Layout');
 

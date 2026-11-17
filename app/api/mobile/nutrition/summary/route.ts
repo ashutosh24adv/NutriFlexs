@@ -23,6 +23,11 @@ function getLocalDateString(date = new Date(), timeZone = "Asia/Kolkata"): strin
 export async function GET(req: NextRequest) {
   try {
     const authUser = await getMobileAuthUser(req);
+
+    if (!authUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const userId = authUser.id;
 
     const { searchParams } = new URL(req.url);
@@ -48,19 +53,34 @@ export async function GET(req: NextRequest) {
       ])
     );
 
-    const targetCalories =
-      goalRecord?.calorieTarget || goalRecord?.dailyCalorieGoal || 2000;
+    // If no NutritionGoal exists yet, return a sensible empty state
+    if (!goalRecord) {
+      return NextResponse.json({
+        success: true,
+        date: targetDate,
+        targets: { calories: 0, protein: 0, carbs: 0, fat: 0, waterMl: 0, calorieTarget: 0, proteinTarget: 0, carbsTarget: 0, fatsTarget: 0, waterGoalMl: 0, proteinGrams: 0, carbsGrams: 0, fatGrams: 0 },
+        goals: null,
+        nutritionGoal: null,
+        consumed: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+        remaining: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+        water: { amountMl: 0, goalMl: 0 },
+        waterLog: null,
+        foodLogs: [],
+        meals: { BREAKFAST: [], LUNCH: [], SNACKS: [], DINNER: [] },
+        trends: [],
+      });
+    }
+
+    const targetCalories = goalRecord.calorieTarget ?? goalRecord.dailyCalorieGoal ?? 0;
     const targetProtein =
-      goalRecord?.proteinTarget ||
-      goalRecord?.proteinGoal ||
-      userRecord?.customDailyProteinGoal ||
-      userRecord?.proteinGoalGrams ||
-      120;
-    const targetCarbs =
-      goalRecord?.carbsTarget || goalRecord?.carbohydrateGoal || 250;
-    const targetFat =
-      goalRecord?.fatsTarget || goalRecord?.fatGoal || 65;
-    const targetWater = goalRecord?.waterGoalMl || 3000;
+      goalRecord.proteinTarget ??
+      goalRecord.proteinGoal ??
+      userRecord?.customDailyProteinGoal ??
+      userRecord?.proteinGoalGrams ??
+      0;
+    const targetCarbs = goalRecord.carbsTarget ?? goalRecord.carbohydrateGoal ?? 0;
+    const targetFat = goalRecord.fatsTarget ?? goalRecord.fatGoal ?? 0;
+    const targetWater = goalRecord.waterGoalMl ?? 0;
 
     // 2. Fetch food logs for targetDate
     const logs = await withDbRetry(() =>

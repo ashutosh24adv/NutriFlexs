@@ -6,6 +6,7 @@ import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 import { radii } from '../theme/radii';
 import { KioskPickerModal } from './KioskPickerModal';
+import { computeAvatarInitials } from '../store/authStore';
 
 interface HeaderBandProps {
   kioskLocation?: string;
@@ -24,16 +25,18 @@ export const HeaderBand: React.FC<HeaderBandProps> = ({
   onKioskPress,
   onSelectKiosk,
   onAvatarPress,
-  userName = 'Member',
+  userName,
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
 
-  const initials = userName
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .substring(0, 2)
-    .toUpperCase();
+  const isAuthed = Boolean(
+    userName &&
+      userName.trim().length > 0 &&
+      userName !== '?' &&
+      userName !== 'Nutri Member' &&
+      userName !== 'Member'
+  );
+  const initials = isAuthed ? computeAvatarInitials(userName) : '?';
 
   const handleKioskPress = () => {
     if (onKioskPress) {
@@ -78,7 +81,11 @@ export const HeaderBand: React.FC<HeaderBandProps> = ({
           style={styles.avatarButton}
         >
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
+            {isAuthed && initials !== '?' ? (
+              <Text style={styles.avatarText}>{initials}</Text>
+            ) : (
+              <Ionicons name="lock-closed" size={16} color="rgba(255, 255, 255, 0.9)" />
+            )}
           </View>
         </TouchableOpacity>
       </View>

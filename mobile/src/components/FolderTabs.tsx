@@ -23,7 +23,7 @@ export const FolderTabs: React.FC<FolderTabsProps> = ({
   activeTab,
   onTabChange,
   orderSubtext = 'Ready in 5 min',
-  trackSubtext = '2,000 kcal left',
+  trackSubtext,
 }) => {
   return (
     <View style={styles.container}>
@@ -77,7 +77,7 @@ export const FolderTabs: React.FC<FolderTabsProps> = ({
             activeTab === 'track' ? styles.subtextActive : styles.subtextInactive,
           ]}
         >
-          {trackSubtext}
+          {trackSubtext || 'Daily calories'}
         </Text>
       </TouchableOpacity>
     </View>

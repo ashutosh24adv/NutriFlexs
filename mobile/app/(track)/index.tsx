@@ -134,6 +134,7 @@ export default function TrackTodayScreen() {
     };
     meals?: MealHistoryItem[];
     waterMl?: number;
+    streakDays?: number;
   } | null>(null);
 
   const fetchSummary = useCallback(async () => {
@@ -204,11 +205,19 @@ export default function TrackTodayScreen() {
               fat: mappedMeals.reduce((acc, m) => acc + m.macros.fat, 0),
             };
 
+            const apiStreakDays =
+              typeof summary.streakDays === 'number'
+                ? summary.streakDays
+                : typeof summary.user?.streakDays === 'number'
+                ? summary.user.streakDays
+                : (mappedMeals.length === 0 ? 0 : undefined);
+
             setRemoteSummary({
               targets: fetchedTargets,
               consumed,
               meals: mappedMeals,
               waterMl: typeof waterVal === 'number' ? waterVal : undefined,
+              streakDays: apiStreakDays,
             });
             break;
           }
@@ -263,14 +272,14 @@ export default function TrackTodayScreen() {
 
   // Compute streakDays dynamically (0 for new user, never hardcoded 5)
   const dynamicStreakDays = React.useMemo(() => {
-    if (typeof (remoteSummary as any)?.streakDays === 'number') {
-      return (remoteSummary as any).streakDays;
+    if (typeof remoteSummary?.streakDays === 'number') {
+      return remoteSummary.streakDays;
     }
-    if (todayMeals.length === 0 && dateGroups.length === 0) {
+    if (activeMeals.length === 0 && todayMeals.length === 0 && dateGroups.length === 0) {
       return 0;
     }
     return streakDays || 0;
-  }, [remoteSummary, todayMeals.length, dateGroups.length, streakDays]);
+  }, [remoteSummary, activeMeals.length, todayMeals.length, dateGroups.length, streakDays]);
 
   const nutritionScore = calculateNutritionScore(calorieGoal, protein.target);
 

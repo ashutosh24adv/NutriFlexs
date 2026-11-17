@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { OrderStatus, PaymentStatus } from "@/types/enums";
 import { Razorpay } from "@/lib/razorpay";
+import { getMobileAuthUser } from "@/lib/mobile-auth";
 
 export async function POST(request: Request) {
   try {
@@ -15,23 +16,23 @@ export async function POST(request: Request) {
       totalAmount: clientTotalAmount,
     } = body;
 
-    // 1. Resolve or find user in Neon PostgreSQL
-    const email = (userInfo.email || "ashu@nutriflexs.com").toLowerCase().trim();
-    let user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      user = await prisma.user.findFirst({ where: { role: "CUSTOMER" } });
+    // 1. Resolve authenticated user in Neon PostgreSQL
+    let user = null;
+    const authUser = await getMobileAuthUser(request);
+    if (authUser) {
+      user = await prisma.user.findUnique({ where: { id: authUser.id } });
     }
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          name: userInfo.name || "Ashu",
-          email,
-          phone: userInfo.phone || "+91 99999 88888",
-          role: "CUSTOMER",
-          streakDays: 5,
-          proteinGoalGrams: 120,
-        },
+    if (!user && userInfo.email) {
+      user = await prisma.user.findUnique({
+        where: { email: String(userInfo.email).toLowerCase().trim() },
       });
+    }
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized or user not found" },
+        { status: 401 }
+      );
     }
 
     // 2. Resolve outlet

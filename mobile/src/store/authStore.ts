@@ -87,6 +87,36 @@ export interface AuthState {
 }
 
 /**
+ * Computes avatar initials strictly from user name:
+ * Take first letter of each word, max 2 chars (e.g. "Manish 2" → "MA", "John Doe" → "JD").
+ */
+export function computeAvatarInitials(name?: string | null): string {
+  if (!name || typeof name !== 'string') return '?';
+  const clean = name.trim();
+  if (!clean) return '?';
+
+  // Extract words that start with alphabetic letters
+  const words = clean.split(/\s+/).filter((w) => /^[a-zA-Z]/.test(w));
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  if (words.length === 1) {
+    const single = words[0];
+    if (single.length >= 2) {
+      return single.slice(0, 2).toUpperCase();
+    }
+    return single.slice(0, 1).toUpperCase();
+  }
+
+  // Fallback for non-alphabetic names
+  const anyWords = clean.split(/\s+/).filter(Boolean);
+  if (anyWords.length >= 2) {
+    return (anyWords[0][0] + anyWords[1][0]).toUpperCase();
+  }
+  return clean.slice(0, 2).toUpperCase();
+}
+
+/**
  * Clean unauthenticated initial user reference (zero mock data)
  */
 export const DEFAULT_USER: UserProfile | null = null;
@@ -178,6 +208,7 @@ export const authActions = {
             ...state,
             user: {
               ...data.user,
+              avatarInitials: computeAvatarInitials(data.user.name),
               passBalance: typeof data.user.passBalance === 'number' ? data.user.passBalance : 0,
               isGuest: false,
             },
@@ -209,7 +240,10 @@ export const authActions = {
   }) => {
     state = {
       ...state,
-      user: params.user,
+      user: {
+        ...params.user,
+        avatarInitials: computeAvatarInitials(params.user?.name),
+      },
       token: params.token || state.token,
       nutritionGoal:
         params.nutritionGoal !== undefined
@@ -230,7 +264,10 @@ export const authActions = {
       if (updates && (updates.id || updates.email || updates.name)) {
         state = {
           ...state,
-          user: updates as UserProfile,
+          user: {
+            ...(updates as UserProfile),
+            avatarInitials: computeAvatarInitials(updates.name),
+          },
           nutritionGoal: updates.nutritionGoal || (updates.goals as any) || state.nutritionGoal,
           isAuthenticated: true,
         };
@@ -241,6 +278,7 @@ export const authActions = {
     const mergedUser = {
       ...state.user,
       ...updates,
+      avatarInitials: computeAvatarInitials(updates.name || state.user.name),
     };
     state = {
       ...state,
@@ -347,6 +385,7 @@ export function useAuthStore(): AuthState &
     passBalance: number;
     token: string | null;
     nutritionGoal: NutritionGoalProfile | null;
+    avatarInitials: string;
   } {
   const [currentState, setCurrentState] = useState<AuthState>(state);
 
@@ -364,6 +403,7 @@ export function useAuthStore(): AuthState &
     token: currentState.token,
     nutritionGoal: currentState.nutritionGoal,
     passBalance: isAuthed ? (currentState.user?.passBalance ?? 0) : 0,
+    avatarInitials: isAuthed ? (currentState.user?.avatarInitials || computeAvatarInitials(currentState.user?.name)) : '?',
     ...authActions,
   };
 }

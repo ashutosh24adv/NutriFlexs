@@ -100,27 +100,27 @@ export async function POST(req: NextRequest) {
     const avatarInitials =
       nameParts.length >= 2
         ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()
-        : (user.name || "NM").substring(0, 2).toUpperCase();
+        : (user.name || user.email || "NF").substring(0, 2).toUpperCase();
 
     const targets = {
       calories:
         user.nutritionGoal?.calorieTarget ||
         user.nutritionGoal?.dailyCalorieGoal ||
-        2000,
+        0,
       proteinGrams:
         user.nutritionGoal?.proteinTarget ||
         user.nutritionGoal?.proteinGoal ||
         user.proteinGoalGrams ||
-        120,
+        0,
       carbsGrams:
         user.nutritionGoal?.carbsTarget ||
         user.nutritionGoal?.carbohydrateGoal ||
-        250,
+        0,
       fatGrams:
         user.nutritionGoal?.fatsTarget ||
         user.nutritionGoal?.fatGoal ||
-        65,
-      waterMl: user.nutritionGoal?.waterGoalMl || 3000,
+        0,
+      waterMl: user.nutritionGoal?.waterGoalMl || 0,
     };
 
     return NextResponse.json({
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
         id: user.id,
         name: user.name,
         email: user.email,
-        phone: user.phone || "+91 98765 43210",
+        phone: user.phone || null,
         membershipTier: "PRO",
         homeKiosk: "Cult.fit HSR Layout, Bengaluru",
         passBalance: user.passBalance ?? 0,

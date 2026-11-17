@@ -15,7 +15,7 @@ import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { spacing } from '../../src/theme/spacing';
 import { radii } from '../../src/theme/radii';
-import { useAuthStore } from '../../src/store/authStore';
+import { useAuthStore, computeAvatarInitials } from '../../src/store/authStore';
 import { cartActions } from '../../src/store/cartStore';
 import { useHealthSync } from '../../src/services/useHealthSync';
 import { API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL } from '../../src/config/api';
@@ -317,7 +317,7 @@ export default function TrackProfileScreen() {
             <View style={styles.athleteTopRow}>
               <View style={styles.avatarCircle}>
                 <Text style={styles.avatarText}>
-                  {user?.avatarInitials || (user?.name ? user.name.split(' ').map((p: string) => p[0]).join('').slice(0, 2).toUpperCase() : 'ME')}
+                  {computeAvatarInitials(user?.name)}
                 </Text>
               </View>
 

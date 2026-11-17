@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import RazorpayCheckout from 'react-native-razorpay';
 import { useCartStore } from '../../src/store/cartStore';
+import { useAuthStore } from '../../src/store/authStore';
 import { colors } from '../../src/theme/colors';
 import {
   API_BASE_URL,
@@ -29,13 +30,6 @@ import {
   showDiagnosticAlert,
   type NetworkDiagnostic,
 } from '../../src/constants/config';
-
-// Default logged-in user profile for express checkout
-const DEFAULT_USER = {
-  name: 'Athlete',
-  email: 'athlete@nutriflex.fit',
-  phone: '',
-};
 
 export interface OrderCreationResult {
   success: boolean;
@@ -46,9 +40,6 @@ export interface OrderCreationResult {
   diagnostic?: NetworkDiagnostic;
 }
 
-/**
- * Robust order creation API handler with safe connection timeout (15s) and DNS/host error parsing.
- */
 export async function createMobileOrder(
   payload: {
     items: any[];
@@ -56,7 +47,11 @@ export async function createMobileOrder(
     totalAmount: number;
     trainerCode?: string;
     passApplied: boolean;
-    user: typeof DEFAULT_USER;
+    user?: {
+      name?: string;
+      email?: string;
+      phone?: string;
+    };
   },
   timeoutMs: number = CONFIG.requestTimeoutMs
 ): Promise<OrderCreationResult> {
@@ -137,6 +132,8 @@ export default function CheckoutScreen() {
     kioskLocation,
     placeOrder,
   } = useCartStore();
+  const { user, isAuthenticated } = useAuthStore();
+  const isAuthed = Boolean(isAuthenticated && user && !user.isGuest);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>('');
@@ -172,7 +169,9 @@ export default function CheckoutScreen() {
       totalAmount: toPay,
       trainerCode: trainerDiscountApplied ? trainerCode : undefined,
       passApplied,
-      user: DEFAULT_USER,
+      user: isAuthed && user
+        ? { name: user.name, email: user.email, phone: user.phone || '' }
+        : { name: '', email: '', phone: '' },
     });
 
     if (!orderResult.success) {
@@ -222,9 +221,9 @@ export default function CheckoutScreen() {
       name: 'NutriFlexs Real Food Fuel',
       order_id: razorpayOrderId || '',
       prefill: {
-        email: DEFAULT_USER.email,
-        contact: DEFAULT_USER.phone,
-        name: DEFAULT_USER.name,
+        email: isAuthed && user?.email ? user.email : '',
+        contact: isAuthed && user?.phone ? user.phone : '',
+        name: isAuthed && user?.name ? user.name : '',
       },
       theme: { color: '#1D4D3E' },
     };
@@ -256,17 +255,23 @@ export default function CheckoutScreen() {
       setIsProcessing(false);
       setProcessingStatus('');
       console.warn('Razorpay checkout cancelled or failed:', err);
-      const isCancelled =
+      const errorDescription =
+        err?.error?.description ||
+        err?.description ||
+        'Payment cancelled';
+      const isCancellation =
         err?.code === 0 ||
         err?.code === 2 ||
-        String(err?.description || err?.message || '').toLowerCase().includes('cancelled');
+        errorDescription.toLowerCase().includes('cancel') ||
+        errorDescription.toLowerCase().includes('dismiss') ||
+        errorDescription.toLowerCase().includes('closed');
 
-      if (!isCancelled) {
-        Alert.alert(
-          'Payment Error',
-          err?.description || err?.message || 'Payment was not completed. Please try again.'
-        );
-      }
+      Alert.alert(
+        isCancellation ? 'Payment Cancelled' : 'Payment Status',
+        isCancellation
+          ? 'No amount was deducted. You can retry anytime.'
+          : errorDescription
+      );
     }
   };
 

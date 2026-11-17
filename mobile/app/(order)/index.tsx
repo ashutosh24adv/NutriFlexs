@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { ProductCard } from '../../src/components/ProductCard';
 import { QuickReorderStrip, QuickReorderItem } from '../../src/components/QuickReorderStrip';
 import { FloatingCartBar } from '../../src/components/FloatingCartBar';
 import { useCartStore } from '../../src/store/cartStore';
+import { useAuthStore } from '../../src/store/authStore';
 
 interface MenuItem {
   id: string;
@@ -141,6 +142,66 @@ export default function OrderHomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [pureVegOnly, setPureVegOnly] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<FilterChip>('All');
+
+  const { user, isAuthenticated } = useAuthStore();
+  const [pastOrders, setPastOrders] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      setPastOrders([]);
+      return;
+    }
+    let isMounted = true;
+    const fetchPastOrders = async () => {
+      try {
+        const base = (process.env.EXPO_PUBLIC_API_URL || 'https://nutri-flexs.vercel.app').replace(/\/$/, '');
+        const url = `${base}/api/mobile/orders?userId=${encodeURIComponent(user.id || '')}&email=${encodeURIComponent(user.email || '')}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data?.orders) ? data.orders : Array.isArray(data) ? data : [];
+          if (isMounted) setPastOrders(list);
+        }
+      } catch {
+        if (isMounted) setPastOrders([]);
+      }
+    };
+    fetchPastOrders();
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, user?.id, user?.email]);
+
+  const reorderItems = useMemo<QuickReorderItem[]>(() => {
+    if (!pastOrders || pastOrders.length === 0) return [];
+    const itemsMap = new Map<string, QuickReorderItem>();
+    for (const order of pastOrders) {
+      const items = order.items || [];
+      for (const item of items) {
+        let meta: any = null;
+        if (typeof item.productJson === 'string') {
+          try {
+            meta = JSON.parse(item.productJson);
+          } catch {}
+        }
+        const id = item.productId || item.product?.id || item.id;
+        if (id && !itemsMap.has(id)) {
+          itemsMap.set(id, {
+            id,
+            name: item.product?.name || meta?.name || item.name || 'Fuel Item',
+            isVeg: item.product?.isVeg ?? (meta?.isVeg ?? true),
+            price: item.priceAtPurchase ?? item.product?.price ?? meta?.price ?? item.price ?? 199,
+            prepTimeMinutes: item.product?.preparationTimeMinutes ?? 5,
+            proteinGrams: item.product?.protein ?? meta?.protein ?? item.proteinGrams ?? 0,
+            calories: item.product?.calories ?? meta?.calories ?? item.calories ?? 0,
+            imageUrl: item.product?.imageUrl || meta?.imageUrl || item.imageUrl,
+            lastOrderedText: 'Previously ordered',
+          });
+        }
+      }
+    }
+    return Array.from(itemsMap.values());
+  }, [pastOrders]);
 
   // Shared Cart Store
   const {
@@ -302,11 +363,14 @@ export default function OrderHomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Horizontal Quick Reorder Strip: 'Order Again in 1 Tap' */}
-        <QuickReorderStrip
-          onReorder={handleQuickReorder}
-          cartQuantities={cartQuantities}
-        />
+        {/* Horizontal Quick Reorder Strip: 'Order Again in 1 Tap' (only when past orders exist) */}
+        {pastOrders.length > 0 && reorderItems.length > 0 && (
+          <QuickReorderStrip
+            items={reorderItems}
+            onReorder={handleQuickReorder}
+            cartQuantities={cartQuantities}
+          />
+        )}
 
         {/* Menu Section Header */}
         <View style={styles.sectionHeader}>

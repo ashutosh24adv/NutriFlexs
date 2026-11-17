@@ -15,16 +15,6 @@ export const AUTH_SECRET =
   process.env.AUTH_SECRET ||
   "nutriflexs_super_secret_auth_key_2026_jwt";
 
-function isRealDatabaseConfigured(): boolean {
-  const url = process.env.DATABASE_URL || "";
-  return (
-    !!url &&
-    !url.includes("sample") &&
-    !url.includes("user:password") &&
-    !url.includes("localhost:5432")
-  );
-}
-
 /**
  * Extracts Authorization Bearer <token> consistently from request headers.
  * Supports both NextRequest and standard Request.
@@ -78,15 +68,13 @@ export async function decodeMobileToken(tokenString: string): Promise<any> {
 
 /**
  * Authenticates mobile client requests using Bearer JWT or NextAuth session cookie.
- * Consistently verifies Authorization: Bearer <token>.
- * Provides graceful fallback to guest/dev athlete profile if token is missing or invalid,
- * ensuring mobile operations never fail abruptly due to missing development tokens.
+ * Returns null if no valid authenticated user is found — callers must handle null as 401.
  */
 export async function getMobileAuthUser(
   req: NextRequest | Request
-): Promise<MobileAuthUser> {
+): Promise<MobileAuthUser | null> {
   try {
-    // 1. Consistently extract and verify Authorization: Bearer <token>
+    // 1. Extract and verify Authorization: Bearer <token>
     const tokenString = extractBearerToken(req);
 
     if (tokenString) {
@@ -98,25 +86,23 @@ export async function getMobileAuthUser(
           const userId =
             (decoded.id as string) || (decoded.sub as string) || "";
 
-          // Verify with database if configured
+          // Always verify against Neon Postgres
           let dbUser = null;
-          if (isRealDatabaseConfigured()) {
-            if (userId) {
-              dbUser = await withDbRetry(() =>
-                prisma.user.findUnique({
-                  where: { id: userId },
-                  select: { id: true, name: true, email: true, role: true },
-                })
-              );
-            }
-            if (!dbUser && userEmail) {
-              dbUser = await withDbRetry(() =>
-                prisma.user.findUnique({
-                  where: { email: userEmail.toLowerCase().trim() },
-                  select: { id: true, name: true, email: true, role: true },
-                })
-              );
-            }
+          if (userId) {
+            dbUser = await withDbRetry(() =>
+              prisma.user.findUnique({
+                where: { id: userId },
+                select: { id: true, name: true, email: true, role: true },
+              })
+            );
+          }
+          if (!dbUser && userEmail) {
+            dbUser = await withDbRetry(() =>
+              prisma.user.findUnique({
+                where: { email: userEmail.toLowerCase().trim() },
+                select: { id: true, name: true, email: true, role: true },
+              })
+            );
           }
 
           if (dbUser) {
@@ -129,16 +115,11 @@ export async function getMobileAuthUser(
             };
           }
 
-          return {
-            id: userId || "usr_mobile_athlete",
-            name: (decoded.name as string) || "Nutri Member",
-            email: userEmail || "athlete@nutriflex.fit",
-            role: (decoded.role as string) || "CUSTOMER",
-            isGuest: false,
-          };
+          // Token decoded but user not found in DB → reject
+          return null;
         }
       } catch {
-        // Fall through to cookie / dev guest fallback
+        // Invalid token
       }
     }
 
@@ -172,52 +153,10 @@ export async function getMobileAuthUser(
         // Fall through
       }
     }
-
-    // 3. Graceful guest/dev fallback: look for existing customer user in Neon PostgreSQL
-    const fallbackCustomer = await withDbRetry(() =>
-      prisma.user.findFirst({
-        where: { role: "CUSTOMER" },
-        select: { id: true, name: true, email: true, role: true },
-      })
-    );
-
-    if (fallbackCustomer) {
-      return {
-        id: fallbackCustomer.id,
-        name: fallbackCustomer.name || "Nutri Member",
-        email: fallbackCustomer.email,
-        role: fallbackCustomer.role || "CUSTOMER",
-        isGuest: true,
-      };
-    }
-
-    if (isRealDatabaseConfigured()) {
-      const anyUser = await withDbRetry(() =>
-        prisma.user.findFirst({
-          select: { id: true, name: true, email: true, role: true },
-        })
-      );
-
-      if (anyUser) {
-        return {
-          id: anyUser.id,
-          name: anyUser.name || "Nutri Member",
-          email: anyUser.email,
-          role: anyUser.role || "CUSTOMER",
-          isGuest: true,
-        };
-      }
-    }
   } catch {
-    // Database or network error fallback
+    // Database or network error
   }
 
-  // 4. Guaranteed safe guest fallback
-  return {
-    id: "usr_athlete_guest",
-    name: "Nutri Member",
-    email: "athlete@nutriflex.fit",
-    role: "CUSTOMER",
-    isGuest: true,
-  };
+  // No valid authenticated user
+  return null;
 }

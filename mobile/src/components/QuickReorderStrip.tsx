@@ -28,56 +28,7 @@ export interface QuickReorderStripProps {
   cartQuantities?: Record<string, number>;
 }
 
-const DEFAULT_REORDER_ITEMS: QuickReorderItem[] = [
-  {
-    id: '1',
-    name: 'Peanut Butter Shake',
-    isVeg: true,
-    price: 199,
-    prepTimeMinutes: 5,
-    proteinGrams: 32,
-    calories: 420,
-    imageUrl:
-      'https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&w=260&q=80',
-    lastOrderedText: 'Yesterday, 6:45 PM',
-  },
-  {
-    id: '2',
-    name: 'Herb Paneer Bowl',
-    isVeg: true,
-    price: 249,
-    prepTimeMinutes: 7,
-    proteinGrams: 28,
-    calories: 380,
-    imageUrl:
-      'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=260&q=80',
-    lastOrderedText: '2 days ago',
-  },
-  {
-    id: '4',
-    name: 'Berry Blast Recovery',
-    isVeg: true,
-    price: 229,
-    prepTimeMinutes: 5,
-    proteinGrams: 36,
-    calories: 280,
-    imageUrl:
-      'https://images.unsplash.com/photo-1505252585461-04db1eb84625?auto=format&fit=crop&w=260&q=80',
-    lastOrderedText: 'Monday, 7:15 PM',
-  },
-  {
-    id: '3',
-    name: 'Citrus Booster',
-    isVeg: true,
-    price: 149,
-    prepTimeMinutes: 3,
-    proteinGrams: 4,
-    calories: 120,
-    imageUrl:
-      'https://images.unsplash.com/photo-1622597467836-f3285f2131b7?auto=format&fit=crop&w=260&q=80',
-    lastOrderedText: 'Last Sunday',
-  },
-];
+const DEFAULT_REORDER_ITEMS: QuickReorderItem[] = [];
 
 export const QuickReorderStrip: React.FC<QuickReorderStripProps> = ({
   items = DEFAULT_REORDER_ITEMS,
