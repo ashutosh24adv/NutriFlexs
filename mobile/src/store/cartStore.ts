@@ -223,16 +223,13 @@ export function useCartStore() {
   const totalProtein = itemsList.reduce((acc, it) => acc + it.proteinGrams * it.quantity, 0);
   const totalCalories = itemsList.reduce((acc, it) => acc + it.calories * it.quantity, 0);
 
-  // Discount calculation
+  // Discount calculation - discounts come strictly from applied coupon codes (no automatic 35% pass discount)
   let discount = current.couponDiscount || 0;
   let discountLabel = current.couponCode ? `Coupon (${current.couponCode})` : '';
 
   if (!discount && current.trainerDiscountApplied && current.trainerCode) {
     discount = Math.round(itemTotal * 0.10);
     discountLabel = `Coupon (${current.trainerCode} 10% OFF)`;
-  } else if (!discount && current.passApplied) {
-    discount = Math.round(itemTotal * 0.35);
-    discountLabel = 'NutriFlexs Wallet (35% OFF)';
   }
 
   // Taxes & Packaging: 5% GST on net food total + ₹15 eco-friendly packaging
@@ -255,3 +252,31 @@ export function useCartStore() {
     ...cartActions,
   };
 }
+
+// Static methods for zustand-style / non-hook callers:
+useCartStore.getState = () => state;
+useCartStore.setState = (partial: Partial<CartState>) => {
+  state = { ...state, ...partial };
+  notify();
+};
+useCartStore.subscribe = (fn: (s: CartState) => void) => {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+};
+useCartStore.addItem = cartActions.addItem;
+useCartStore.increment = cartActions.increment;
+useCartStore.decrement = cartActions.decrement;
+useCartStore.clearCart = cartActions.clearCart;
+useCartStore.setAutoLogToDiary = cartActions.setAutoLogToDiary;
+useCartStore.setCoupon = cartActions.setCoupon;
+useCartStore.removeCoupon = cartActions.removeCoupon;
+useCartStore.setUseWallet = cartActions.setUseWallet;
+useCartStore.setPassApplied = cartActions.setPassApplied;
+useCartStore.applyTrainerCode = cartActions.applyTrainerCode;
+useCartStore.removeTrainerCode = cartActions.removeTrainerCode;
+useCartStore.setKioskLocation = cartActions.setKioskLocation;
+useCartStore.placeOrder = cartActions.placeOrder;
+
+export default useCartStore;

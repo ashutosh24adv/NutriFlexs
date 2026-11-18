@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma, withDbRetry } from "@/lib/prisma";
 import { getMobileAuthUser } from "@/lib/mobile-auth";
 
 export const dynamic = "force-dynamic";
 
+const registerTokenSchema = z.object({
+  expoPushToken: z.string().min(1, "Push token cannot be empty"),
+});
+
 /**
  * POST /api/mobile/notifications/register-token
- * Authenticated via Bearer token (lib/mobile-auth.ts).
+ * Authenticated via Bearer JWT (lib/mobile-auth.ts).
  * Saves expoPushToken to User in Neon Postgres.
  */
 export async function POST(req: NextRequest) {
@@ -22,23 +27,35 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const rawToken = body.expoPushToken || body.token || body.pushToken;
 
-    if (!rawToken || typeof rawToken !== "string" || !rawToken.trim()) {
+    const validation = registerTokenSchema.safeParse({
+      expoPushToken: typeof rawToken === "string" ? rawToken.trim() : "",
+    });
+
+    if (!validation.success) {
       return NextResponse.json(
-        { success: false, error: "Push token is required" },
+        {
+          success: false,
+          error: "Push token is required",
+          details: validation.error.flatten(),
+        },
         { status: 400 }
       );
     }
 
-    const expoPushToken = rawToken.trim();
+    const expoPushToken = validation.data.expoPushToken;
 
     const updatedUser = await withDbRetry(() =>
       prisma.user.update({
         where: { id: authUser.id },
-        data: { expoPushToken },
+        data: {
+          expoPushToken,
+          notificationsEnabled: true,
+        },
         select: {
           id: true,
           email: true,
           expoPushToken: true,
+          notificationsEnabled: true,
         },
       })
     );
@@ -56,4 +73,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

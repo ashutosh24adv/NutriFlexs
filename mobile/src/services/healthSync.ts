@@ -8,6 +8,7 @@
 
 import { Platform, Alert } from 'react-native';
 import * as Linking from 'expo-linking';
+import { getLocalDateString } from '../utils/date';
 
 // Safely resolve native modules across platforms (iOS HealthKit & Android Health Connect)
 let AppleHealthKit: any = null;
@@ -29,27 +30,20 @@ if (Platform.OS === 'android') {
   }
 }
 
-// Safely resolve Expo Haptics
-let ExpoHaptics: any = null;
-try {
-  ExpoHaptics = require('expo-haptics');
-} catch (err) {
-  console.info('[HealthSync] expo-haptics module not found, using fallback haptics bridge');
-}
-
 export const Haptics = {
   ImpactFeedbackStyle: {
     Light: 'light' as const,
     Medium: 'medium' as const,
     Heavy: 'heavy' as const,
   },
-  impactAsync: async (style: any = 'medium'): Promise<void> => {
+  impactAsync: async (_style: any = 'medium'): Promise<void> => {
     try {
-      if (ExpoHaptics && typeof ExpoHaptics.impactAsync === 'function') {
-        await ExpoHaptics.impactAsync(style);
+      const RN = typeof require !== 'undefined' ? require('react-native') : null;
+      if (RN && RN.Vibration && typeof RN.Vibration.vibrate === 'function') {
+        RN.Vibration.vibrate(20);
       }
     } catch (e) {
-      console.warn('[HealthSync] Haptics impactAsync failed:', e);
+      console.warn('[HealthSync] Vibration failed:', e);
     }
   },
 };
@@ -68,6 +62,7 @@ export const HEALTH_PERMISSIONS = [
   { accessType: 'read' as const, recordType: 'Steps' as const },
   { accessType: 'read' as const, recordType: 'ActiveCaloriesBurned' as const },
   { accessType: 'read' as const, recordType: 'TotalCaloriesBurned' as const },
+  { accessType: 'read' as const, recordType: 'Distance' as const },
   { accessType: 'read' as const, recordType: 'HeartRate' as const },
   { accessType: 'read' as const, recordType: 'ExerciseSession' as const },
   { accessType: 'read' as const, recordType: 'Hydration' as const },
@@ -78,6 +73,16 @@ export const KNOWN_HEALTH_APPS: Record<string, { name: string; icon: string; des
     name: 'Samsung Health',
     icon: '⌚',
     description: 'Galaxy Watch and Samsung Health workouts',
+  },
+  'com.samsung.android.waterplugin': {
+    name: 'Galaxy Watch Plugin',
+    icon: '⌚',
+    description: 'Samsung Galaxy Watch telemetry',
+  },
+  'com.samsung.android.gearnplugin': {
+    name: 'Galaxy Watch Manager',
+    icon: '⌚',
+    description: 'Galaxy Watch companion telemetry',
   },
   'com.google.android.apps.fitness': {
     name: 'Google Fit',
@@ -145,6 +150,16 @@ export function formatDataOriginSource(packageName: string): {
     };
   }
 
+  // Auto-recognize any Samsung Health / Galaxy Watch plugins
+  if (packageName.startsWith('com.sec.') || packageName.startsWith('com.samsung.')) {
+    return {
+      id: packageName.replace(/[^a-zA-Z0-9]/g, '_'),
+      name: 'Samsung Health',
+      icon: '⌚',
+      description: 'Galaxy Watch and Samsung Health workouts',
+    };
+  }
+
   // Format other package names cleanly
   const parts = packageName
     .split('.')
@@ -181,11 +196,22 @@ export interface HealthPermissionState {
   steps: boolean;
   activeCalories: boolean;
   totalCalories: boolean;
+  distance: boolean;
   heartRate: boolean;
   workouts: boolean;
   hydration: boolean;
   nutritionWrite: boolean;
   overallStatus: HealthPermissionStatus;
+}
+
+export interface DailyHealthAggregate {
+  date: string;
+  steps: number;
+  activeCalories: number;
+  totalCalories: number;
+  distanceMeters: number;
+  avgHeartRate: number;
+  dataOrigins?: string[];
 }
 
 export interface HealthTelemetry {
@@ -204,6 +230,7 @@ export interface HealthTelemetry {
   isSyncing: boolean;
   status: 'idle' | 'syncing' | 'synced' | 'error' | 'permission_denied' | 'sdk_unavailable';
   errorMessage?: string;
+  history7Days?: DailyHealthAggregate[];
 }
 
 export interface HealthSourceInfo {
@@ -303,6 +330,7 @@ class HealthSyncService {
     steps: false,
     activeCalories: false,
     totalCalories: false,
+    distance: false,
     heartRate: false,
     workouts: false,
     hydration: false,
@@ -541,6 +569,7 @@ class HealthSyncService {
               steps: this.grantedPermissions.includes('Steps'),
               activeCalories: this.grantedPermissions.includes('ActiveCaloriesBurned'),
               totalCalories: this.grantedPermissions.includes('TotalCaloriesBurned'),
+              distance: this.grantedPermissions.includes('Distance'),
               heartRate: this.grantedPermissions.includes('HeartRate'),
               workouts: this.grantedPermissions.includes('ExerciseSession'),
               hydration: this.grantedPermissions.includes('Hydration'),
@@ -626,6 +655,7 @@ class HealthSyncService {
             'Steps',
             'ActiveCaloriesBurned',
             'TotalCaloriesBurned',
+            'Distance',
             'HeartRate',
             'ExerciseSession',
             'Hydration',
@@ -634,6 +664,7 @@ class HealthSyncService {
             steps: true,
             activeCalories: true,
             totalCalories: true,
+            distance: true,
             heartRate: true,
             workouts: true,
             hydration: true,
@@ -805,6 +836,7 @@ class HealthSyncService {
         steps: this.grantedPermissions.includes('Steps'),
         activeCalories: this.grantedPermissions.includes('ActiveCaloriesBurned'),
         totalCalories: this.grantedPermissions.includes('TotalCaloriesBurned'),
+        distance: this.grantedPermissions.includes('Distance'),
         heartRate: this.grantedPermissions.includes('HeartRate'),
         workouts: this.grantedPermissions.includes('ExerciseSession'),
         hydration: this.grantedPermissions.includes('Hydration'),
@@ -952,7 +984,7 @@ class HealthSyncService {
         status: persisted ? 'confirmed' : 'failed',
         postgresSynced: persisted,
         postgresStatus: persisted ? 'confirmed' : 'failed',
-        telemetrySummary: `${realTelemetry.steps.toLocaleString()} steps • ${realTelemetry.activeCalories} kcal`,
+        telemetrySummary: `Synced just now • ${realTelemetry.steps.toLocaleString()} steps, ${realTelemetry.activeCalories} kcal`,
         postgresRowId: `sync_${Date.now()}`,
       };
 
@@ -1051,6 +1083,13 @@ class HealthSyncService {
       appleSrc.recordsCount = workoutsCount + (steps > 0 ? 1 : 0);
     }
 
+    let history7Days: DailyHealthAggregate[] = [];
+    try {
+      history7Days = await this.query7DayAppleHealthKit();
+    } catch {
+      history7Days = this.generateEmpty7DayHistory();
+    }
+
     return {
       steps,
       activeCalories,
@@ -1066,6 +1105,7 @@ class HealthSyncService {
       source: 'Apple Watch / HealthKit',
       isSyncing: false,
       status: 'synced',
+      history7Days,
     };
   }
 
@@ -1080,6 +1120,7 @@ class HealthSyncService {
         isSyncing: false,
         status: 'sdk_unavailable',
         errorMessage: 'Android Health Connect module not linked.',
+        history7Days: this.generateEmpty7DayHistory(),
       };
     }
 
@@ -1107,7 +1148,7 @@ class HealthSyncService {
       packageRecordCounts.set(pkg, (packageRecordCounts.get(pkg) || 0) + 1);
     };
 
-    // 1. Aggregate Steps (COUNT_TOTAL)
+    // 1. Aggregate Steps (COUNT_TOTAL) across all connected data origins (no dataOriginFilter)
     try {
       const agg = await HealthConnect.aggregateRecord({
         recordType: 'Steps',
@@ -1118,10 +1159,11 @@ class HealthSyncService {
         agg.dataOrigins.forEach(registerOrigin);
       }
     } catch (e) {
-      console.warn('[HealthSync] Android steps aggregate error:', e);
+      console.warn('[HealthSync] Android steps aggregate error (handled gracefully):', e);
+      steps = 0;
     }
 
-    // 2. Aggregate Active Calories Burned (ACTIVE_CALORIES_TOTAL)
+    // 2. Aggregate Active Calories Burned (ACTIVE_CALORIES_TOTAL) across all connected data origins
     try {
       const agg = await HealthConnect.aggregateRecord({
         recordType: 'ActiveCaloriesBurned',
@@ -1136,10 +1178,11 @@ class HealthSyncService {
         agg.dataOrigins.forEach(registerOrigin);
       }
     } catch (e) {
-      console.warn('[HealthSync] Android active calories aggregate error:', e);
+      console.warn('[HealthSync] Android active calories aggregate error (handled gracefully):', e);
+      activeCalories = 0;
     }
 
-    // 3. Aggregate Total Calories (ENERGY_TOTAL)
+    // 3. Aggregate Total Calories (ENERGY_TOTAL) across all connected data origins
     try {
       const agg = await HealthConnect.aggregateRecord({
         recordType: 'TotalCaloriesBurned',
@@ -1154,37 +1197,75 @@ class HealthSyncService {
         agg.dataOrigins.forEach(registerOrigin);
       }
     } catch (e) {
-      console.warn('[HealthSync] Android total calories aggregate error:', e);
+      console.warn('[HealthSync] Android total calories aggregate error (handled gracefully):', e);
+      totalCalories = 0;
     }
 
-    // 4. Heart Rate Samples
+    // 4. Aggregate Distance across all connected data origins
     try {
-      const hrRecords = await HealthConnect.readRecords('HeartRate', {
+      const distAgg = await HealthConnect.aggregateRecord({
+        recordType: 'Distance',
         timeRangeFilter,
-        ascendingOrder: false,
-        pageSize: 100,
       });
-      let hrSum = 0;
-      let hrCount = 0;
-      for (const record of hrRecords?.records || []) {
-        if (record?.metadata?.dataOrigin) {
-          registerOrigin(record.metadata.dataOrigin);
-        }
-        for (const sample of record?.samples || []) {
-          if (sample?.beatsPerMinute) {
-            hrSum += sample.beatsPerMinute;
-            hrCount++;
-          }
-        }
+      const distVal = distAgg?.DISTANCE?.inMeters ?? (distAgg as any)?.distance?.inMeters;
+      if (typeof distVal === 'number' && distVal > 0) {
+        distanceMeters = Math.round(distVal);
+      } else {
+        distanceMeters = Math.round(steps * 0.75);
       }
-      if (hrCount > 0) {
-        avgHeartRate = Math.round(hrSum / hrCount);
+      if (Array.isArray(distAgg?.dataOrigins)) {
+        distAgg.dataOrigins.forEach(registerOrigin);
       }
     } catch (e) {
-      console.warn('[HealthSync] Android heart rate read error:', e);
+      console.warn('[HealthSync] Android distance aggregate error (handled gracefully):', e);
+      distanceMeters = Math.round(steps * 0.75);
     }
 
-    // 5. Exercise Sessions (Workouts) & Data Origins
+    // 5. Aggregate Heart Rate (BPM_AVG) across all connected data origins
+    try {
+      const hrAgg = await HealthConnect.aggregateRecord({
+        recordType: 'HeartRate',
+        timeRangeFilter,
+      });
+      avgHeartRate = Math.round(hrAgg?.BPM_AVG ?? (hrAgg as any)?.bpmAvg ?? 0);
+      if (Array.isArray(hrAgg?.dataOrigins)) {
+        hrAgg.dataOrigins.forEach(registerOrigin);
+      }
+    } catch (e) {
+      console.warn('[HealthSync] Android heart rate aggregate notice:', e);
+      avgHeartRate = 0;
+    }
+
+    // Fallback: If aggregateRecord for HeartRate returned 0 or wasn't supported, try readRecords
+    if (avgHeartRate === 0) {
+      try {
+        const hrRecords = await HealthConnect.readRecords('HeartRate', {
+          timeRangeFilter,
+          ascendingOrder: false,
+          pageSize: 100,
+        });
+        let hrSum = 0;
+        let hrCount = 0;
+        for (const record of hrRecords?.records || []) {
+          if (record?.metadata?.dataOrigin) {
+            registerOrigin(record.metadata.dataOrigin);
+          }
+          for (const sample of record?.samples || []) {
+            if (sample?.beatsPerMinute) {
+              hrSum += sample.beatsPerMinute;
+              hrCount++;
+            }
+          }
+        }
+        if (hrCount > 0) {
+          avgHeartRate = Math.round(hrSum / hrCount);
+        }
+      } catch (e) {
+        console.warn('[HealthSync] Android heart rate read fallback notice:', e);
+      }
+    }
+
+    // 6. Exercise Sessions (Workouts) & Data Origins
     try {
       const exerciseRecords = await HealthConnect.readRecords('ExerciseSession', {
         timeRangeFilter,
@@ -1197,10 +1278,11 @@ class HealthSyncService {
         }
       }
     } catch (e) {
-      console.warn('[HealthSync] Android exercise records read error:', e);
+      console.warn('[HealthSync] Android exercise records read error (handled gracefully):', e);
+      workoutsCount = 0;
     }
 
-    // 6. Hydration Records
+    // 7. Hydration Records
     try {
       const hydrationRecords = await HealthConnect.readRecords('Hydration', {
         timeRangeFilter,
@@ -1218,23 +1300,17 @@ class HealthSyncService {
       }
       hydrationMl = Math.round(volMl);
     } catch (e) {
-      console.warn('[HealthSync] Android hydration read error:', e);
+      console.warn('[HealthSync] Android hydration read error (handled gracefully):', e);
+      hydrationMl = 0;
     }
 
-    // 7. Distance (Meters) across all data origins
+    // 8. 7-Day History Query across ALL connected data origins (Steps, ActiveCaloriesBurned, TotalCaloriesBurned, Distance, HeartRate)
+    let history7Days: DailyHealthAggregate[] = [];
     try {
-      const distAgg = await HealthConnect.aggregateRecord({
-        recordType: 'Distance',
-        timeRangeFilter,
-      });
-      const distVal = distAgg?.DISTANCE?.inMeters ?? (distAgg as any)?.distance?.inMeters;
-      if (typeof distVal === 'number' && distVal > 0) {
-        distanceMeters = Math.round(distVal);
-      } else {
-        distanceMeters = Math.round(steps * 0.75);
-      }
-    } catch {
-      distanceMeters = Math.round(steps * 0.75);
+      history7Days = await this.query7DayHealthConnect();
+    } catch (e) {
+      console.warn('[HealthSync] Android 7-day aggregate history query notice:', e);
+      history7Days = this.generateEmpty7DayHistory();
     }
 
     const nowIso = new Date().toISOString();
@@ -1257,10 +1333,21 @@ class HealthSyncService {
       });
     }
 
-    // Resolve source description
+    // Resolve source description (Samsung Health & Galaxy Watch auto-recognition)
     let resolvedSource = 'Android Health Connect';
-    if (detectedPackageNames.has('com.sec.android.app.shealth')) {
+    const isSamsungOrigin =
+      detectedPackageNames.has('com.sec.android.app.shealth') ||
+      Array.from(detectedPackageNames).some((p) => p.startsWith('com.sec.') || p.startsWith('com.samsung.'));
+
+    if (isSamsungOrigin) {
       resolvedSource = 'Samsung Health';
+      const samsung = this.detectedSources.get('samsungHealth');
+      if (samsung) {
+        samsung.isConnected = true;
+        samsung.lastSyncedAt = nowIso;
+        samsung.recordsCount = (samsung.recordsCount || 0) + (steps > 0 ? 1 : 0) + workoutsCount;
+        samsung.recordCount = samsung.recordsCount;
+      }
     } else if (detectedPackageNames.has('com.google.android.apps.fitness')) {
       resolvedSource = 'Google Fit';
     } else if (detectedPackageNames.size > 0) {
@@ -1293,7 +1380,271 @@ class HealthSyncService {
       source: resolvedSource,
       isSyncing: false,
       status: 'synced',
+      history7Days,
     };
+  }
+
+  /**
+   * Queries 7-day history of aggregate records (Steps, ActiveCaloriesBurned, TotalCaloriesBurned, Distance, HeartRate)
+   * across ALL connected data origins without restricting to a single package,
+   * so Samsung Health and Galaxy Watch data sync automatically.
+   * Handles 0 entries gracefully without throwing.
+   */
+  public async query7DayHealthConnect(): Promise<DailyHealthAggregate[]> {
+    if (!HealthConnect) {
+      return this.generateEmpty7DayHistory();
+    }
+
+    const history: DailyHealthAggregate[] = [];
+    const today = new Date();
+
+    for (let i = 6; i >= 0; i--) {
+      const dayDate = new Date(today);
+      dayDate.setDate(today.getDate() - i);
+      const dateStr = getLocalDateString(dayDate);
+
+      const startOfDay = new Date(dayDate);
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(dayDate);
+      if (i === 0) {
+        endOfDay.setTime(today.getTime());
+      } else {
+        endOfDay.setHours(23, 59, 59, 999);
+      }
+
+      const timeRangeFilter = {
+        operator: 'between' as const,
+        startTime: startOfDay.toISOString(),
+        endTime: endOfDay.toISOString(),
+      };
+
+      let daySteps = 0;
+      let dayActiveCalories = 0;
+      let dayTotalCalories = 0;
+      let dayDistanceMeters = 0;
+      let dayAvgHeartRate = 0;
+      const dayOrigins: string[] = [];
+
+      const addOrigin = (pkg?: string) => {
+        if (!pkg || typeof pkg !== 'string') return;
+        if (!dayOrigins.includes(pkg)) dayOrigins.push(pkg);
+        const formatted = formatDataOriginSource(pkg);
+        if (!this.detectedSources.has(formatted.id)) {
+          this.detectedSources.set(formatted.id, {
+            id: formatted.id,
+            name: formatted.name,
+            packageName: pkg,
+            icon: formatted.icon,
+            isConnected: true,
+            isAvailable: true,
+            lastSyncedAt: new Date().toISOString(),
+            recordsCount: 1,
+            recordCount: 1,
+            description: formatted.description,
+          });
+        }
+      };
+
+      // 1. Steps Aggregate
+      try {
+        const agg = await HealthConnect.aggregateRecord({
+          recordType: 'Steps',
+          timeRangeFilter,
+        });
+        daySteps = Math.round(agg?.COUNT_TOTAL ?? (agg as any)?.count ?? 0);
+        if (Array.isArray(agg?.dataOrigins)) {
+          agg.dataOrigins.forEach(addOrigin);
+        }
+      } catch {
+        daySteps = 0;
+      }
+
+      // 2. ActiveCaloriesBurned Aggregate
+      try {
+        const agg = await HealthConnect.aggregateRecord({
+          recordType: 'ActiveCaloriesBurned',
+          timeRangeFilter,
+        });
+        dayActiveCalories = Math.round(
+          agg?.ACTIVE_CALORIES_TOTAL?.inKilocalories ??
+          (agg as any)?.energy?.inKilocalories ??
+          0
+        );
+        if (Array.isArray(agg?.dataOrigins)) {
+          agg.dataOrigins.forEach(addOrigin);
+        }
+      } catch {
+        dayActiveCalories = 0;
+      }
+
+      // 3. TotalCaloriesBurned Aggregate
+      try {
+        const agg = await HealthConnect.aggregateRecord({
+          recordType: 'TotalCaloriesBurned',
+          timeRangeFilter,
+        });
+        dayTotalCalories = Math.round(
+          agg?.ENERGY_TOTAL?.inKilocalories ??
+          (agg as any)?.energy?.inKilocalories ??
+          0
+        );
+        if (Array.isArray(agg?.dataOrigins)) {
+          agg.dataOrigins.forEach(addOrigin);
+        }
+      } catch {
+        dayTotalCalories = 0;
+      }
+
+      // 4. Distance Aggregate
+      try {
+        const distAgg = await HealthConnect.aggregateRecord({
+          recordType: 'Distance',
+          timeRangeFilter,
+        });
+        const distVal = distAgg?.DISTANCE?.inMeters ?? (distAgg as any)?.distance?.inMeters;
+        if (typeof distVal === 'number' && distVal > 0) {
+          dayDistanceMeters = Math.round(distVal);
+        } else {
+          dayDistanceMeters = Math.round(daySteps * 0.75);
+        }
+        if (Array.isArray(distAgg?.dataOrigins)) {
+          distAgg.dataOrigins.forEach(addOrigin);
+        }
+      } catch {
+        dayDistanceMeters = Math.round(daySteps * 0.75);
+      }
+
+      // 5. HeartRate Aggregate
+      try {
+        const hrAgg = await HealthConnect.aggregateRecord({
+          recordType: 'HeartRate',
+          timeRangeFilter,
+        });
+        dayAvgHeartRate = Math.round(hrAgg?.BPM_AVG ?? (hrAgg as any)?.bpmAvg ?? 0);
+        if (Array.isArray(hrAgg?.dataOrigins)) {
+          hrAgg.dataOrigins.forEach(addOrigin);
+        }
+      } catch {
+        dayAvgHeartRate = 0;
+      }
+
+      history.push({
+        date: dateStr,
+        steps: daySteps,
+        activeCalories: dayActiveCalories,
+        totalCalories: dayTotalCalories || (dayActiveCalories ? dayActiveCalories + 1800 : 0),
+        distanceMeters: dayDistanceMeters,
+        avgHeartRate: dayAvgHeartRate,
+        dataOrigins: dayOrigins,
+      });
+    }
+
+    return history;
+  }
+
+  /**
+   * Queries 7-day history for Apple HealthKit.
+   */
+  public async query7DayAppleHealthKit(): Promise<DailyHealthAggregate[]> {
+    if (!AppleHealthKit) {
+      return this.generateEmpty7DayHistory();
+    }
+    const history: DailyHealthAggregate[] = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const dayDate = new Date(today);
+      dayDate.setDate(today.getDate() - i);
+      const dateStr = getLocalDateString(dayDate);
+      const startOfDay = new Date(dayDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(dayDate);
+      if (i === 0) {
+        endOfDay.setTime(today.getTime());
+      } else {
+        endOfDay.setHours(23, 59, 59, 999);
+      }
+      const queryOptions = { startDate: startOfDay.toISOString(), endDate: endOfDay.toISOString() };
+
+      const steps = await new Promise<number>((resolve) => {
+        AppleHealthKit.getStepCount(queryOptions, (err: any, results: any) => {
+          if (err || !results) resolve(0);
+          else resolve(Math.round(results.value || 0));
+        });
+      });
+
+      const activeCalories = await new Promise<number>((resolve) => {
+        AppleHealthKit.getActiveEnergyBurned(queryOptions, (err: any, results: any[]) => {
+          if (err || !Array.isArray(results)) resolve(0);
+          else {
+            const sum = results.reduce((acc: number, curr: any) => acc + (curr.value || 0), 0);
+            resolve(Math.round(sum));
+          }
+        });
+      });
+
+      const restingCalories = await new Promise<number>((resolve) => {
+        AppleHealthKit.getBasalEnergyBurned(queryOptions, (err: any, results: any[]) => {
+          if (err || !Array.isArray(results)) resolve(0);
+          else {
+            const sum = results.reduce((acc: number, curr: any) => acc + (curr.value || 0), 0);
+            resolve(Math.round(sum));
+          }
+        });
+      });
+
+      const avgHeartRate = await new Promise<number>((resolve) => {
+        AppleHealthKit.getHeartRateSamples(queryOptions, (err: any, results: any[]) => {
+          if (err || !Array.isArray(results) || results.length === 0) resolve(0);
+          else {
+            const sum = results.reduce((acc: number, curr: any) => acc + (curr.value || 0), 0);
+            resolve(Math.round(sum / results.length));
+          }
+        });
+      });
+
+      history.push({
+        date: dateStr,
+        steps,
+        activeCalories,
+        totalCalories: activeCalories + restingCalories,
+        distanceMeters: Math.round(steps * 0.75),
+        avgHeartRate,
+      });
+    }
+    return history;
+  }
+
+  /**
+   * Unified 7-day health history query for both Android Health Connect & iOS HealthKit.
+   */
+  public async fetch7DayHealthHistory(): Promise<DailyHealthAggregate[]> {
+    if (Platform.OS === 'android') {
+      return await this.query7DayHealthConnect();
+    } else if (Platform.OS === 'ios') {
+      return await this.query7DayAppleHealthKit();
+    } else {
+      return this.generateEmpty7DayHistory();
+    }
+  }
+
+  public generateEmpty7DayHistory(): DailyHealthAggregate[] {
+    const list: DailyHealthAggregate[] = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      list.push({
+        date: getLocalDateString(d),
+        steps: 0,
+        activeCalories: 0,
+        totalCalories: 0,
+        distanceMeters: 0,
+        avgHeartRate: 0,
+        dataOrigins: [],
+      });
+    }
+    return list;
   }
 
   // ---------------------------------------------------------------------------
@@ -1303,8 +1654,8 @@ class HealthSyncService {
   public async syncToBackend(telemetry: HealthTelemetry): Promise<boolean> {
     try {
       const todayDate = telemetry.lastSyncedAt
-        ? telemetry.lastSyncedAt.split('T')[0]
-        : new Date().toISOString().split('T')[0];
+        ? getLocalDateString(new Date(telemetry.lastSyncedAt))
+        : getLocalDateString();
 
       let token: string | null = null;
       try {

@@ -214,35 +214,42 @@ export default function SignupScreen() {
       await saveSecureToken(token);
 
       // 2. Immediately persist { token, user, nutritionGoal } into useAuthStore
+      const normalizedUser = user || {
+        id: `u_${Date.now()}`,
+        name: name.trim(),
+        email: registerPayload.email,
+        phone: registerPayload.phone,
+        passBalance: 0,
+      };
+
       try {
-        const authStore = useAuthStore as any;
-        if (typeof authStore.getState === 'function') {
-          const storeState = authStore.getState();
-          if (typeof storeState?.setAuth === 'function') {
-            storeState.setAuth({ token, user, nutritionGoal });
-          } else {
-            if (user && typeof storeState?.updateProfile === 'function') {
-              storeState.updateProfile(user);
-            }
-            if (nutritionGoal && typeof storeState?.setNutritionGoal === 'function') {
-              storeState.setNutritionGoal(nutritionGoal);
-            }
-          }
-        }
+        await useAuthStore.login({
+          token,
+          user: normalizedUser,
+          nutritionGoal: nutritionGoal || null,
+        });
+
+        await useAuthStore.updateGoals({
+          sex,
+          dateOfBirth: formattedDob,
+          heightCm: resolvedHeightCm,
+          weightKg: resolvedWeightKg,
+          workoutFrequency,
+          dietPreference,
+          primaryGoal,
+        });
       } catch (storeErr) {
         console.warn('[Signup] Store persistence warning:', storeErr);
       }
 
       // Ensure profile and goals are reflected
-      if (user) {
-        updateProfile({
-          id: user.id,
-          name: user.name || name.trim(),
-          email: user.email || registerPayload.email,
-          phone: user.phone || registerPayload.phone,
-          passBalance: user.passBalance ?? 0,
-        });
-      }
+      updateProfile({
+        id: normalizedUser.id,
+        name: normalizedUser.name || name.trim(),
+        email: normalizedUser.email || registerPayload.email,
+        phone: normalizedUser.phone || registerPayload.phone,
+        passBalance: normalizedUser.passBalance ?? 0,
+      });
 
       // Background hydration
       if (typeof fetchMe === 'function') {
@@ -307,7 +314,7 @@ export default function SignupScreen() {
         <View style={styles.header}>
           <View style={styles.brandRow}>
             <View style={styles.brandDot} />
-            <Text style={styles.brandWordmark}>NUTRIFLEXS ATHLETE</Text>
+            <Text style={styles.brandWordmark}>NUTRIFLEXS</Text>
           </View>
           <Text style={styles.title}>Start Your Transformation</Text>
           <Text style={styles.subtitle}>
@@ -353,7 +360,7 @@ export default function SignupScreen() {
               <Mail size={18} color="#9CA3AF" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="athlete@nutriflex.fit or mobile number"
+                placeholder="member@nutriflex.fit or mobile number"
                 placeholderTextColor="#9CA3AF"
                 value={emailOrPhone}
                 onChangeText={setEmailOrPhone}
@@ -757,7 +764,7 @@ export default function SignupScreen() {
 
         {/* Footer: Already have an account? Log In */}
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Already have an athlete account? </Text>
+          <Text style={styles.footerText}>Already have an account? </Text>
           <TouchableOpacity
             onPress={() => {
               triggerHaptic('selection');

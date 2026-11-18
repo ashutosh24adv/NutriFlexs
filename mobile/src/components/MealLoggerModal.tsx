@@ -13,6 +13,9 @@ import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 import { radii } from '../theme/radii';
+import { getAuthToken } from '../services/apiClient';
+import { getLocalDateString } from '../utils/date';
+import { API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL } from '../config/api';
 
 export interface FitnessFood {
   id: string;
@@ -107,6 +110,7 @@ export const MealLoggerModal: React.FC<MealLoggerModalProps> = ({
   const [customProtein, setCustomProtein] = useState('');
   const [customCarbs, setCustomCarbs] = useState('');
   const [customFat, setCustomFat] = useState('');
+  const [portionMultiplier, setPortionMultiplier] = useState<number>(1);
   const [waterMl, setWaterMl] = useState(initialWaterMl);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
@@ -115,6 +119,7 @@ export const MealLoggerModal: React.FC<MealLoggerModalProps> = ({
 
   useEffect(() => {
     if (visible) {
+      setPortionMultiplier(1);
       if (initialMode === 'water') {
         setActiveTab('water');
       } else {
@@ -150,27 +155,103 @@ export const MealLoggerModal: React.FC<MealLoggerModalProps> = ({
     const sign = deltaMl > 0 ? `+${deltaMl}ml` : `${deltaMl}ml`;
     setFeedbackMsg(`${sign} logged! Total: ${updated}ml / ${waterGoal}ml`);
     setTimeout(() => setFeedbackMsg(null), 3000);
+
+    // Persist water to backend with Bearer token
+    const todayStr = getLocalDateString();
+    getAuthToken().then(async (token) => {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const urls = [
+        `${API_BASE_URL}/api/mobile/nutrition/water`,
+        `${LOCAL_USB_URL}/api/mobile/nutrition/water`,
+        `${LOCAL_LAN_URL}/api/mobile/nutrition/water`,
+        'http://localhost:3000/api/mobile/nutrition/water',
+      ];
+      for (const u of urls) {
+        try {
+          const res = await fetch(u, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              date: todayStr,
+              amountMl: deltaMl,
+              waterMl: updated,
+            }),
+          });
+          if (res.ok) break;
+        } catch {}
+      }
+    }).catch((e) => console.warn('[MealLoggerModal] Water sync error:', e));
   };
 
   const handleSubmitMeal = () => {
     const name = customName.trim() || 'Custom Nutrition Log';
-    const cals = parseInt(customCals, 10) || 250;
-    const p = parseFloat(customProtein) || 20;
-    const c = parseFloat(customCarbs) || 25;
-    const f = parseFloat(customFat) || 6;
+    const baseCals = parseInt(customCals, 10) || 250;
+    const baseP = parseFloat(customProtein) || 20;
+    const baseC = parseFloat(customCarbs) || 25;
+    const baseF = parseFloat(customFat) || 6;
 
+    const cals = Math.round(baseCals * portionMultiplier);
+    const p = Math.round(baseP * portionMultiplier * 10) / 10;
+    const c = Math.round(baseC * portionMultiplier * 10) / 10;
+    const f = Math.round(baseF * portionMultiplier * 10) / 10;
+
+    // 1. Immediately inform parent and local UI
     if (onMealLogged) {
       onMealLogged({
-        name,
+        name: portionMultiplier !== 1 ? `${name} (${portionMultiplier}x)` : name,
         slot: selectedSlot,
         calories: cals,
-        protein: p,
-        carbs: c,
-        fat: f,
+        protein: Math.round(p),
+        carbs: Math.round(c),
+        fat: Math.round(f),
       });
     }
 
-    setFeedbackMsg(`✓ Logged ${name} (${cals} kcal) to ${selectedSlot}!`);
+    // 2. Persist to backend database via POST /api/mobile/nutrition/food-log with Bearer token
+    const todayStr = getLocalDateString();
+    getAuthToken().then(async (token) => {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const urls = [
+        `${API_BASE_URL}/api/mobile/nutrition/food-log`,
+        `${LOCAL_USB_URL}/api/mobile/nutrition/food-log`,
+        `${LOCAL_LAN_URL}/api/mobile/nutrition/food-log`,
+        'http://localhost:3000/api/mobile/nutrition/food-log',
+      ];
+
+      for (const u of urls) {
+        try {
+          const res = await fetch(u, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              foodName: name,
+              foodNameSnapshot: name,
+              title: name,
+              name,
+              mealType: selectedSlot.toUpperCase(),
+              slot: selectedSlot,
+              category: selectedSlot,
+              calories: cals,
+              protein: Math.round(p),
+              carbohydrates: Math.round(c),
+              carbs: Math.round(c),
+              fat: Math.round(f),
+              fats: Math.round(f),
+              quantity: portionMultiplier,
+              unit: 'serving',
+              date: todayStr,
+              dateKey: todayStr,
+            }),
+          });
+          if (res.ok) break;
+        } catch {}
+      }
+    }).catch((e) => console.warn('[MealLoggerModal] Server food log error:', e));
+
+    setFeedbackMsg(`✓ Logged ${name} (${cals} kcal • ${portionMultiplier}x) to ${selectedSlot}!`);
     setTimeout(() => {
       setFeedbackMsg(null);
       onClose();
@@ -396,6 +477,31 @@ export const MealLoggerModal: React.FC<MealLoggerModalProps> = ({
                   </View>
                 </View>
 
+                {/* Portion Multiplier Capsules */}
+                <Text style={styles.sectionLabel}>PORTION SIZE</Text>
+                <View style={styles.multiplierRow}>
+                  {[0.5, 1, 1.5, 2].map((mult) => {
+                    const isSelected = portionMultiplier === mult;
+                    return (
+                      <TouchableOpacity
+                        key={mult}
+                        activeOpacity={0.8}
+                        onPress={() => setPortionMultiplier(mult)}
+                        style={[styles.multiplierPill, isSelected && styles.multiplierPillActive]}
+                      >
+                        <Text
+                          style={[
+                            styles.multiplierText,
+                            isSelected && styles.multiplierTextActive,
+                          ]}
+                        >
+                          {mult}x
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
                 {/* Primary CTA Button */}
                 <TouchableOpacity
                   activeOpacity={0.85}
@@ -403,7 +509,9 @@ export const MealLoggerModal: React.FC<MealLoggerModalProps> = ({
                   style={styles.submitCtaButton}
                 >
                   <Ionicons name="checkmark-sharp" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.submitCtaText}>Save & Log Entry</Text>
+                  <Text style={styles.submitCtaText}>
+                    Save & Log Entry ({portionMultiplier}x)
+                  </Text>
                 </TouchableOpacity>
               </>
             ) : (
@@ -608,6 +716,34 @@ const styles = StyleSheet.create({
   slotPillActive: {
     backgroundColor: '#1D4D3E',
     borderColor: '#1D4D3E',
+  },
+  multiplierRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  multiplierPill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  multiplierPillActive: {
+    backgroundColor: '#1D4D3E',
+    borderColor: '#1D4D3E',
+  },
+  multiplierText: {
+    fontSize: 12,
+    fontWeight: typography.weights.semiBold,
+    color: colors.text.secondary,
+  },
+  multiplierTextActive: {
+    fontWeight: typography.weights.bold,
+    color: '#FFFFFF',
   },
   slotText: {
     fontSize: 11,

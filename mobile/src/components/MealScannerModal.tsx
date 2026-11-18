@@ -19,8 +19,64 @@ import { spacing } from '../theme/spacing';
 import { radii } from '../theme/radii';
 import { diaryActions } from '../store/diaryStore';
 import { DiarySlot } from './MealDiarySection';
+import { getAuthToken } from '../services/apiClient';
 
 import { API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL } from '../config/api';
+import { getLocalDateString } from '../utils/date';
+
+/**
+ * Resize and compress meal photo before network upload:
+ * - Target: max width 1024px, JPEG quality 0.55.
+ * - Guarantees payloads stay safely below 800 KB (preventing Vercel HTTP 413 Payload Too Large).
+ */
+async function compressMealPhoto(
+  base64Data: string,
+  mimeType: string = 'image/jpeg',
+  maxWidth: number = 1024,
+  quality: number = 0.55
+): Promise<{ base64: string; mimeType: string }> {
+  let cleanBase64 = base64Data;
+  if (cleanBase64.includes(',')) {
+    cleanBase64 = cleanBase64.split(',')[1];
+  }
+
+  // Web environment: perform high-performance downsampling via canvas
+  if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    return new Promise((resolve) => {
+      try {
+        const img = new (window as any).Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve({ base64: cleanBase64, mimeType: 'image/jpeg' });
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          const commaIdx = dataUrl.indexOf(',');
+          const resultBase64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl;
+          resolve({ base64: resultBase64, mimeType: 'image/jpeg' });
+        };
+        img.onerror = () => {
+          resolve({ base64: cleanBase64, mimeType: 'image/jpeg' });
+        };
+        img.src = `data:${mimeType};base64,${cleanBase64}`;
+      } catch {
+        resolve({ base64: cleanBase64, mimeType: 'image/jpeg' });
+      }
+    });
+  }
+
+  return { base64: cleanBase64, mimeType: 'image/jpeg' };
+}
 
 export interface ScanItem {
   name: string;
@@ -68,6 +124,7 @@ export const MealScannerModal: React.FC<MealScannerModalProps> = ({
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<DiarySlot>(getDefaultSlot());
+  const [portionMultiplier, setPortionMultiplier] = useState<number>(1);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [scanResult, setScanResult] = useState<{
@@ -81,12 +138,14 @@ export const MealScannerModal: React.FC<MealScannerModalProps> = ({
   useEffect(() => {
     if (visible) {
       setSelectedSlot(getDefaultSlot());
+      setPortionMultiplier(1);
       setErrorMessage(null);
     } else {
       // Reset state on close
       setImageUri(null);
       setIsScanning(false);
       setScanResult(null);
+      setPortionMultiplier(1);
       setErrorMessage(null);
     }
   }, [visible]);
@@ -117,7 +176,7 @@ export const MealScannerModal: React.FC<MealScannerModalProps> = ({
       const options: ImagePicker.ImagePickerOptions = {
         mediaTypes: ['images'],
         base64: true,
-        quality: 0.7,
+        quality: 0.55,
         allowsEditing: true,
         aspect: [4, 3],
       };
@@ -131,7 +190,13 @@ export const MealScannerModal: React.FC<MealScannerModalProps> = ({
         setImageUri(asset.uri);
 
         if (asset.base64) {
-          analyzeMeal(asset.base64, asset.mimeType || 'image/jpeg');
+          const compressed = await compressMealPhoto(
+            asset.base64,
+            asset.mimeType || 'image/jpeg',
+            1024,
+            0.55
+          );
+          analyzeMeal(compressed.base64, compressed.mimeType);
         } else {
           setErrorMessage('Could not extract image data. Please try again.');
         }
@@ -148,6 +213,14 @@ export const MealScannerModal: React.FC<MealScannerModalProps> = ({
     setScanResult(null);
 
     try {
+      const token = await getAuthToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const urlsToTry = [API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL];
       let response: any = null;
       let lastErr: any = null;
@@ -157,9 +230,7 @@ export const MealScannerModal: React.FC<MealScannerModalProps> = ({
           const endpoint = `${targetUrl.replace(/\/$/, '')}/api/mobile/scan-meal`;
           const res = await fetch(endpoint, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers,
             body: JSON.stringify({
               imageBase64,
               mimeType,
@@ -212,14 +283,19 @@ export const MealScannerModal: React.FC<MealScannerModalProps> = ({
   const handleConfirmLog = async () => {
     if (!scanResult) return;
 
+    const scaledCalories = Math.round(scanResult.totals.calories * portionMultiplier);
+    const scaledProtein = Math.round(scanResult.totals.protein * portionMultiplier * 10) / 10;
+    const scaledCarbs = Math.round(scanResult.totals.carbs * portionMultiplier * 10) / 10;
+    const scaledFats = Math.round(scanResult.totals.fats * portionMultiplier * 10) / 10;
+
     const loggedMeal = {
       title: scanResult.mealTitle,
       category: selectedSlot,
-      calories: Math.round(scanResult.totals.calories),
+      calories: scaledCalories,
       macros: {
-        protein: Math.round(scanResult.totals.protein),
-        carbs: Math.round(scanResult.totals.carbs),
-        fat: Math.round(scanResult.totals.fats),
+        protein: Math.round(scaledProtein),
+        carbs: Math.round(scaledCarbs),
+        fat: Math.round(scaledFats),
       },
     };
 
@@ -230,8 +306,8 @@ export const MealScannerModal: React.FC<MealScannerModalProps> = ({
       onMealLogged(loggedMeal);
     }
 
-    // 2. Persist to backend database via POST /api/mobile/nutrition/food-log
-    const todayStr = new Date().toISOString().split('T')[0];
+    // 2. Persist to backend database via POST /api/mobile/nutrition/food-log with Bearer auth
+    const todayStr = getLocalDateString();
     const foodLogPayload = {
       foodNameSnapshot: scanResult.mealTitle,
       foodName: scanResult.mealTitle,
@@ -240,32 +316,20 @@ export const MealScannerModal: React.FC<MealScannerModalProps> = ({
       mealType: selectedSlot.toUpperCase(),
       slot: selectedSlot,
       category: selectedSlot,
-      calories: Math.round(scanResult.totals.calories),
-      protein: Math.round(scanResult.totals.protein),
-      carbohydrates: Math.round(scanResult.totals.carbs),
-      carbs: Math.round(scanResult.totals.carbs),
-      fat: Math.round(scanResult.totals.fats),
-      fats: Math.round(scanResult.totals.fats),
-      quantity: 1,
+      calories: scaledCalories,
+      protein: Math.round(scaledProtein),
+      carbohydrates: Math.round(scaledCarbs),
+      carbs: Math.round(scaledCarbs),
+      fat: Math.round(scaledFats),
+      fats: Math.round(scaledFats),
+      quantity: portionMultiplier,
       unit: 'serving',
       dateKey: todayStr,
       date: todayStr,
     };
 
     try {
-      let token: string | null = null;
-      try {
-        const SecureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
-        if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
-          token =
-            (await SecureStore.getItemAsync('token')) ||
-            (await SecureStore.getItemAsync('auth_token')) ||
-            (await SecureStore.getItemAsync('jwt_token'));
-        }
-      } catch {
-        // Fallback
-      }
-
+      const token = await getAuthToken();
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
@@ -443,29 +507,61 @@ export const MealScannerModal: React.FC<MealScannerModalProps> = ({
               {/* Total Fuel Macro Strip */}
               <View style={styles.totalsBanner}>
                 <View style={styles.totalStatBox}>
-                  <Text style={styles.totalStatVal}>{Math.round(scanResult.totals.calories)}</Text>
+                  <Text style={styles.totalStatVal}>
+                    {Math.round(scanResult.totals.calories * portionMultiplier)}
+                  </Text>
                   <Text style={styles.totalStatLabel}>Calories (kcal)</Text>
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.totalStatBox}>
                   <Text style={[styles.totalStatVal, { color: '#1D4D3E' }]}>
-                    {Math.round(scanResult.totals.protein)}g
+                    {Math.round(scanResult.totals.protein * portionMultiplier * 10) / 10}g
                   </Text>
                   <Text style={styles.totalStatLabel}>Protein</Text>
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.totalStatBox}>
                   <Text style={[styles.totalStatVal, { color: '#F59E0B' }]}>
-                    {Math.round(scanResult.totals.carbs)}g
+                    {Math.round(scanResult.totals.carbs * portionMultiplier * 10) / 10}g
                   </Text>
                   <Text style={styles.totalStatLabel}>Carbs</Text>
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.totalStatBox}>
                   <Text style={[styles.totalStatVal, { color: '#EA580C' }]}>
-                    {Math.round(scanResult.totals.fats)}g
+                    {Math.round(scanResult.totals.fats * portionMultiplier * 10) / 10}g
                   </Text>
                   <Text style={styles.totalStatLabel}>Fats</Text>
+                </View>
+              </View>
+
+              {/* Portion Multiplier Capsules: 0.5x, 1x, 1.5x, 2x */}
+              <View style={styles.multiplierSection}>
+                <Text style={styles.multiplierLabel}>PORTION MULTIPLIER</Text>
+                <View style={styles.multiplierRow}>
+                  {[0.5, 1, 1.5, 2].map((mult) => {
+                    const isSelected = portionMultiplier === mult;
+                    return (
+                      <TouchableOpacity
+                        key={mult}
+                        activeOpacity={0.8}
+                        style={[
+                          styles.multiplierCapsule,
+                          isSelected && styles.multiplierCapsuleActive,
+                        ]}
+                        onPress={() => setPortionMultiplier(mult)}
+                      >
+                        <Text
+                          style={[
+                            styles.multiplierCapsuleText,
+                            isSelected && styles.multiplierCapsuleTextActive,
+                          ]}
+                        >
+                          {mult}x
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
 
@@ -528,7 +624,9 @@ export const MealScannerModal: React.FC<MealScannerModalProps> = ({
                 onPress={handleConfirmLog}
               >
                 <Ionicons name="checkmark-done" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.confirmButtonText}>+ Log Meal to Today's Diary</Text>
+                <Text style={styles.confirmButtonText}>
+                  + Log Meal ({portionMultiplier}x • {Math.round(scanResult.totals.calories * portionMultiplier)} kcal)
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -887,6 +985,43 @@ const styles = StyleSheet.create({
   },
   slotPickerSection: {
     marginBottom: spacing.lg,
+  },
+  multiplierSection: {
+    marginBottom: spacing.md,
+  },
+  multiplierLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#374151',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  multiplierRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  multiplierCapsule: {
+    flex: 1,
+    height: 36,
+    borderRadius: radii.pill,
+    backgroundColor: '#F3F4F1',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  multiplierCapsuleActive: {
+    backgroundColor: '#1D4D3E',
+    borderColor: '#1D4D3E',
+  },
+  multiplierCapsuleText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  multiplierCapsuleTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   slotPickerLabel: {
     fontSize: 13,

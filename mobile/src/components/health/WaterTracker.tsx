@@ -4,6 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
 import { radii } from '../../theme/radii';
+import { getAuthToken } from '../../services/apiClient';
+import { getLocalDateString } from '../../utils/date';
+import { API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL } from '../../config/api';
 
 export interface WaterTrackerProps {
   currentMl?: number;
@@ -16,7 +19,8 @@ export interface WaterTrackerProps {
  * WaterTracker - Daily Hydration Tracker Component.
  * Specification:
  * - Accept real currentMl (default 0) and goalMl (default 3000).
- * - Display real percentage, glass markers (250ml per glass), and 1-tap +250ml / +500ml logging.
+ * - Display real percentage, glass markers (250ml per glass).
+ * - Supports portion multipliers (0.5x, 1x, 1.5x, 2x) & 1-tap logging.
  * - Flat geometric design conforming to NutriFlex Forest Green theme.
  */
 export const WaterTracker: React.FC<WaterTrackerProps> = ({
@@ -26,18 +30,50 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({
   onAddWater,
 }) => {
   const [consumedMl, setConsumedMl] = useState(currentMl);
+  const [portionMultiplier, setPortionMultiplier] = useState<number>(1);
 
   useEffect(() => {
     setConsumedMl(currentMl);
   }, [currentMl]);
 
-  const handleAdd = (amount: number) => {
+  const handleAdd = async (amount: number) => {
     const nextVal = consumedMl + amount;
     setConsumedMl(nextVal);
     if (onAddWater) {
       onAddWater(amount);
     } else if (onLogWater) {
       onLogWater(amount);
+    }
+
+    // Direct server persistence with Bearer token
+    try {
+      const token = await getAuthToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const todayStr = getLocalDateString();
+      const urls = [
+        `${API_BASE_URL}/api/mobile/nutrition/water`,
+        `${LOCAL_USB_URL}/api/mobile/nutrition/water`,
+        `${LOCAL_LAN_URL}/api/mobile/nutrition/water`,
+        'http://localhost:3000/api/mobile/nutrition/water',
+      ];
+      for (const u of urls) {
+        try {
+          const res = await fetch(u, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              date: todayStr,
+              amountMl: amount,
+              waterMl: nextVal,
+            }),
+          });
+          if (res.ok) break;
+        } catch {}
+      }
+    } catch (e) {
+      console.warn('[WaterTracker] Backend water sync error:', e);
     }
   };
 
@@ -111,17 +147,63 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({
         </View>
       </View>
 
+      {/* Portion Multiplier Capsules */}
+      <View style={styles.multiplierContainer}>
+        <Text style={styles.glassMarkersTitle}>PORTION MULTIPLIER</Text>
+        <View style={styles.multiplierRow}>
+          {[0.5, 1, 1.5, 2].map((mult) => {
+            const isSelected = portionMultiplier === mult;
+            return (
+              <TouchableOpacity
+                key={mult}
+                activeOpacity={0.75}
+                onPress={() => setPortionMultiplier(mult)}
+                style={[
+                  styles.multiplierPill,
+                  isSelected && styles.multiplierPillActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.multiplierPillText,
+                    isSelected && styles.multiplierPillTextActive,
+                  ]}
+                >
+                  {mult}x
+                </Text>
+                <Text
+                  style={[
+                    styles.multiplierSubtext,
+                    isSelected && styles.multiplierSubtextActive,
+                  ]}
+                >
+                  {Math.round(250 * mult)}ml
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
       {/* 1-Tap Quick Log Action Buttons */}
       <View style={styles.quickAddRow}>
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={() => handleAdd(250)}
+          onPress={() => handleAdd(Math.round(250 * portionMultiplier))}
           style={styles.addBtn}
         >
           <Ionicons name="add" size={14} color="#0284C7" />
           <Ionicons name="water-outline" size={14} color="#0284C7" style={{ marginHorizontal: 2 }} />
-          <Text style={styles.addBtnText}>+250 ml</Text>
-          <Text style={styles.addBtnSubtext}>Glass</Text>
+          <Text style={styles.addBtnText}>+{Math.round(250 * portionMultiplier)} ml</Text>
+          <Text style={styles.addBtnSubtext}>
+            {portionMultiplier === 1
+              ? 'Glass'
+              : portionMultiplier === 0.5
+              ? 'Half Glass'
+              : portionMultiplier === 1.5
+              ? 'Large Glass'
+              : 'Bottle'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -261,6 +343,44 @@ const styles = StyleSheet.create({
   glassSlotEmpty: {
     backgroundColor: '#F9FAFB',
     borderColor: '#E5E7EB',
+  },
+  multiplierContainer: {
+    marginBottom: spacing.md,
+  },
+  multiplierRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  multiplierPill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    backgroundColor: '#F8FAFC',
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  multiplierPillActive: {
+    backgroundColor: '#1D4D3E',
+    borderColor: '#1D4D3E',
+  },
+  multiplierPillText: {
+    fontSize: 12,
+    fontWeight: typography.weights.bold,
+    color: '#475569',
+  },
+  multiplierPillTextActive: {
+    color: '#FFFFFF',
+  },
+  multiplierSubtext: {
+    fontSize: 9,
+    fontWeight: typography.weights.medium,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  multiplierSubtextActive: {
+    color: '#C6DED4',
   },
   quickAddRow: {
     flexDirection: 'row',

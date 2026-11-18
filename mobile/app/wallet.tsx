@@ -25,35 +25,28 @@ import {
 } from 'lucide-react-native';
 import RazorpayCheckout from 'react-native-razorpay';
 import { useAuthStore } from '../src/store/authStore';
-import { createWalletOrder, verifyWalletPayment } from '../src/services/walletService';
+import {
+  createWalletOrder,
+  verifyWalletPayment,
+  executeRazorpayWalletRecharge,
+} from '../src/services/walletService';
 
 const QUICK_AMOUNTS = [200, 500, 1000, 2000];
 
 export default function WalletScreen() {
   const router = useRouter();
-  const { user, isAuthenticated, passBalance, updateProfile, topUpPass } = useAuthStore();
+  const { user, isAuthenticated, passBalance, updateProfile, setPassBalance } = useAuthStore();
   const isAuthed = Boolean(isAuthenticated && user && !user.isGuest);
 
   const [selectedAmount, setSelectedAmount] = useState<number>(500);
   const [customAmountText, setCustomAmountText] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
-  const [showSimulatedSheet, setShowSimulatedSheet] = useState<boolean>(false);
-  const [pendingOrderData, setPendingOrderData] = useState<{
-    orderId: string;
-    razorpayOrderId: string;
-    amount: number;
-    topUpAmount: number;
-  } | null>(null);
 
   const currentBalance = isAuthed ? (passBalance || 0) : 0;
   const effectiveTopUpAmount = customAmountText.trim()
     ? parseInt(customAmountText.replace(/[^0-9]/g, ''), 10) || 0
     : selectedAmount;
-
-  const isNativeRazorpayAvailable =
-    typeof RazorpayCheckout !== 'undefined' &&
-    typeof (RazorpayCheckout as any)?.open === 'function';
 
   const handleSelectQuickAmount = (amt: number) => {
     setSelectedAmount(amt);
@@ -70,62 +63,11 @@ export default function WalletScreen() {
   };
 
   /**
-   * Completes backend payment verification and updates store
-   */
-  const handleVerificationSuccess = async (
-    paymentResult: {
-      razorpay_payment_id: string;
-      razorpay_order_id: string;
-      razorpay_signature: string;
-    },
-    topUpAmount: number
-  ) => {
-    setStatusMessage('Verifying payment with bank...');
-    try {
-      const verifyRes = await verifyWalletPayment({
-        razorpay_order_id: paymentResult.razorpay_order_id,
-        razorpay_payment_id: paymentResult.razorpay_payment_id,
-        razorpay_signature: paymentResult.razorpay_signature,
-        amount: topUpAmount,
-      });
-
-      if (verifyRes.success) {
-        if (typeof verifyRes.passBalance === 'number') {
-          updateProfile({ passBalance: verifyRes.passBalance });
-        } else {
-          topUpPass(topUpAmount);
-        }
-      } else {
-        topUpPass(topUpAmount);
-      }
-
-      setIsProcessing(false);
-      setShowSimulatedSheet(false);
-      setPendingOrderData(null);
-
-      Alert.alert(
-        'Top-Up Successful',
-        `₹${topUpAmount.toLocaleString('en-IN')} has been added to your NutriFlexs Wallet.`,
-        [{ text: 'Great!', style: 'default' }]
-      );
-    } catch (err: any) {
-      console.warn('Backend wallet verify warning:', err);
-      // Fallback local balance update on verified transaction
-      topUpPass(topUpAmount);
-      setIsProcessing(false);
-      setShowSimulatedSheet(false);
-      setPendingOrderData(null);
-
-      Alert.alert(
-        'Top-Up Successful',
-        `₹${topUpAmount.toLocaleString('en-IN')} added to your NutriFlexs Wallet.`,
-        [{ text: 'OK', style: 'default' }]
-      );
-    }
-  };
-
-  /**
-   * Initiates Razorpay top-up flow
+   * Initiates Real Razorpay top-up flow:
+   * 1. POST /api/mobile/wallet/create-order
+   * 2. RazorpayCheckout.open with server keyId & order_id
+   * 3. POST /api/mobile/wallet/verify
+   * 4. update useAuthStore passBalance
    */
   const handleInitiateTopUp = async () => {
     if (!isAuthed) {
@@ -146,38 +88,24 @@ export default function WalletScreen() {
 
     try {
       const orderData = await createWalletOrder(effectiveTopUpAmount);
-      const amountInPaise = orderData.amount;
+      const isNativeRazorpayAvailable =
+        typeof RazorpayCheckout !== 'undefined' &&
+        typeof (RazorpayCheckout as any)?.open === 'function';
 
-      setPendingOrderData({
-        orderId: orderData.orderId,
-        razorpayOrderId: orderData.razorpayOrderId,
-        amount: amountInPaise,
-        topUpAmount: effectiveTopUpAmount,
-      });
-
-      // If running in Expo Go without prebuilt native binaries, offer simulated flow
       if (!isNativeRazorpayAvailable) {
         setIsProcessing(false);
         Alert.alert(
-          'Native Razorpay Notice',
-          'Native Razorpay module requires a Development Build. In Expo Go, simulated verification can be enabled for testing.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Simulate Payment',
-              onPress: () => setShowSimulatedSheet(true),
-            },
-          ]
+          'Razorpay Unavailable',
+          'Native Razorpay checkout is not available in this environment. Please run in an Expo Development Build or native device.'
         );
         return;
       }
 
-      // Native Razorpay Checkout
       setStatusMessage('Launching 100% Secure Payment...');
       const options = {
         key: orderData.keyId || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_nutriflexs_demo',
         order_id: orderData.razorpayOrderId,
-        amount: amountInPaise,
+        amount: orderData.amount, // in paise
         currency: orderData.currency || 'INR',
         name: 'NutriFlexs',
         description: `NutriFlexs Wallet Top-Up (₹${effectiveTopUpAmount})`,
@@ -190,9 +118,9 @@ export default function WalletScreen() {
         theme: { color: '#1D4D3E' },
       };
 
+      let paymentResult: any;
       try {
-        const paymentResult = await RazorpayCheckout.open(options);
-        await handleVerificationSuccess(paymentResult, effectiveTopUpAmount);
+        paymentResult = await RazorpayCheckout.open(options);
       } catch (razorError: any) {
         setIsProcessing(false);
         const errorDesc =
@@ -204,36 +132,69 @@ export default function WalletScreen() {
           errorDesc.toLowerCase().includes('cancel') ||
           errorDesc.toLowerCase().includes('dismiss') ||
           errorDesc.toLowerCase().includes('closed') ||
-          razorError?.code === 0;
+          razorError?.code === 0 ||
+          razorError?.code === 2;
 
         Alert.alert(
           isCancellation ? 'Payment Cancelled' : 'Payment Status',
           isCancellation
-            ? 'No amount was deducted. You can retry anytime.'
-            : errorDesc
+            ? 'Payment Cancelled — No amount was deducted.'
+            : (errorDesc || 'Payment was not completed. No amount was deducted.')
+        );
+        return;
+      }
+
+      // Backend verification
+      setStatusMessage('Verifying payment with bank...');
+      try {
+        const verifyRes = await verifyWalletPayment({
+          razorpay_order_id: paymentResult.razorpay_order_id,
+          razorpay_payment_id: paymentResult.razorpay_payment_id,
+          razorpay_signature: paymentResult.razorpay_signature,
+          amount: effectiveTopUpAmount,
+        });
+
+        if (verifyRes.success) {
+          const newBalance =
+            typeof verifyRes.walletBalance === 'number'
+              ? verifyRes.walletBalance
+              : typeof verifyRes.passBalance === 'number'
+              ? verifyRes.passBalance
+              : (passBalance || 0) + effectiveTopUpAmount;
+
+          if (typeof setPassBalance === 'function') {
+            setPassBalance(newBalance);
+          }
+          updateProfile({ passBalance: newBalance });
+          useAuthStore.fetchMe().catch(() => {});
+
+          setIsProcessing(false);
+          setStatusMessage('');
+
+          Alert.alert(
+            'Top-Up Successful',
+            `₹${effectiveTopUpAmount.toLocaleString('en-IN')} has been added to your NutriFlexs Wallet.\nNew Balance: ₹${newBalance.toLocaleString('en-IN')}`,
+            [{ text: 'Great!', style: 'default' }]
+          );
+        } else {
+          throw new Error(verifyRes.error || 'Payment verification failed on server');
+        }
+      } catch (verifyErr: any) {
+        setIsProcessing(false);
+        setStatusMessage('');
+        Alert.alert(
+          'Verification Failed',
+          verifyErr?.message || 'Payment could not be verified by the server. If any amount was deducted, it will be refunded to your source account automatically.'
         );
       }
     } catch (err: any) {
       setIsProcessing(false);
-      Alert.alert('Top-Up Order Failed', err?.message || 'Could not initiate top-up. Please try again.');
-    }
-  };
-
-  const handleConfirmSimulated = async () => {
-    if (!pendingOrderData) return;
-    setIsProcessing(true);
-    setStatusMessage('Verifying test payment...');
-
-    setTimeout(async () => {
-      await handleVerificationSuccess(
-        {
-          razorpay_payment_id: `pay_sim_${Date.now()}`,
-          razorpay_order_id: pendingOrderData.razorpayOrderId,
-          razorpay_signature: 'demo_sig_valid',
-        },
-        pendingOrderData.topUpAmount
+      setStatusMessage('');
+      Alert.alert(
+        'Top-Up Failed',
+        err?.message || 'Could not initiate top-up. Please try again.'
       );
-    }, 1000);
+    }
   };
 
   return (
@@ -421,40 +382,6 @@ export default function WalletScreen() {
           </Text>
         </View>
       </ScrollView>
-
-      {/* Simulated Verification Modal for Expo Go preview */}
-      {showSimulatedSheet && pendingOrderData && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.sheetContainer}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Test Top-Up (Expo Go)</Text>
-              <TouchableOpacity onPress={() => setShowSimulatedSheet(false)}>
-                <Text style={styles.sheetClose}>Close</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.sheetAmount}>
-              ₹{pendingOrderData.topUpAmount.toLocaleString('en-IN')}
-            </Text>
-            <Text style={styles.sheetSub}>
-              Simulate a successful bank payment for testing.
-            </Text>
-
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={handleConfirmSimulated}
-              disabled={isProcessing}
-              style={styles.sheetConfirmBtn}
-            >
-              {isProcessing ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.sheetConfirmText}>Confirm Top-Up</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
     </View>
   );
 }

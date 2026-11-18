@@ -93,13 +93,14 @@ export default function CartScreen() {
   const discount = Math.min(subtotal, couponDiscount);
   const netFood = Math.max(0, subtotal - discount);
   const taxesAndPackaging = netFood > 0 ? Math.round(netFood * 0.05) + 15 : 0;
-  const totalBill = netFood + taxesAndPackaging;
+  const netAmount = netFood + taxesAndPackaging;
+  const totalBill = netAmount;
 
-  // Wallet deduction: can cover up to 100% of totalBill
-  const maxWalletDeduction = (useWallet && walletBalance > 0)
-    ? Math.min(walletBalance, totalBill)
+  // Wallet deduction: can cover up to 100% of netAmount
+  const walletUsed = (useWallet && walletBalance > 0)
+    ? Math.min(walletBalance, netAmount)
     : 0;
-  const finalPayable = Math.max(0, totalBill - maxWalletDeduction);
+  const finalPayable = Math.max(0, netAmount - walletUsed);
 
   /**
    * Applies coupon via POST /api/mobile/coupons/validate
@@ -182,8 +183,8 @@ export default function CartScreen() {
       }
 
       // If wallet balance was used for part of payment, deduct from authStore
-      if (maxWalletDeduction > 0) {
-        const remaining = Math.max(0, walletBalance - maxWalletDeduction);
+      if (walletUsed > 0) {
+        const remaining = Math.max(0, walletBalance - walletUsed);
         updateProfile({ passBalance: remaining });
       }
 
@@ -241,8 +242,8 @@ export default function CartScreen() {
 
     setIsProcessingPayment(true);
 
-    // CASE 1: 100% Covered by Wallet
-    if (finalPayable === 0 && maxWalletDeduction > 0) {
+    // CASE A: 100% Covered by Wallet (finalPayable === 0)
+    if (finalPayable === 0 && (walletUsed > 0 || totalBill === 0)) {
       setProcessingStatus('Processing 100% Wallet Payment...');
       try {
         const walletResult = await checkoutWithWallet({
@@ -269,7 +270,7 @@ export default function CartScreen() {
           // Deduct from wallet balance in authStore
           const remaining = typeof walletResult.passBalance === 'number'
             ? walletResult.passBalance
-            : Math.max(0, walletBalance - maxWalletDeduction);
+            : Math.max(0, walletBalance - walletUsed);
           updateProfile({ passBalance: remaining });
 
           const orderId = walletResult.orderId || walletResult.order?.id || `NF-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -299,6 +300,7 @@ export default function CartScreen() {
             }).catch(() => null);
           }
 
+          clearCart();
           placeOrder(orderId);
           setIsProcessingPayment(false);
           router.push(`/orders/${orderId}`);
@@ -309,14 +311,14 @@ export default function CartScreen() {
       } catch (walletErr: any) {
         setIsProcessingPayment(false);
         Alert.alert(
-          'Wallet Checkout',
+          'Wallet Checkout Failed',
           walletErr?.message || 'Wallet checkout could not be completed. You can pay with Razorpay or retry.'
         );
         return;
       }
     }
 
-    // CASE 2: Pay via Razorpay (either full or remainder)
+    // CASE B: Pay via Razorpay (either full or remainder)
     setProcessingStatus('Creating your order...');
 
     const candidateUrls = [API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL];
@@ -355,7 +357,7 @@ export default function CartScreen() {
             totalAmount: finalPayable,
             discount,
             couponCode: appliedCoupon || undefined,
-            walletAmountUsed: maxWalletDeduction,
+            walletAmountUsed: walletUsed,
             user: isAuthed && user
               ? { name: user.name, email: user.email, phone: user.phone || '' }
               : { name: 'Guest', email: 'guest@nutriflexs.com', phone: '9999999999' },
@@ -675,9 +677,9 @@ export default function CartScreen() {
                   </Text>
                   <Text style={styles.walletSub}>
                     {walletBalance > 0
-                      ? maxWalletDeduction >= totalBill
+                      ? walletUsed >= totalBill
                         ? '100% of order covered by your wallet'
-                        : `₹${maxWalletDeduction} deducted from wallet`
+                        : `₹${walletUsed} deducted from wallet`
                       : 'No wallet balance • Top-up in Profile to enable 1-tap checkout'}
                   </Text>
                 </View>
@@ -777,13 +779,13 @@ export default function CartScreen() {
                 <Text style={styles.billValue}>₹{taxesAndPackaging}</Text>
               </View>
 
-              {maxWalletDeduction > 0 && (
+              {walletUsed > 0 && (
                 <View style={styles.billRow}>
                   <Text style={[styles.billLabel, styles.walletUsedText]}>
                     NutriFlexs Wallet Used
                   </Text>
                   <Text style={[styles.billValue, styles.walletUsedText]}>
-                    −₹{maxWalletDeduction}
+                    −₹{walletUsed}
                   </Text>
                 </View>
               )}
@@ -832,7 +834,7 @@ export default function CartScreen() {
                   <Text style={styles.payBtnAmount}>₹{finalPayable}</Text>
                   <Text style={styles.payBtnItems}>
                     {totalCount} {totalCount === 1 ? 'Item' : 'Items'}
-                    {maxWalletDeduction > 0 ? ` • ₹${maxWalletDeduction} from wallet` : ' • Cult.fit HSR'}
+                    {walletUsed > 0 ? ` • ₹${walletUsed} from wallet` : ' • Cult.fit HSR'}
                   </Text>
                 </View>
                 <View style={styles.payBtnRight}>

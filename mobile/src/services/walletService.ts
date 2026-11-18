@@ -1,5 +1,7 @@
 import { API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL } from '../config/api';
 import { getAuthToken } from './apiClient';
+import RazorpayCheckout from 'react-native-razorpay';
+import { useAuthStore } from '../store/authStore';
 
 export interface WalletOrderResult {
   orderId: string;
@@ -12,6 +14,7 @@ export interface WalletOrderResult {
 export interface WalletVerifyResult {
   success: boolean;
   passBalance: number;
+  walletBalance?: number;
   user?: any;
   error?: string;
 }
@@ -106,10 +109,19 @@ export async function verifyWalletPayment(payload: {
       }
 
       const data = await res.json();
+      const updatedBalance =
+        typeof data.walletBalance === 'number'
+          ? data.walletBalance
+          : typeof data.passBalance === 'number'
+          ? data.passBalance
+          : 0;
+
       return {
         success: Boolean(data.success),
-        passBalance: typeof data.passBalance === 'number' ? data.passBalance : payload.amount,
+        passBalance: updatedBalance,
+        walletBalance: updatedBalance,
         user: data.user,
+        error: data.error,
       };
     } catch (err: any) {
       lastError = err;
@@ -117,6 +129,100 @@ export async function verifyWalletPayment(payload: {
   }
 
   throw lastError || new Error('Failed to verify wallet payment with server');
+}
+
+/**
+ * End-to-end Razorpay wallet recharge execution:
+ * 1. POST /api/mobile/wallet/create-order
+ * 2. RazorpayCheckout.open with server keyId & order_id
+ * 3. POST /api/mobile/wallet/verify
+ * 4. update useAuthStore.passBalance
+ * Returns updated pass balance on success.
+ * Throws clean cancellation error if cancelled.
+ */
+export async function executeRazorpayWalletRecharge(
+  amount: number,
+  user?: { name?: string; email?: string; phone?: string } | null,
+  onStatusUpdate?: (status: string) => void
+): Promise<{ success: boolean; newBalance: number }> {
+  if (!amount || amount <= 0) {
+    throw new Error('Please enter a valid amount to recharge');
+  }
+
+  onStatusUpdate?.('Creating recharge order...');
+  const orderData = await createWalletOrder(amount);
+
+  const isNativeRazorpayAvailable =
+    typeof RazorpayCheckout !== 'undefined' &&
+    typeof (RazorpayCheckout as any)?.open === 'function';
+
+  if (!isNativeRazorpayAvailable) {
+    throw new Error(
+      'Razorpay native module is not available in this environment. Please run in an Expo Development Build or native device.'
+    );
+  }
+
+  onStatusUpdate?.('Launching 100% Secure Payment...');
+  const options = {
+    key: orderData.keyId || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_nutriflexs_demo',
+    order_id: orderData.razorpayOrderId,
+    amount: orderData.amount, // in paise
+    currency: orderData.currency || 'INR',
+    name: 'NutriFlexs',
+    description: `NutriFlexs Wallet Top-Up (₹${amount})`,
+    image: 'https://nutriflexs.com/logo.png',
+    prefill: {
+      email: user?.email || '',
+      contact: user?.phone || '',
+      name: user?.name || '',
+    },
+    theme: { color: '#1D4D3E' },
+  };
+
+  let paymentResult: any;
+  try {
+    paymentResult = await RazorpayCheckout.open(options);
+  } catch (razorError: any) {
+    const errorDesc =
+      razorError?.error?.description ||
+      razorError?.description ||
+      razorError?.message ||
+      'Payment cancelled';
+    const isCancellation =
+      errorDesc.toLowerCase().includes('cancel') ||
+      errorDesc.toLowerCase().includes('dismiss') ||
+      errorDesc.toLowerCase().includes('closed') ||
+      razorError?.code === 0 ||
+      razorError?.code === 2;
+
+    const cancelErr: any = new Error(
+      isCancellation
+        ? 'Payment Cancelled — No amount was deducted.'
+        : (errorDesc || 'Payment failed. No amount was deducted.')
+    );
+    cancelErr.isCancellation = isCancellation;
+    throw cancelErr;
+  }
+
+  onStatusUpdate?.('Verifying payment with bank...');
+  const verifyRes = await verifyWalletPayment({
+    razorpay_order_id: paymentResult.razorpay_order_id,
+    razorpay_payment_id: paymentResult.razorpay_payment_id,
+    razorpay_signature: paymentResult.razorpay_signature,
+    amount,
+  });
+
+  if (!verifyRes.success) {
+    throw new Error(verifyRes.error || 'Payment verification failed on server');
+  }
+
+  const newBalance = verifyRes.walletBalance ?? verifyRes.passBalance;
+  // Atomically update useAuthStore
+  useAuthStore.setPassBalance?.(newBalance);
+  useAuthStore.updateProfile?.({ passBalance: newBalance });
+  useAuthStore.fetchMe?.().catch(() => {});
+
+  return { success: true, newBalance };
 }
 
 /**
@@ -164,6 +270,16 @@ export async function validateCoupon(code: string, subtotal: number): Promise<{
           message: data.message,
           error: data.error,
         };
+      } else {
+        const data = await res.json().catch(() => ({}));
+        if (data && (data.error || data.message)) {
+          return {
+            valid: false,
+            code: cleanCode,
+            discount: 0,
+            error: data.error || data.message,
+          };
+        }
       }
     } catch {
       // Continue to next URL candidate or fallback

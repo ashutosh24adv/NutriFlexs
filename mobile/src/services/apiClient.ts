@@ -10,7 +10,7 @@
 
 import { Alert } from 'react-native';
 import { API_BASE_URL, normalizeApiUrl } from '../config/api';
-import { authActions } from '../store/authStore';
+import { useAuthStore, authActions } from '../store/useAuthStore';
 
 // In-memory fallback token cache when secure storage is unavailable
 let inMemoryToken: string | null = null;
@@ -47,10 +47,26 @@ function getSecureStore() {
 }
 
 /**
- * Reads stored JWT token from expo-secure-store or in-memory backup
+ * Reliably retrieves stored JWT token from:
+ * 1. Reactive useAuthStore in-memory state
+ * 2. In-memory token cache
+ * 3. expo-secure-store (native storage)
+ * 4. localStorage (web fallback)
  */
 export async function getAuthToken(): Promise<string | null> {
+  // 1. Check in-memory reactive state from useAuthStore
+  try {
+    const storeToken = useAuthStore.getState?.()?.token;
+    if (storeToken && typeof storeToken === 'string' && storeToken.trim().length > 0) {
+      inMemoryToken = storeToken.trim();
+      return inMemoryToken;
+    }
+  } catch {}
+
+  // 2. Check local in-memory token cache
   if (inMemoryToken) return inMemoryToken;
+
+  // 3. Check expo-secure-store
   try {
     const store = getSecureStore();
     if (store && typeof store.getItemAsync === 'function') {
@@ -65,6 +81,20 @@ export async function getAuthToken(): Promise<string | null> {
   } catch {
     // Ignore storage read errors
   }
+
+  // 4. Check web localStorage if available
+  if (typeof localStorage !== 'undefined') {
+    for (const key of TOKEN_KEYS) {
+      try {
+        const val = localStorage.getItem(key);
+        if (val && typeof val === 'string' && val.trim().length > 0) {
+          inMemoryToken = val.trim();
+          return inMemoryToken;
+        }
+      } catch {}
+    }
+  }
+
   return inMemoryToken;
 }
 
@@ -72,19 +102,29 @@ export async function getAuthToken(): Promise<string | null> {
  * Saves JWT token into expo-secure-store and in-memory backup
  */
 export async function setAuthToken(token: string): Promise<void> {
-  inMemoryToken = token;
+  const clean = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
+  inMemoryToken = clean;
   try {
     const store = getSecureStore();
     if (store && typeof store.setItemAsync === 'function') {
-      await store.setItemAsync('jwt_token', token);
+      await Promise.allSettled([
+        store.setItemAsync('jwt_token', clean),
+        store.setItemAsync('token', clean),
+      ]);
     }
   } catch {
     // Ignore storage write errors
   }
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem('jwt_token', clean);
+      localStorage.setItem('token', clean);
+    } catch {}
+  }
 }
 
 /**
- * Clears all authentication tokens from expo-secure-store and in-memory backup
+ * Clears all authentication tokens from expo-secure-store, localStorage, and in-memory backup
  */
 export async function clearAuthToken(): Promise<void> {
   inMemoryToken = null;
@@ -97,6 +137,11 @@ export async function clearAuthToken(): Promise<void> {
     }
   } catch {
     // Ignore storage deletion errors
+  }
+  if (typeof localStorage !== 'undefined') {
+    try {
+      TOKEN_KEYS.forEach((k) => localStorage.removeItem(k));
+    } catch {}
   }
 }
 
@@ -187,11 +232,16 @@ export async function apiRequest<T = any>(
     headers['Content-Type'] = 'application/json';
   }
 
-  // Automatically attach Authorization Bearer token from expo-secure-store
-  if (!options.skipAuth && !headers['Authorization']) {
+  // Automatically attach Authorization Bearer token from secure storage / authStore
+  const existingAuthKey = Object.keys(headers).find(
+    (k) => k.toLowerCase() === 'authorization'
+  );
+
+  if (!options.skipAuth && (!existingAuthKey || !headers[existingAuthKey])) {
     const token = await getAuthToken();
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      const cleanToken = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
+      headers['Authorization'] = `Bearer ${cleanToken}`;
     }
   }
 
@@ -241,7 +291,7 @@ export async function apiRequest<T = any>(
   if (response.status === 401) {
     try {
       await clearAuthToken();
-      authActions.resetAuth();
+      await authActions.signOut();
     } catch {
       // Safe cleanup
     }

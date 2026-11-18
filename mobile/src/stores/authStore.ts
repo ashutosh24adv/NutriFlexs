@@ -1,2 +1,2 @@
-export * from '../store/authStore';
-export { useAuthStore, authActions, clearSecureStoreToken, DEFAULT_USER } from '../store/authStore';
+export * from '../store/useAuthStore';
+export { useAuthStore as default } from '../store/useAuthStore';

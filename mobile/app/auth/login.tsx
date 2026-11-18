@@ -111,9 +111,22 @@ export default function LoginScreen() {
       }
       await triggerHaptic('success');
 
-      // Navigate to destination
-      const destination = redirectParam === 'order' ? '/(order)' : '/(track)';
-      router.replace(destination);
+      // Navigate to destination (supporting redirect=cart, order, or default track)
+      const destination =
+        redirectParam === 'order'
+          ? '/(order)'
+          : redirectParam === 'cart'
+          ? '/cart'
+          : '/(track)';
+
+      // Dismiss stack so Android Back button never loops back into login/onboarding
+      try {
+        if (typeof (router as any).dismissAll === 'function') {
+          (router as any).dismissAll();
+        }
+      } catch {}
+
+      router.replace(destination as any);
     } catch (err: any) {
       setErrorMessage(err?.message || 'Login failed. Please check your credentials and network connection.');
       triggerHaptic('warning');
@@ -176,7 +189,7 @@ export default function LoginScreen() {
               <Mail size={18} color="#9CA3AF" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="athlete@nutriflex.fit or mobile number"
+                placeholder="member@nutriflex.fit or mobile number"
                 placeholderTextColor="#9CA3AF"
                 value={emailOrPhone}
                 onChangeText={setEmailOrPhone}
@@ -266,7 +279,7 @@ export default function LoginScreen() {
 
         {/* Footer: Don't have an account? Sign Up */}
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Don't have an athlete account? </Text>
+          <Text style={styles.footerText}>Don't have an account? </Text>
           <TouchableOpacity
             onPress={() => {
               triggerHaptic('selection');

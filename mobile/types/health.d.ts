@@ -174,6 +174,7 @@ declare module 'react-native-health-connect' {
   export function aggregateRecord(options: {
     recordType: string;
     timeRangeFilter: TimeRangeFilter;
+    dataOriginFilter?: string[];
   }): Promise<any>;
   export function readRecords(
     recordType: string,

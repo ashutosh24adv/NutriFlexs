@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   StyleSheet,
   Platform,
   Alert,
+  ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -23,14 +25,75 @@ import {
   LogIn,
   Lock,
   Wallet,
+  Bell,
 } from 'lucide-react-native';
 import { useAuthStore, computeAvatarInitials } from '../../src/store/authStore';
 import { cartActions } from '../../src/store/cartStore';
+import { executeRazorpayWalletRecharge } from '../../src/services/walletService';
+import {
+  getNotificationPreferences,
+  setNotificationPreferences,
+} from '../../src/services/notifications';
 
 export default function OrderProfileScreen() {
   const router = useRouter();
-  const { user, isAuthenticated, passBalance, signOut } = useAuthStore();
+  const { user, isAuthenticated, passBalance, signOut, nutritionGoal } = useAuthStore();
   const isGuest = !isAuthenticated || !user || Boolean(user.isGuest);
+  const [isProcessingTopUp, setIsProcessingTopUp] = useState<boolean>(false);
+  const [orderUpdates, setOrderUpdates] = useState<boolean>(true);
+  const [mealWaterReminders, setMealWaterReminders] = useState<boolean>(true);
+
+  useEffect(() => {
+    getNotificationPreferences().then((prefs) => {
+      setOrderUpdates(prefs.orderUpdates);
+      setMealWaterReminders(prefs.reminders);
+    }).catch(() => null);
+  }, []);
+
+  const handleToggleOrderUpdates = async (val: boolean) => {
+    setOrderUpdates(val);
+    await setNotificationPreferences({ orderUpdates: val });
+  };
+
+  const handleToggleMealWaterReminders = async (val: boolean) => {
+    setMealWaterReminders(val);
+    await setNotificationPreferences({ reminders: val });
+  };
+
+  const handleTopUp = async (amount: number) => {
+    if (isGuest) {
+      router.push('/auth/login');
+      return;
+    }
+
+    setIsProcessingTopUp(true);
+    try {
+      const { newBalance } = await executeRazorpayWalletRecharge(amount, user);
+      Alert.alert(
+        'Top-Up Successful',
+        `₹${amount.toLocaleString('en-IN')} has been added to your NutriFlexs Wallet.\nNew Balance: ₹${newBalance.toLocaleString('en-IN')}`,
+        [{ text: 'Great!' }]
+      );
+    } catch (err: any) {
+      const errorMsg = err?.message || 'Payment cancelled';
+      const isCancelled =
+        err?.isCancellation ||
+        errorMsg.toLowerCase().includes('cancel') ||
+        errorMsg.toLowerCase().includes('dismiss') ||
+        errorMsg.toLowerCase().includes('closed') ||
+        err?.code === 0 ||
+        err?.code === 2;
+
+      Alert.alert(
+        isCancelled ? 'Payment Cancelled' : 'Payment Status',
+        isCancelled
+          ? 'Payment Cancelled — No amount was deducted.'
+          : (errorMsg || 'Payment was not completed. No amount was deducted.')
+      );
+    } finally {
+      setIsProcessingTopUp(false);
+    }
+  };
 
   const handleOpenWallet = () => {
     if (isGuest) {
@@ -50,21 +113,54 @@ export default function OrderProfileScreen() {
           text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
-            await signOut();
+            // 1. Clear SecureStore
+            try {
+              const SecureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
+              if (SecureStore && typeof SecureStore.deleteItemAsync === 'function') {
+                const secureKeys = ['token', 'auth_token', 'jwt_token', 'user_session_jwt', 'last_active_mode'];
+                await Promise.allSettled(secureKeys.map((k: string) => SecureStore.deleteItemAsync(k)));
+              }
+            } catch {}
+
+            // 2. Clear AsyncStorage session snapshot
+            try {
+              const asyncStorageMod = typeof require !== 'undefined' ? require('@react-native-async-storage/async-storage') : null;
+              const AsyncStorage = asyncStorageMod?.default || asyncStorageMod;
+              if (AsyncStorage && typeof AsyncStorage.removeItem === 'function') {
+                const storageKeys = ['auth_session', 'user_profile', 'nutrition_goal', 'last_active_mode', 'cart_items'];
+                await Promise.allSettled(storageKeys.map((k: string) => AsyncStorage.removeItem(k)));
+              }
+            } catch {}
+
+            // 3. Clear useAuthStore
+            try {
+              await signOut();
+            } catch {}
+
+            // 4. Clear cartStore
             try {
               cartActions.clearCart();
               cartActions.setPassApplied(false);
               cartActions.removeTrainerCode();
-            } catch {
-              // Cart cleanup fallback
-            }
+            } catch {}
+
+            // 5. Clear TanStack cache
+            try {
+              const g = (typeof globalThis !== 'undefined' ? globalThis : global) as any;
+              if (g?.queryClient && typeof g.queryClient.clear === 'function') {
+                g.queryClient.clear();
+              }
+              if (g?.__REACT_QUERY_CLIENT__ && typeof g.__REACT_QUERY_CLIENT__.clear === 'function') {
+                g.__REACT_QUERY_CLIENT__.clear();
+              }
+            } catch {}
+
+            // 6. Call router.dismissAll() + router.replace('/welcome')
             try {
               if (typeof (router as any).dismissAll === 'function') {
                 (router as any).dismissAll();
               }
-            } catch {
-              // Dismiss stack fallback
-            }
+            } catch {}
             router.replace('/welcome');
           },
         },
@@ -116,7 +212,7 @@ export default function OrderProfileScreen() {
               {/* Avatar Initials Circle */}
               <View style={styles.avatarCircle}>
                 <Text style={styles.avatarText}>
-                  {computeAvatarInitials(user?.name)}
+                  {user?.avatarInitials || computeAvatarInitials(user?.name)}
                 </Text>
               </View>
 
@@ -176,26 +272,50 @@ export default function OrderProfileScreen() {
           </Text>
 
           <View style={styles.walletActionsRow}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleOpenWallet}
-              style={styles.topUpBtn}
-            >
-              <PlusCircle size={15} color="#FFFFFF" />
-              <Text style={styles.topUpBtnText}>
-                {isGuest ? 'Sign In to Top-Up' : '+ Top-Up Wallet'}
-              </Text>
-            </TouchableOpacity>
-
-            {!isGuest && (
+            {isGuest ? (
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => router.push('/wallet')}
-                style={styles.manageWalletBtn}
+                onPress={() => router.push('/auth/login')}
+                style={styles.topUpBtn}
               >
-                <Settings size={15} color="#1D4D3E" />
-                <Text style={styles.manageWalletBtnText}>Manage</Text>
+                <PlusCircle size={15} color="#FFFFFF" />
+                <Text style={styles.topUpBtnText}>Sign In to Top-Up</Text>
               </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => handleTopUp(500)}
+                  disabled={isProcessingTopUp}
+                  style={styles.topUpBtn}
+                >
+                  {isProcessingTopUp ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <PlusCircle size={15} color="#FFFFFF" />
+                  )}
+                  <Text style={styles.topUpBtnText}>+₹500</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => handleTopUp(1000)}
+                  disabled={isProcessingTopUp}
+                  style={styles.topUpBtn}
+                >
+                  <PlusCircle size={15} color="#FFFFFF" />
+                  <Text style={styles.topUpBtnText}>+₹1,000</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/wallet')}
+                  style={styles.manageWalletBtn}
+                >
+                  <Settings size={15} color="#1D4D3E" />
+                  <Text style={styles.manageWalletBtnText}>Manage</Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
         </View>
@@ -212,14 +332,14 @@ export default function OrderProfileScreen() {
               <View style={styles.nutritionInfoRow}>
                 <Text style={styles.nutritionInfoLabel}>Primary Goal</Text>
                 <Text style={styles.nutritionInfoValue}>
-                  {(user as any)?.nutritionGoal?.primaryGoal || (user as any)?.primaryGoal || 'Strength & Recovery'}
+                  {nutritionGoal?.primaryGoal || (user as any)?.nutritionGoal?.primaryGoal || (user as any)?.primaryGoal || 'Strength & Recovery'}
                 </Text>
               </View>
 
               <View style={styles.nutritionInfoRow}>
                 <Text style={styles.nutritionInfoLabel}>Daily Target</Text>
                 <Text style={styles.nutritionInfoValue}>
-                  {((user as any)?.nutritionGoal?.proteinTarget || (user as any)?.proteinTarget || 140)}g Protein • {((user as any)?.nutritionGoal?.calorieTarget || (user as any)?.calorieTarget || (user as any)?.dailyCalorieGoal || 2000).toLocaleString('en-IN')} kcal
+                  {(nutritionGoal?.proteinTarget || (user as any)?.nutritionGoal?.proteinTarget || (user as any)?.proteinTarget || 140)}g Protein • {(nutritionGoal?.calorieTarget || nutritionGoal?.dailyCalorieGoal || (user as any)?.nutritionGoal?.calorieTarget || (user as any)?.calorieTarget || (user as any)?.dailyCalorieGoal || 2000).toLocaleString('en-IN')} kcal
                 </Text>
               </View>
 
@@ -270,6 +390,51 @@ export default function OrderProfileScreen() {
             </View>
             <ChevronRight size={18} color="#9CA3AF" />
           </TouchableOpacity>
+        </View>
+
+        {/* Notifications & Reminders Card */}
+        <View style={styles.notifCard}>
+          <View style={styles.notifHeaderRow}>
+            <View style={styles.notifIconCircle}>
+              <Bell size={18} color="#1D4D3E" />
+            </View>
+            <View>
+              <Text style={styles.notifHeaderTitle}>Notifications & Alerts</Text>
+              <Text style={styles.notifHeaderSub}>Order updates & health reminders</Text>
+            </View>
+          </View>
+
+          <View style={styles.switchItemRow}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={styles.switchItemTitle}>Order Updates</Text>
+              <Text style={styles.switchItemSub}>
+                Real-time alerts when your food is being prepared & ready at the kiosk
+              </Text>
+            </View>
+            <Switch
+              value={orderUpdates}
+              onValueChange={handleToggleOrderUpdates}
+              trackColor={{ false: '#D1D5DB', true: '#1D4D3E' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          <View style={styles.menuDivider} />
+
+          <View style={styles.switchItemRow}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={styles.switchItemTitle}>Meal & Water Reminders</Text>
+              <Text style={styles.switchItemSub}>
+                Scheduled daily reminders to track calories, hit protein goals, and hydrate
+              </Text>
+            </View>
+            <Switch
+              value={mealWaterReminders}
+              onValueChange={handleToggleMealWaterReminders}
+              trackColor={{ false: '#D1D5DB', true: '#1D4D3E' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
         </View>
 
         {/* Auth Action Button */}
@@ -694,5 +859,54 @@ const styles = StyleSheet.create({
     color: '#1D4D3E',
     fontSize: 13,
     fontWeight: '700',
+  },
+  notifCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#EBECE8',
+    marginBottom: 16,
+  },
+  notifHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  notifIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E8F1ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  notifHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  notifHeaderSub: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  switchItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  switchItemTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  switchItemSub: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
+    lineHeight: 15,
   },
 });

@@ -135,6 +135,7 @@ declare module 'react-native' {
     showsHorizontalScrollIndicator?: boolean;
     showsVerticalScrollIndicator?: boolean;
     contentContainerStyle?: StyleProp<ViewStyle>;
+    refreshControl?: React.ReactElement | any;
   }
 
   export interface SafeAreaViewProps extends ViewProps {}
@@ -185,6 +186,17 @@ declare module 'react-native' {
   export const Switch: React.FC<SwitchProps>;
   export const Modal: React.FC<ModalProps>;
 
+  export interface RefreshControlProps extends ViewProps {
+    refreshing: boolean;
+    onRefresh?: () => void;
+    tintColor?: string;
+    colors?: string[];
+    title?: string;
+    titleColor?: string;
+    progressBackgroundColor?: string;
+  }
+  export const RefreshControl: React.FC<RefreshControlProps>;
+
   export namespace StyleSheet {
     type NamedStyles<T> = { [P in keyof T]: ViewStyle | TextStyle | ImageStyle | any };
     export function create<T extends NamedStyles<T> | NamedStyles<any>>(styles: T | NamedStyles<T>): T;
@@ -228,5 +240,28 @@ declare module 'react-native' {
     setBarStyle?: (style: 'default' | 'light-content' | 'dark-content') => void;
     setBackgroundColor?: (color: string) => void;
     setTranslucent?: (translucent: boolean) => void;
+  };
+
+  export namespace Animated {
+    export class Value {
+      constructor(value: number);
+      setValue(value: number): void;
+      interpolate(config: any): any;
+    }
+    export function timing(value: any, config: any): { start: (callback?: (result: { finished: boolean }) => void) => void };
+    export function sequence(animations: any[]): { start: (callback?: (result: { finished: boolean }) => void) => void };
+    export function parallel(animations: any[]): { start: (callback?: (result: { finished: boolean }) => void) => void };
+    export function delay(time: number): any;
+    export const View: React.FC<any>;
+    export const Text: React.FC<any>;
+  }
+
+  export const Easing: {
+    linear: (t: number) => number;
+    quad: (t: number) => number;
+    cubic: (t: number) => number;
+    in: (easing: (t: number) => number) => (t: number) => number;
+    out: (easing: (t: number) => number) => (t: number) => number;
+    inOut: (easing: (t: number) => number) => (t: number) => number;
   };
 }

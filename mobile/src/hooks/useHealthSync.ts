@@ -10,6 +10,7 @@ import {
   WearableId,
   NutritionTargets,
   TelemetryData,
+  DailyHealthAggregate,
 } from '../services/healthSync';
 
 export interface UseHealthSyncReturn {
@@ -22,10 +23,12 @@ export interface UseHealthSyncReturn {
   syncHistory: SyncHistoryEntry[];
   isSyncing: boolean;
   activeCalories: number;
+  history7Days: DailyHealthAggregate[];
 
   // Real Health Connect Actions
   syncNow: () => Promise<HealthTelemetry>;
   fetchTodayHealthTelemetry: () => Promise<HealthTelemetry>;
+  fetch7DayHealthHistory: () => Promise<DailyHealthAggregate[]>;
   requestPermissions: () => Promise<boolean>;
   requestHealthPermissions: () => Promise<boolean>;
   openHealthConnectSettings: () => Promise<void>;
@@ -75,6 +78,9 @@ export function useHealthSync(): UseHealthSyncReturn {
   const [targets, setTargets] = useState<NutritionTargets>(
     healthSyncService.getTargets()
   );
+  const [history7Days, setHistory7Days] = useState<DailyHealthAggregate[]>(
+    healthSyncService.getTelemetry().history7Days || []
+  );
 
   useEffect(() => {
     // Check existing permissions on mount
@@ -92,7 +98,9 @@ export function useHealthSync(): UseHealthSyncReturn {
       });
 
     const unsubscribe = healthSyncService.subscribe(() => {
-      setTelemetry(healthSyncService.getTelemetry());
+      const latest = healthSyncService.getTelemetry();
+      setTelemetry(latest);
+      setHistory7Days(latest.history7Days || []);
       setPermissions(healthSyncService.getPermissions());
       setHasPermissions(healthSyncService.hasPermissions);
       setGrantedPermissions(healthSyncService.getGrantedPermissions());
@@ -110,6 +118,10 @@ export function useHealthSync(): UseHealthSyncReturn {
 
   const fetchTodayHealthTelemetry = useCallback(async () => {
     return await healthSyncService.fetchTodayHealthTelemetry();
+  }, []);
+
+  const fetch7DayHealthHistory = useCallback(async () => {
+    return await healthSyncService.fetch7DayHealthHistory();
   }, []);
 
   const requestHealthPermissions = useCallback(async () => {
@@ -178,8 +190,10 @@ export function useHealthSync(): UseHealthSyncReturn {
     syncHistory,
     isSyncing: telemetry.isSyncing,
     activeCalories: telemetry.activeCalories,
+    history7Days,
     syncNow,
     fetchTodayHealthTelemetry,
+    fetch7DayHealthHistory,
     requestPermissions,
     requestHealthPermissions,
     openHealthConnectSettings,

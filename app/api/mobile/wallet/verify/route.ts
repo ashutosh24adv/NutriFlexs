@@ -7,9 +7,10 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/mobile/wallet/verify
- * Authenticated. Verifies Razorpay payment signature,
- * increments user's passBalance (walletBalance) in Neon Postgres,
- * and returns the updated balance.
+ * Authenticated via Bearer JWT.
+ * Verifies razorpay_order_id, razorpay_payment_id, razorpay_signature using HMAC-SHA256 (RAZORPAY_KEY_SECRET).
+ * Atomically increments user.passBalance in Neon Postgres.
+ * Returns { walletBalance: updatedUser.passBalance }.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -31,13 +32,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "razorpayOrderId, razorpayPaymentId, and razorpaySignature are required",
+          error: "razorpay_order_id, razorpay_payment_id, and razorpay_signature are required",
         },
         { status: 400 }
       );
     }
 
-    // Verify payment signature
+    // Verify payment signature using HMAC-SHA256 with RAZORPAY_KEY_SECRET
     const isValid = verifyRazorpaySignature(
       razorpayOrderId,
       razorpayPaymentId,
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Increment user passBalance in Neon Postgres
+    // Atomically increment user passBalance in Neon Postgres
     const updatedUser = await withDbRetry(() =>
       prisma.user.update({
         where: { id: authUser.id },
@@ -90,10 +91,16 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      passBalance: updatedUser.passBalance,
       walletBalance: updatedUser.passBalance,
+      passBalance: updatedUser.passBalance,
       creditedAmount: topupAmount,
       message: `Wallet successfully credited with ₹${topupAmount}`,
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        passBalance: updatedUser.passBalance,
+      },
     });
   } catch (error: any) {
     console.error("[Wallet Verify Error]:", error);
@@ -103,4 +110,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

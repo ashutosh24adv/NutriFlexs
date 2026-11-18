@@ -7,9 +7,12 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/mobile/orders/wallet-checkout
- * Authenticated. Accepts order payload with 100% wallet coverage.
- * Verifies user has sufficient passBalance, decrements passBalance in a Prisma transaction,
- * creates the Order with status CONFIRMED and paymentMethod WALLET, and returns the order.
+ * Authenticated via Bearer JWT.
+ * In a Prisma transaction:
+ * - Verifies user has sufficient passBalance
+ * - Deducts walletUsed from passBalance
+ * - Creates confirmed Order with items and paymentMethod WALLET
+ * - Returns the order and updated walletBalance
  */
 export async function POST(req: NextRequest) {
   try {
@@ -29,24 +32,10 @@ export async function POST(req: NextRequest) {
       totalAmount: clientTotalAmount,
       discount: clientDiscount = 0,
       couponCode,
+      walletUsed: clientWalletUsed,
     } = body;
 
-    // 1. Fetch fresh user with passBalance
-    const user = await withDbRetry(() =>
-      prisma.user.findUnique({
-        where: { id: authUser.id },
-        select: { id: true, name: true, email: true, passBalance: true },
-      })
-    );
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "User profile not found" },
-        { status: 404 }
-      );
-    }
-
-    // 2. Resolve outlet
+    // 1. Resolve outlet
     let outlet = requestedOutletId
       ? await prisma.outlet.findUnique({ where: { id: requestedOutletId } })
       : null;
@@ -68,7 +57,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Resolve products & calculate totals
+    // 2. Resolve products & calculate totals
     const dbProducts = await prisma.product.findMany({
       where: { isAvailable: true },
       take: 50,
@@ -77,7 +66,7 @@ export async function POST(req: NextRequest) {
     let subtotal = 0;
     let totalProtein = 0;
     let totalCalories = 0;
-    const orderItemsCreate = [];
+    const orderItemsCreate: any[] = [];
 
     for (const item of items) {
       let product = dbProducts.find(
@@ -91,8 +80,12 @@ export async function POST(req: NextRequest) {
       }
 
       if (product) {
-        const qty = typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1;
-        const itemPrice = typeof item.price === "number" ? item.price : product.price;
+        const qty =
+          typeof item.quantity === "number" && item.quantity > 0
+            ? item.quantity
+            : 1;
+        const itemPrice =
+          typeof item.price === "number" ? item.price : product.price;
         subtotal += itemPrice * qty;
         totalProtein += (item.proteinGrams || product.protein || 0) * qty;
         totalCalories += (item.calories || product.calories || 0) * qty;
@@ -112,50 +105,76 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const discount = typeof clientDiscount === "number" ? Math.max(0, clientDiscount) : 0;
+    const discount =
+      typeof clientDiscount === "number" ? Math.max(0, clientDiscount) : 0;
     const computedTotal = Math.max(0, subtotal - discount);
     const finalAmount =
       typeof clientTotalAmount === "number" && clientTotalAmount >= 0
         ? clientTotalAmount
         : computedTotal;
 
-    // 4. Verify user has sufficient passBalance (100% wallet coverage)
-    const currentBalance = typeof user.passBalance === "number" ? user.passBalance : 0;
-    if (currentBalance < finalAmount) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Insufficient wallet balance. You have ₹${currentBalance.toFixed(
-            2
-          )}, but order total is ₹${finalAmount.toFixed(2)}.`,
-          passBalance: currentBalance,
-          walletBalance: currentBalance,
-          requiredAmount: finalAmount,
-        },
-        { status: 400 }
-      );
+    const walletUsed =
+      typeof clientWalletUsed === "number" && clientWalletUsed > 0
+        ? clientWalletUsed
+        : finalAmount;
+
+    // Resolve optional coupon
+    let couponId: string | null = null;
+    if (couponCode) {
+      const dbCoupon = await prisma.coupon.findUnique({
+        where: { code: String(couponCode).toUpperCase().trim() },
+        select: { id: true },
+      });
+      if (dbCoupon) {
+        couponId = dbCoupon.id;
+      }
     }
 
     const orderNumber = `NF-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    // 5. Decrement passBalance and create CONFIRMED Order in a Prisma transaction
-    const [updatedUser, order] = await prisma.$transaction([
-      prisma.user.update({
-        where: { id: user.id },
+    // 3. In a Prisma transaction: verify balance, deduct walletUsed, create confirmed Order
+    const { updatedUser, order } = await prisma.$transaction(async (tx) => {
+      const freshUser = await tx.user.findUnique({
+        where: { id: authUser.id },
+        select: { id: true, passBalance: true },
+      });
+
+      if (!freshUser) {
+        throw new Error("USER_NOT_FOUND");
+      }
+
+      const currentBalance = freshUser.passBalance || 0;
+      if (currentBalance < walletUsed) {
+        const err: any = new Error(
+          `Insufficient wallet balance. You have ₹${currentBalance.toFixed(
+            2
+          )}, but order requires ₹${walletUsed.toFixed(2)}.`
+        );
+        err.code = "INSUFFICIENT_BALANCE";
+        err.currentBalance = currentBalance;
+        err.requiredAmount = walletUsed;
+        throw err;
+      }
+
+      // Deduct walletUsed from user's passBalance
+      const updatedUser = await tx.user.update({
+        where: { id: authUser.id },
         data: {
           passBalance: {
-            decrement: finalAmount,
+            decrement: walletUsed,
           },
         },
         select: {
           id: true,
           passBalance: true,
         },
-      }),
-      prisma.order.create({
+      });
+
+      // Create confirmed Order
+      const order = await tx.order.create({
         data: {
           orderNumber,
-          userId: user.id,
+          userId: authUser.id,
           outletId: outlet.id,
           status: OrderStatus.CONFIRMED,
           paymentStatus: PaymentStatus.PAID,
@@ -165,6 +184,7 @@ export async function POST(req: NextRequest) {
           totalAmount: finalAmount,
           totalProtein,
           totalCalories,
+          couponId,
           estimatedPrepMinutes: 5,
           items: {
             create: orderItemsCreate,
@@ -185,8 +205,10 @@ export async function POST(req: NextRequest) {
           outlet: true,
           payment: true,
         },
-      }),
-    ]);
+      });
+
+      return { updatedUser, order };
+    });
 
     return NextResponse.json({
       success: true,
@@ -195,16 +217,31 @@ export async function POST(req: NextRequest) {
       orderNumber: order.orderNumber,
       status: order.status,
       paymentMethod: "WALLET",
-      passBalance: updatedUser.passBalance,
       walletBalance: updatedUser.passBalance,
+      passBalance: updatedUser.passBalance,
+      walletUsed,
       message: "Order confirmed and paid with wallet balance",
     });
   } catch (error: any) {
+    if (error?.code === "INSUFFICIENT_BALANCE") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+          walletBalance: error.currentBalance,
+          passBalance: error.currentBalance,
+          requiredAmount: error.requiredAmount,
+        },
+        { status: 400 }
+      );
+    }
     console.error("[Wallet Checkout Error]:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Failed to process wallet checkout" },
+      {
+        success: false,
+        error: error.message || "Failed to process wallet checkout",
+      },
       { status: 500 }
     );
   }
 }
-

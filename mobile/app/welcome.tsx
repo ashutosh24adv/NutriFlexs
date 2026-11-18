@@ -2,11 +2,13 @@
  * NutriFlexs Welcome Gateway Screen
  *
  * Light Theme (#F7F8F6 canvas, #1D4D3E forest green):
- * - Top-right "Log In" / "Sign Up" pills
- * - Clean, clutter-free layout (no dense bullet lists, badges, or footer clutter)
+ * - Top Header: Clean NutriFlexs brand mark on left; crisp "Log In" & "Sign Up" pills on top-right.
+ * - Center Showcase: Header "What would you like to do today?"
  * - Two large visual cards:
- *   1. "Order Food": High-protein meal imagery + subtitle "Fresh gym meals in 5 mins" -> opens /(order)
- *   2. "Track Calories": Clean calorie & macro graphic + subtitle "Snap meals & track daily macros" -> opens /(track)
+ *   1. "Order Food": High-protein gym meal imagery + subtitle "Fresh meals ready in 5 mins" -> opens /(order)
+ *   2. "Track Calories": Clean visual macro/calorie progress graphic + subtitle "Snap meals & track daily calories"
+ *      -> opens /(track) if logged in, or /auth/signup?redirect=track if logged out.
+ * - Clutter-free layout (no dense bullet lists, feature paragraphs, or cluttered badges).
  */
 
 import React from 'react';
@@ -23,23 +25,16 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuthStore, authActions } from '../src/store/useAuthStore';
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { isAuthenticated, user } = useAuthStore();
+  const isLoggedIn = Boolean(isAuthenticated && user && !user.isGuest);
 
   const handleOrderMode = async () => {
     try {
-      const secureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
-      if (secureStore && typeof secureStore.setItemAsync === 'function') {
-        await secureStore.setItemAsync('last_active_mode', 'order');
-      }
-    } catch {}
-    try {
-      const asyncStorageMod = typeof require !== 'undefined' ? require('@react-native-async-storage/async-storage') : null;
-      const asyncStorage = asyncStorageMod?.default || asyncStorageMod;
-      if (asyncStorage && typeof asyncStorage.setItem === 'function') {
-        await asyncStorage.setItem('last_active_mode', 'order');
-      }
+      authActions.setLastMode('order');
     } catch {}
 
     router.replace('/(order)');
@@ -47,33 +42,27 @@ export default function WelcomeScreen() {
 
   const handleTrackMode = async () => {
     try {
-      const secureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
-      if (secureStore && typeof secureStore.setItemAsync === 'function') {
-        await secureStore.setItemAsync('last_active_mode', 'track');
-      }
-    } catch {}
-    try {
-      const asyncStorageMod = typeof require !== 'undefined' ? require('@react-native-async-storage/async-storage') : null;
-      const asyncStorage = asyncStorageMod?.default || asyncStorageMod;
-      if (asyncStorage && typeof asyncStorage.setItem === 'function') {
-        await asyncStorage.setItem('last_active_mode', 'track');
-      }
+      authActions.setLastMode('track');
     } catch {}
 
-    router.replace('/(track)');
+    if (isLoggedIn) {
+      router.replace('/(track)');
+    } else {
+      router.push('/auth/signup?redirect=track' as any);
+    }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" backgroundColor="#F7F8F6" />
 
-      {/* Top Header with Brand Title and Top-Right Log In / Sign Up Pills */}
+      {/* Top Header with Clean NutriFlexs Brand Mark & Crisp Auth Pills */}
       <View style={styles.header}>
         <View style={styles.brandContainer}>
           <View style={styles.brandIconCircle}>
-            <Ionicons name="flash" size={16} color="#F59E0B" />
+            <Ionicons name="leaf" size={15} color="#10B981" />
           </View>
-          <Text style={styles.brandName}>NUTRIFLEXS</Text>
+          <Text style={styles.brandName}>NutriFlexs</Text>
         </View>
 
         <View style={styles.authPillsRow}>
@@ -100,10 +89,12 @@ export default function WelcomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Editorial Subheading */}
-        <View style={styles.titleSection}>
-          <Text style={styles.headingTitle}>Fuel Your Performance</Text>
-          <Text style={styles.headingSubtitle}>Choose how you want to experience NutriFlexs today</Text>
+        {/* Center Showcase Header */}
+        <View style={styles.showcaseSection}>
+          <Text style={styles.showcaseTitle}>What would you like to do today?</Text>
+          <Text style={styles.showcaseSubtitle}>
+            Choose your path to peak athletic nutrition and daily performance.
+          </Text>
         </View>
 
         {/* Two Large Visual Cards */}
@@ -124,7 +115,7 @@ export default function WelcomeScreen() {
               />
               <View style={styles.imageOverlayGradient} />
               <View style={styles.floatingTag}>
-                <Ionicons name="restaurant" size={13} color="#FFFFFF" />
+                <Ionicons name="restaurant" size={12} color="#FFFFFF" />
                 <Text style={styles.floatingTagText}>High Protein</Text>
               </View>
             </View>
@@ -132,7 +123,7 @@ export default function WelcomeScreen() {
             <View style={styles.cardDetailsRow}>
               <View style={styles.cardInfo}>
                 <Text style={styles.cardTitle}>Order Food</Text>
-                <Text style={styles.cardSubtitle}>Fresh gym meals in 5 mins</Text>
+                <Text style={styles.cardSubtitle}>Fresh meals ready in 5 mins</Text>
               </View>
 
               <View style={styles.arrowButton}>
@@ -157,19 +148,35 @@ export default function WelcomeScreen() {
               />
               <View style={styles.imageOverlayGradient} />
 
-              {/* Clean Macro Graphic Overlay */}
+              {/* Clean Visual Macro & Calorie Progress Graphic */}
               <View style={styles.macroGraphicBadge}>
-                <View style={styles.macroPillAmber}>
-                  <Text style={styles.macroPillLabel}>P</Text>
-                  <Text style={styles.macroPillVal}>48g</Text>
+                <View style={styles.macroTopRow}>
+                  <View style={styles.macroCalorieLabelRow}>
+                    <Ionicons name="flame" size={13} color="#F59E0B" />
+                    <Text style={styles.macroCalorieText}>1,850 / 2,400 kcal</Text>
+                  </View>
+                  <Text style={styles.macroPercentageText}>77%</Text>
                 </View>
-                <View style={styles.macroPillEmerald}>
-                  <Text style={styles.macroPillLabel}>C</Text>
-                  <Text style={styles.macroPillVal}>55g</Text>
+
+                {/* Progress Bar Graphic */}
+                <View style={styles.macroProgressBarContainer}>
+                  <View style={[styles.macroProgressBarFill, { width: '77%' }]} />
                 </View>
-                <View style={styles.macroPillBlue}>
-                  <Text style={styles.macroPillLabel}>F</Text>
-                  <Text style={styles.macroPillVal}>16g</Text>
+
+                {/* Macro Distribution Pills */}
+                <View style={styles.macroPillsRow}>
+                  <View style={styles.macroPillEmerald}>
+                    <Text style={styles.macroPillLabel}>P</Text>
+                    <Text style={styles.macroPillVal}>48g</Text>
+                  </View>
+                  <View style={styles.macroPillAmber}>
+                    <Text style={styles.macroPillLabel}>C</Text>
+                    <Text style={styles.macroPillVal}>55g</Text>
+                  </View>
+                  <View style={styles.macroPillBlue}>
+                    <Text style={styles.macroPillLabel}>F</Text>
+                    <Text style={styles.macroPillVal}>16g</Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -177,7 +184,7 @@ export default function WelcomeScreen() {
             <View style={styles.cardDetailsRow}>
               <View style={styles.cardInfo}>
                 <Text style={styles.cardTitle}>Track Calories</Text>
-                <Text style={styles.cardSubtitle}>Snap meals & track daily macros</Text>
+                <Text style={styles.cardSubtitle}>Snap meals & track daily calories</Text>
               </View>
 
               <View style={styles.arrowButton}>
@@ -194,7 +201,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F7F8F6', // Warm Off-White brand background
+    backgroundColor: '#F7F8F6', // Warm Off-White brand canvas
     paddingTop: Platform.OS === 'android' ? 28 : 0,
   },
   header: {
@@ -214,15 +221,15 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: 'rgba(29, 77, 62, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   brandName: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#1D4D3E', // Forest Green
-    letterSpacing: 1.5,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1D4D3E', // Forest Green brand text
+    letterSpacing: -0.3,
   },
   authPillsRow: {
     flexDirection: 'row',
@@ -246,7 +253,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#1D4D3E', // Forest Green
+    backgroundColor: '#1D4D3E', // Deep Forest Green
   },
   signupPillText: {
     fontSize: 13,
@@ -261,17 +268,18 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 36,
   },
-  titleSection: {
-    marginBottom: 20,
+  showcaseSection: {
+    marginBottom: 22,
   },
-  headingTitle: {
-    fontSize: 26,
+  showcaseTitle: {
+    fontSize: 27,
     fontWeight: '800',
     color: '#111827',
-    letterSpacing: -0.4,
-    marginBottom: 4,
+    letterSpacing: -0.5,
+    lineHeight: 33,
+    marginBottom: 6,
   },
-  headingSubtitle: {
+  showcaseSubtitle: {
     fontSize: 14,
     color: '#6B7280',
     lineHeight: 20,
@@ -292,7 +300,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   imageContainer: {
-    height: 190,
+    height: 195,
     position: 'relative',
     backgroundColor: '#EBECE8',
   },
@@ -306,7 +314,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.12)',
   },
   floatingTag: {
     position: 'absolute',
@@ -315,7 +323,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(29, 77, 62, 0.88)',
+    backgroundColor: 'rgba(29, 77, 62, 0.9)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
@@ -328,22 +336,58 @@ const styles = StyleSheet.create({
   },
   macroGraphicBadge: {
     position: 'absolute',
-    bottom: 14,
-    left: 14,
+    bottom: 12,
+    left: 12,
+    right: 12,
+    backgroundColor: 'rgba(17, 24, 39, 0.88)',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  macroTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(17, 24, 39, 0.85)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
+    justifyContent: 'space-between',
+    marginBottom: 6,
   },
-  macroPillAmber: {
+  macroCalorieLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  macroCalorieText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  macroPercentageText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#10B981', // Emerald percent indicator
+  },
+  macroProgressBarContainer: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  macroProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#10B981',
+    borderRadius: 2,
+  },
+  macroPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  macroPillEmerald: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
   },
-  macroPillEmerald: {
+  macroPillAmber: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
@@ -356,7 +400,7 @@ const styles = StyleSheet.create({
   macroPillLabel: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#F59E0B',
+    color: '#10B981',
   },
   macroPillVal: {
     fontSize: 11,

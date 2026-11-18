@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, withDbRetry } from "@/lib/prisma";
 import { getMobileAuthUser } from "@/lib/mobile-auth";
+import { calculateBaselineGoals } from "@/lib/nutrition-baseline";
 import { MealType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,9 @@ function getLocalDateString(date = new Date(), timeZone = "Asia/Kolkata"): strin
 /**
  * GET /api/mobile/nutrition/summary?date=YYYY-MM-DD
  * Returns targets, consumed macros, food logs for target date, water intake,
+ * today's activeCalories (burned calories) from DailyHealthMetric,
+ * remaining calories calculated dynamically as:
+ * Math.max(0, calorieTarget - consumedCalories + (todayMetric?.activeCalories || 0)),
  * and 7-day macro trends array.
  */
 export async function GET(req: NextRequest) {
@@ -36,8 +40,8 @@ export async function GET(req: NextRequest) {
       ? dateParam
       : getLocalDateString();
 
-    // 1. Fetch user's nutrition goals & baseline
-    const [initialGoalRecord, userRecord] = await withDbRetry(() =>
+    // 1. Fetch user's nutrition goals, baseline, and today's DailyHealthMetric from Neon Postgres
+    const [initialGoalRecord, userRecord, todayMetric] = await withDbRetry(() =>
       Promise.all([
         prisma.nutritionGoal.findUnique({
           where: { userId },
@@ -55,53 +59,44 @@ export async function GET(req: NextRequest) {
             primaryGoal: true,
           },
         }),
+        prisma.dailyHealthMetric.findUnique({
+          where: {
+            userId_dateKey: {
+              userId,
+              dateKey: targetDate,
+            },
+          },
+        }),
       ])
     );
 
     let goalRecord = initialGoalRecord;
-    if (!goalRecord && userRecord) {
-      const weight = userRecord.weightKg && userRecord.weightKg > 0 ? userRecord.weightKg : 70;
-      const height = userRecord.heightCm && userRecord.heightCm > 0 ? userRecord.heightCm : 175;
-      const isFemale = (userRecord.sex || "").toLowerCase().includes("female");
-      let age = 25;
-      if (userRecord.dateOfBirth) {
-        const diffMs = Date.now() - new Date(userRecord.dateOfBirth).getTime();
-        const computedAge = Math.floor(diffMs / (365.25 * 24 * 60 * 60 * 1000));
-        if (computedAge >= 14 && computedAge <= 100) age = computedAge;
-      }
-      const bmr = 10 * weight + 6.25 * height - 5 * age + (isFemale ? -161 : 5);
-      const freq = (userRecord.workoutFrequency || "").toLowerCase();
-      let activityMult = 1.4;
-      if (freq.includes("7+") || freq.includes("daily")) activityMult = 1.725;
-      else if (freq.includes("4-6") || freq.includes("5")) activityMult = 1.55;
-      else if (freq.includes("0-4") || freq.includes("1-3")) activityMult = 1.35;
-      let tdee = bmr * activityMult;
-      const pGoal = (userRecord.primaryGoal || "").toLowerCase();
-      if (pGoal.includes("lose")) tdee -= 400;
-      else if (pGoal.includes("build") || pGoal.includes("muscle")) tdee += 300;
-      const dailyCalorieGoal = Math.max(1200, Math.min(4500, Math.round(tdee / 50) * 50));
-      const proteinGoal =
-        userRecord.customDailyProteinGoal ||
-        userRecord.proteinGoalGrams ||
-        Math.max(60, Math.min(260, Math.round(weight * 1.8)));
-      const fatGoal = Math.max(40, Math.min(120, Math.round((dailyCalorieGoal * 0.25) / 9)));
-      const carbCalories = dailyCalorieGoal - proteinGoal * 4 - fatGoal * 9;
-      const carbohydrateGoal = Math.max(100, Math.min(600, Math.round(carbCalories / 4)));
+    const baseline = calculateBaselineGoals({
+      weightKg: userRecord?.weightKg,
+      heightCm: userRecord?.heightCm,
+      sex: userRecord?.sex,
+      dateOfBirth: userRecord?.dateOfBirth,
+      workoutFrequency: userRecord?.workoutFrequency,
+      primaryGoal: userRecord?.primaryGoal,
+      customDailyProteinGoal: userRecord?.customDailyProteinGoal,
+      proteinGoalGrams: userRecord?.proteinGoalGrams,
+    });
 
+    if (!goalRecord && userRecord) {
       try {
         goalRecord = await withDbRetry(() =>
           prisma.nutritionGoal.create({
             data: {
               userId,
-              dailyCalorieGoal,
-              proteinGoal,
-              carbohydrateGoal,
-              fatGoal,
-              calorieTarget: dailyCalorieGoal,
-              proteinTarget: proteinGoal,
-              carbsTarget: carbohydrateGoal,
-              fatsTarget: fatGoal,
-              waterGoalMl: 3000,
+              dailyCalorieGoal: baseline.dailyCalorieGoal,
+              proteinGoal: baseline.proteinGoal,
+              carbohydrateGoal: baseline.carbohydrateGoal,
+              fatGoal: baseline.fatGoal,
+              calorieTarget: baseline.dailyCalorieGoal,
+              proteinTarget: baseline.proteinGoal,
+              carbsTarget: baseline.carbohydrateGoal,
+              fatsTarget: baseline.fatGoal,
+              waterGoalMl: baseline.waterGoalMl,
               onboardingCompleted: true,
               sex: userRecord.sex,
               dateOfBirth: userRecord.dateOfBirth,
@@ -119,16 +114,20 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const targetCalories = goalRecord?.calorieTarget ?? goalRecord?.dailyCalorieGoal ?? 2000;
+    const targetCalories =
+      goalRecord?.calorieTarget || goalRecord?.dailyCalorieGoal || baseline.dailyCalorieGoal;
     const targetProtein =
-      goalRecord?.proteinTarget ??
-      goalRecord?.proteinGoal ??
-      userRecord?.customDailyProteinGoal ??
-      userRecord?.proteinGoalGrams ??
-      120;
-    const targetCarbs = goalRecord?.carbsTarget ?? goalRecord?.carbohydrateGoal ?? 250;
-    const targetFat = goalRecord?.fatsTarget ?? goalRecord?.fatGoal ?? 65;
-    const targetWater = goalRecord?.waterGoalMl ?? 3000;
+      goalRecord?.proteinTarget ||
+      goalRecord?.proteinGoal ||
+      userRecord?.customDailyProteinGoal ||
+      userRecord?.proteinGoalGrams ||
+      baseline.proteinGoal;
+    const targetCarbs =
+      goalRecord?.carbsTarget || goalRecord?.carbohydrateGoal || baseline.carbohydrateGoal;
+    const targetFat =
+      goalRecord?.fatsTarget || goalRecord?.fatGoal || baseline.fatGoal;
+    const targetWater =
+      goalRecord?.waterGoalMl || baseline.waterGoalMl;
 
     // 2. Fetch food logs for targetDate
     const logs = await withDbRetry(() =>
@@ -200,7 +199,16 @@ export async function GET(req: NextRequest) {
     consumedCarbs = Math.round(consumedCarbs * 10) / 10;
     consumedFat = Math.round(consumedFat * 10) / 10;
 
-    const remainingCalories = Math.max(0, Math.round((targetCalories - consumedCalories) * 10) / 10);
+    // Active calories (burned calories) from DailyHealthMetric
+    const activeCalories = todayMetric?.activeCalories
+      ? Math.round(todayMetric.activeCalories * 10) / 10
+      : 0;
+
+    // Calculate remaining calories: Math.max(0, calorieTarget - consumedCalories + (todayMetric?.activeCalories || 0))
+    const remainingCalories = Math.max(
+      0,
+      Math.round((targetCalories - consumedCalories + (todayMetric?.activeCalories || 0)) * 10) / 10
+    );
     const remainingProtein = Math.max(0, Math.round((targetProtein - consumedProtein) * 10) / 10);
     const remainingCarbs = Math.max(0, Math.round((targetCarbs - consumedCarbs) * 10) / 10);
     const remainingFat = Math.max(0, Math.round((targetFat - consumedFat) * 10) / 10);
@@ -265,15 +273,19 @@ export async function GET(req: NextRequest) {
       targets: {
         calories: targetCalories,
         calorieTarget: targetCalories,
+        dailyCalorieGoal: targetCalories,
         protein: targetProtein,
         proteinTarget: targetProtein,
         proteinGrams: targetProtein,
+        proteinGoal: targetProtein,
         carbs: targetCarbs,
         carbsTarget: targetCarbs,
         carbsGrams: targetCarbs,
+        carbohydrateGoal: targetCarbs,
         fat: targetFat,
         fatsTarget: targetFat,
         fatGrams: targetFat,
+        fatGoal: targetFat,
         waterMl: targetWater,
         waterGoalMl: targetWater,
       },
@@ -285,6 +297,32 @@ export async function GET(req: NextRequest) {
         carbs: consumedCarbs,
         fat: consumedFat,
       },
+      activeCalories,
+      burnedCalories: activeCalories,
+      todayActiveCalories: activeCalories,
+      todayMetric: todayMetric
+        ? {
+            date: todayMetric.dateKey,
+            steps: todayMetric.steps,
+            activeCalories: todayMetric.activeCalories,
+            restingCalories: todayMetric.restingCalories,
+            totalCalories: todayMetric.totalCalories,
+            avgHeartRate: todayMetric.avgHeartRate,
+            distanceMeters: todayMetric.distanceMeters ?? 0,
+            syncedAt: todayMetric.syncedAt,
+            source: todayMetric.source,
+          }
+        : null,
+      healthMetric: todayMetric
+        ? {
+            steps: todayMetric.steps,
+            activeCalories: todayMetric.activeCalories,
+            heartRate: todayMetric.avgHeartRate,
+            avgHeartRate: todayMetric.avgHeartRate,
+            distanceMeters: todayMetric.distanceMeters ?? 0,
+            syncedAt: todayMetric.syncedAt,
+          }
+        : null,
       remaining: {
         calories: remainingCalories,
         protein: remainingProtein,

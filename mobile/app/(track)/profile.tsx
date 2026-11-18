@@ -20,7 +20,15 @@ import { cartActions } from '../../src/store/cartStore';
 import { useHealthSync } from '../../src/services/useHealthSync';
 import { API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL } from '../../src/config/api';
 import RazorpayCheckout from 'react-native-razorpay';
-import { createWalletOrder, verifyWalletPayment } from '../../src/services/walletService';
+import {
+  createWalletOrder,
+  verifyWalletPayment,
+  executeRazorpayWalletRecharge,
+} from '../../src/services/walletService';
+import {
+  getNotificationPreferences,
+  setNotificationPreferences,
+} from '../../src/services/notifications';
 import {
   ShieldCheck,
   MapPin,
@@ -38,6 +46,7 @@ import {
   LogIn,
   Lock,
   Wallet,
+  Bell,
 } from 'lucide-react-native';
 
 const SEX_OPTIONS = ['Male', 'Female', 'Prefer not to say'] as const;
@@ -74,17 +83,28 @@ async function getAuthToken(): Promise<string | null> {
 
 export default function TrackProfileScreen() {
   const router = useRouter();
-  const { user, passBalance, updateProfile, topUpPass, signOut, fetchMe, isLoading, isAuthenticated } = useAuthStore();
+  const {
+    user,
+    passBalance,
+    updateProfile,
+    signOut,
+    fetchMe,
+    isLoading,
+    isAuthenticated,
+    nutritionGoal,
+    updateGoals,
+  } = useAuthStore();
   const { targets, updateTargets } = useHealthSync();
   const isGuest = !isAuthenticated || !user || Boolean(user.isGuest);
   const [isProcessingTopUp, setIsProcessingTopUp] = useState(false);
 
+  const effectiveGoal = nutritionGoal || (user as any)?.nutritionGoal || (user as any)?.goals;
   const [isEditingGoals, setIsEditingGoals] = useState(false);
-  const [editCalories, setEditCalories] = useState(String(targets.calories || 2000));
-  const [editProtein, setEditProtein] = useState(String(targets.proteinGrams || 120));
-  const [editCarbs, setEditCarbs] = useState(String(targets.carbsGrams || 250));
-  const [editFat, setEditFat] = useState(String(targets.fatGrams || 65));
-  const [editWater, setEditWater] = useState(String(targets.waterMl || 3000));
+  const [editCalories, setEditCalories] = useState(String(effectiveGoal?.calorieTarget || targets.calories || 2000));
+  const [editProtein, setEditProtein] = useState(String(effectiveGoal?.proteinTarget || targets.proteinGrams || 120));
+  const [editCarbs, setEditCarbs] = useState(String(effectiveGoal?.carbsTarget || targets.carbsGrams || 250));
+  const [editFat, setEditFat] = useState(String(effectiveGoal?.fatsTarget || targets.fatGrams || 65));
+  const [editWater, setEditWater] = useState(String(effectiveGoal?.waterGoalMl || targets.waterMl || 3000));
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
 
   // Baseline & Diet Preferences State
@@ -99,6 +119,31 @@ export default function TrackProfileScreen() {
   const [editDietitianHistory, setEditDietitianHistory] = useState<string>('No');
   const [isSavingBaseline, setIsSavingBaseline] = useState(false);
 
+  // Notification Preferences State
+  const [orderUpdates, setOrderUpdates] = useState<boolean>(true);
+  const [mealWaterReminders, setMealWaterReminders] = useState<boolean>(true);
+
+  useEffect(() => {
+    getNotificationPreferences().then((prefs) => {
+      setOrderUpdates(prefs.orderUpdates);
+      setMealWaterReminders(prefs.reminders);
+    }).catch(() => null);
+  }, []);
+
+  const handleToggleOrderUpdates = async (val: boolean) => {
+    setOrderUpdates(val);
+    await setNotificationPreferences({ orderUpdates: val });
+    setFeedbackNotice(val ? 'Order updates enabled.' : 'Order updates disabled.');
+  };
+
+  const handleToggleMealWaterReminders = async (val: boolean) => {
+    setMealWaterReminders(val);
+    await setNotificationPreferences({ reminders: val });
+    setFeedbackNotice(
+      val ? 'Meal & water reminders scheduled.' : 'Meal & water reminders disabled.'
+    );
+  };
+
   useEffect(() => {
     fetchMe();
   }, []);
@@ -106,25 +151,33 @@ export default function TrackProfileScreen() {
   useEffect(() => {
     if (user) {
       const u = user as any;
-      if (u.weightKg) setEditWeight(String(u.weightKg));
-      if (u.heightCm) setEditHeight(String(u.heightCm));
-      if (u.sex || u.gender) setEditSex(u.sex || u.gender);
-      if (u.workoutFrequency || u.activityLevel) setEditWorkoutFreq(u.workoutFrequency || u.activityLevel);
-      if (u.primaryGoal || u.primaryNutritionGoal) setEditPrimaryGoal(u.primaryGoal || u.primaryNutritionGoal);
-      if (u.dietPreference) setEditDietPref(u.dietPreference);
-      if (typeof u.calorieRollover === 'boolean') setEditCalorieRollover(u.calorieRollover);
+      const g = nutritionGoal || u.nutritionGoal || u.goals;
+      if (u.weightKg || g?.weightKg) setEditWeight(String(u.weightKg || g?.weightKg));
+      if (u.heightCm || g?.heightCm) setEditHeight(String(u.heightCm || g?.heightCm));
+      if (u.sex || u.gender || g?.sex) setEditSex(u.sex || u.gender || g?.sex);
+      if (u.workoutFrequency || u.activityLevel || g?.workoutFrequency) setEditWorkoutFreq(u.workoutFrequency || u.activityLevel || g?.workoutFrequency);
+      if (u.primaryGoal || u.primaryNutritionGoal || g?.primaryGoal) setEditPrimaryGoal(u.primaryGoal || u.primaryNutritionGoal || g?.primaryGoal);
+      if (u.dietPreference || g?.dietPreference) setEditDietPref(u.dietPreference || g?.dietPreference);
+      if (typeof g?.calorieRollover === 'boolean') setEditCalorieRollover(g.calorieRollover);
+      else if (typeof u.calorieRollover === 'boolean') setEditCalorieRollover(u.calorieRollover);
       else if (typeof u.calorieRolloverEnabled === 'boolean') setEditCalorieRollover(u.calorieRolloverEnabled);
-      if (u.dietitianConsulted) setEditDietitianHistory(u.dietitianConsulted);
+      if (u.dietitianConsulted || g?.dietitianConsulted) setEditDietitianHistory(u.dietitianConsulted || g?.dietitianConsulted);
     }
-  }, [user]);
+  }, [user, nutritionGoal]);
 
   useEffect(() => {
-    setEditCalories(String(targets.calories || 2000));
-    setEditProtein(String(targets.proteinGrams || 120));
-    setEditCarbs(String(targets.carbsGrams || 250));
-    setEditFat(String(targets.fatGrams || 65));
-    setEditWater(String(targets.waterMl || 3000));
-  }, [targets]);
+    const goalCal = nutritionGoal?.calorieTarget || nutritionGoal?.dailyCalorieGoal || targets.calories || 2000;
+    const goalProt = nutritionGoal?.proteinTarget || nutritionGoal?.proteinGoal || targets.proteinGrams || 120;
+    const goalCarbs = nutritionGoal?.carbsTarget || nutritionGoal?.carbohydrateGoal || targets.carbsGrams || 250;
+    const goalFat = nutritionGoal?.fatsTarget || nutritionGoal?.fatGoal || targets.fatGrams || 65;
+    const goalWater = nutritionGoal?.waterGoalMl || targets.waterMl || 3000;
+
+    setEditCalories(String(goalCal));
+    setEditProtein(String(goalProt));
+    setEditCarbs(String(goalCarbs));
+    setEditFat(String(goalFat));
+    setEditWater(String(goalWater));
+  }, [targets, nutritionGoal]);
 
   const saveGoalsToBackend = async (extraPayload: Record<string, any> = {}) => {
     const payload = {
@@ -186,18 +239,55 @@ export default function TrackProfileScreen() {
       waterMl: newWater,
     });
     setIsEditingGoals(false);
+
+    // Update useAuthStore immediately
+    try {
+      await updateGoals({
+        calorieTarget: newCalories,
+        dailyCalorieGoal: newCalories,
+        proteinTarget: newProtein,
+        proteinGoal: newProtein,
+        carbsTarget: newCarbs,
+        carbohydrateGoal: newCarbs,
+        fatsTarget: newFat,
+        fatGoal: newFat,
+        waterGoalMl: newWater,
+      });
+    } catch (storeErr) {
+      console.warn('[Profile] Store goals update warning:', storeErr);
+    }
+
     await saveGoalsToBackend({
       dailyCalorieGoal: newCalories,
+      calorieTarget: newCalories,
       proteinGoal: newProtein,
+      proteinTarget: newProtein,
       carbohydrateGoal: newCarbs,
+      carbsTarget: newCarbs,
       fatGoal: newFat,
+      fatsTarget: newFat,
       waterGoal: newWater,
+      waterGoalMl: newWater,
     });
     setFeedbackNotice('Nutrition & macro targets updated successfully!');
   };
 
   const handleSaveBaseline = async () => {
     setIsSavingBaseline(true);
+    try {
+      await updateGoals({
+        weightKg: parseFloat(editWeight) || undefined,
+        heightCm: parseFloat(editHeight) || undefined,
+        sex: editSex,
+        workoutFrequency: editWorkoutFreq,
+        primaryGoal: editPrimaryGoal,
+        dietPreference: editDietPref,
+        calorieRollover: editCalorieRollover,
+        dietitianConsulted: editDietitianHistory,
+      });
+    } catch (storeErr) {
+      console.warn('[Profile] Store baseline update warning:', storeErr);
+    }
     await saveGoalsToBackend();
     setIsSavingBaseline(false);
     setIsEditingBaseline(false);
@@ -234,60 +324,29 @@ export default function TrackProfileScreen() {
 
     setIsProcessingTopUp(true);
     try {
-      const orderData = await createWalletOrder(amount);
-      const isNativeRazorpayAvailable =
-        typeof RazorpayCheckout !== 'undefined' &&
-        typeof (RazorpayCheckout as any)?.open === 'function';
-
-      if (!isNativeRazorpayAvailable) {
-        router.push('/wallet');
-        setIsProcessingTopUp(false);
-        return;
-      }
-
-      const options = {
-        key: orderData.keyId || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_nutriflexs_demo',
-        order_id: orderData.razorpayOrderId,
-        amount: orderData.amount,
-        currency: orderData.currency || 'INR',
-        name: 'NutriFlexs',
-        description: `NutriFlexs Wallet Top-Up (₹${amount})`,
-        image: 'https://nutriflexs.com/logo.png',
-        prefill: {
-          email: user?.email || '',
-          contact: user?.phone || '',
-          name: user?.name || '',
-        },
-        theme: { color: '#1D4D3E' },
-      };
-
-      const paymentResult = await RazorpayCheckout.open(options);
-      const verifyRes = await verifyWalletPayment({
-        razorpay_order_id: paymentResult.razorpay_order_id,
-        razorpay_payment_id: paymentResult.razorpay_payment_id,
-        razorpay_signature: paymentResult.razorpay_signature,
-        amount,
-      });
-
-      if (verifyRes.success && typeof verifyRes.passBalance === 'number') {
-        updateProfile({ passBalance: verifyRes.passBalance });
-        setFeedbackNotice(`Added ₹${amount} to NutriFlexs Wallet. New balance: ₹${verifyRes.passBalance.toLocaleString('en-IN')}`);
-      } else {
-        topUpPass(amount);
-        const newBal = (user?.passBalance || 0) + amount;
-        setFeedbackNotice(`Added ₹${amount} to NutriFlexs Wallet. New balance: ₹${newBal.toLocaleString('en-IN')}`);
-      }
+      const { newBalance } = await executeRazorpayWalletRecharge(amount, user);
+      setFeedbackNotice(`Added ₹${amount.toLocaleString('en-IN')} to NutriFlexs Wallet. New balance: ₹${newBalance.toLocaleString('en-IN')}`);
+      Alert.alert(
+        'Top-Up Successful',
+        `₹${amount.toLocaleString('en-IN')} has been added to your NutriFlexs Wallet.\nNew Balance: ₹${newBalance.toLocaleString('en-IN')}`,
+        [{ text: 'Great!' }]
+      );
     } catch (err: any) {
-      const errorDesc = err?.error?.description || err?.description || err?.message || 'Payment cancelled';
+      const errorMsg = err?.message || 'Payment cancelled';
       const isCancelled =
-        errorDesc.toLowerCase().includes('cancel') ||
-        errorDesc.toLowerCase().includes('dismiss') ||
-        errorDesc.toLowerCase().includes('closed') ||
-        err?.code === 0;
+        err?.isCancellation ||
+        errorMsg.toLowerCase().includes('cancel') ||
+        errorMsg.toLowerCase().includes('dismiss') ||
+        errorMsg.toLowerCase().includes('closed') ||
+        err?.code === 0 ||
+        err?.code === 2;
 
-      if (!isCancelled) {
-        Alert.alert('Top-Up Notice', errorDesc || 'Top-up could not be completed.');
-      }
+      Alert.alert(
+        isCancelled ? 'Payment Cancelled' : 'Payment Status',
+        isCancelled
+          ? 'Payment Cancelled — No amount was deducted.'
+          : (errorMsg || 'Payment was not completed. No amount was deducted.')
+      );
     } finally {
       setIsProcessingTopUp(false);
     }
@@ -303,21 +362,54 @@ export default function TrackProfileScreen() {
           text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
-            await signOut();
+            // 1. Clear SecureStore
+            try {
+              const SecureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
+              if (SecureStore && typeof SecureStore.deleteItemAsync === 'function') {
+                const secureKeys = ['token', 'auth_token', 'jwt_token', 'user_session_jwt', 'last_active_mode'];
+                await Promise.allSettled(secureKeys.map((k: string) => SecureStore.deleteItemAsync(k)));
+              }
+            } catch {}
+
+            // 2. Clear AsyncStorage session snapshot
+            try {
+              const asyncStorageMod = typeof require !== 'undefined' ? require('@react-native-async-storage/async-storage') : null;
+              const AsyncStorage = asyncStorageMod?.default || asyncStorageMod;
+              if (AsyncStorage && typeof AsyncStorage.removeItem === 'function') {
+                const storageKeys = ['auth_session', 'user_profile', 'nutrition_goal', 'last_active_mode', 'cart_items'];
+                await Promise.allSettled(storageKeys.map((k: string) => AsyncStorage.removeItem(k)));
+              }
+            } catch {}
+
+            // 3. Clear useAuthStore
+            try {
+              await signOut();
+            } catch {}
+
+            // 4. Clear cartStore
             try {
               cartActions.clearCart();
               cartActions.setPassApplied(false);
               cartActions.removeTrainerCode();
-            } catch {
-              // Cart cleanup fallback
-            }
+            } catch {}
+
+            // 5. Clear TanStack cache
+            try {
+              const g = (typeof globalThis !== 'undefined' ? globalThis : global) as any;
+              if (g?.queryClient && typeof g.queryClient.clear === 'function') {
+                g.queryClient.clear();
+              }
+              if (g?.__REACT_QUERY_CLIENT__ && typeof g.__REACT_QUERY_CLIENT__.clear === 'function') {
+                g.__REACT_QUERY_CLIENT__.clear();
+              }
+            } catch {}
+
+            // 6. Call router.dismissAll() + router.replace('/welcome')
             try {
               if (typeof (router as any).dismissAll === 'function') {
                 (router as any).dismissAll();
               }
-            } catch {
-              // Dismiss stack fallback
-            }
+            } catch {}
             router.replace('/welcome');
           },
         },
@@ -378,7 +470,7 @@ export default function TrackProfileScreen() {
             <View style={styles.athleteTopRow}>
               <View style={styles.avatarCircle}>
                 <Text style={styles.avatarText}>
-                  {computeAvatarInitials(user?.name)}
+                  {user?.avatarInitials || computeAvatarInitials(user?.name)}
                 </Text>
               </View>
 
@@ -902,7 +994,7 @@ export default function TrackProfileScreen() {
               <Sparkles size={18} color="#1D4D3E" />
             </View>
             <View>
-              <Text style={styles.linkCardTitle}>Activity & Wearables</Text>
+              <Text style={styles.linkCardTitle}>Activity & Health Sync</Text>
               <Text style={styles.linkCardSubtitle}>
                 Manage watches, step tracking & sync logs
               </Text>
@@ -910,6 +1002,51 @@ export default function TrackProfileScreen() {
           </View>
           <ChevronRight size={18} color="#9CA3AF" />
         </TouchableOpacity>
+
+        {/* Notifications & Reminders Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeaderRow}>
+            <View style={styles.cardTitleWithIcon}>
+              <Bell size={18} color="#1D4D3E" style={{ marginRight: 8 }} />
+              <View>
+                <Text style={styles.cardTitle}>Notifications & Alerts</Text>
+                <Text style={styles.cardSubtitle}>
+                  Order updates & nutrition reminders
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.switchRow}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={styles.switchTitle}>Order Updates</Text>
+              <Text style={styles.switchSubtitle}>
+                Instant notifications when your meal is preparing and ready at the kiosk
+              </Text>
+            </View>
+            <Switch
+              value={orderUpdates}
+              onValueChange={handleToggleOrderUpdates}
+              trackColor={{ false: '#D1D5DB', true: '#1D4D3E' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          <View style={[styles.switchRow, { marginBottom: 0 }]}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={styles.switchTitle}>Meal & Water Reminders</Text>
+              <Text style={styles.switchSubtitle}>
+                Scheduled daily reminders to log meals, hit protein goals, and stay hydrated
+              </Text>
+            </View>
+            <Switch
+              value={mealWaterReminders}
+              onValueChange={handleToggleMealWaterReminders}
+              trackColor={{ false: '#D1D5DB', true: '#1D4D3E' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+        </View>
 
         {/* 5. Auth Action Button */}
         {isGuest ? (

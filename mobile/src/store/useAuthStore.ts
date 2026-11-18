@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { cartActions } from './cartStore';
+import { API_BASE_URL } from '../config/api';
 
 export interface NutritionGoalProfile {
   id?: string;
@@ -81,6 +82,7 @@ export interface AuthState {
   user: UserProfile | null;
   token: string | null;
   nutritionGoal: NutritionGoalProfile | null;
+  lastMode?: 'track' | 'order' | string;
   isLoading: boolean;
   isAuthenticated: boolean;
   error: string | null;
@@ -123,8 +125,16 @@ export const DEFAULT_USER: UserProfile | null = null;
 
 // Storage keys
 const SECURE_STORE_TOKEN_KEYS = ['jwt_token', 'auth_token', 'token'] as const;
+const ASYNC_STORAGE_SESSION_KEY = 'nutriflex_session';
 const ASYNC_STORAGE_USER_KEY = 'nutriflex_user';
 const ASYNC_STORAGE_GOAL_KEY = 'nutriflex_nutrition_goal';
+const ASYNC_STORAGE_LAST_MODE_KEY = 'last_active_mode';
+
+export interface SessionCache {
+  user: UserProfile | null;
+  nutritionGoal: NutritionGoalProfile | null;
+  lastMode?: 'track' | 'order' | string;
+}
 
 // In-memory fallback for environments where native storage is unavailable
 const memoryCache = new Map<string, string>();
@@ -284,6 +294,7 @@ let state: AuthState = {
   user: null,
   token: null,
   nutritionGoal: null,
+  lastMode: 'track',
   isLoading: false,
   isAuthenticated: false,
   error: null,
@@ -298,12 +309,73 @@ function notify() {
 }
 
 /**
+ * Persists session:
+ * - Saves `token` in `expo-secure-store`
+ * - Saves `{ user, nutritionGoal, lastMode }` in `@react-native-async-storage/async-storage`
+ * (with resilient in-memory/web fallbacks)
+ */
+export async function persistSession(params: {
+  token?: string | null;
+  user?: UserProfile | null;
+  nutritionGoal?: NutritionGoalProfile | null;
+  lastMode?: 'track' | 'order' | string | null;
+}): Promise<void> {
+  const token = params.token !== undefined ? params.token : state.token;
+  const user = params.user !== undefined ? params.user : state.user;
+  const nutritionGoal = params.nutritionGoal !== undefined ? params.nutritionGoal : state.nutritionGoal;
+  const lastMode = params.lastMode !== undefined && params.lastMode !== null ? params.lastMode : (state.lastMode || 'track');
+
+  const promises: Promise<any>[] = [];
+
+  // 1. Save token in expo-secure-store (with resilient fallbacks)
+  if (token) {
+    promises.push(writeTokenToSecureStore(token));
+  }
+
+  // 2. Save { user, nutritionGoal, lastMode } in @react-native-async-storage/async-storage
+  const sessionData: SessionCache = {
+    user,
+    nutritionGoal,
+    lastMode,
+  };
+  promises.push(writeItemToAsyncStorage(ASYNC_STORAGE_SESSION_KEY, sessionData));
+
+  // Mirror individual keys for backwards compatibility across existing readers
+  if (user) {
+    promises.push(writeItemToAsyncStorage(ASYNC_STORAGE_USER_KEY, user));
+  }
+  if (nutritionGoal) {
+    promises.push(writeItemToAsyncStorage(ASYNC_STORAGE_GOAL_KEY, nutritionGoal));
+  } else {
+    promises.push(removeItemFromAsyncStorage(ASYNC_STORAGE_GOAL_KEY));
+  }
+  if (lastMode) {
+    promises.push(writeItemToAsyncStorage(ASYNC_STORAGE_LAST_MODE_KEY, lastMode));
+  }
+
+  await Promise.allSettled(promises);
+}
+
+/**
+ * Clears persisted session from SecureStore and AsyncStorage
+ */
+export async function clearPersistedSession(): Promise<void> {
+  await Promise.allSettled([
+    clearSecureStoreToken(),
+    removeItemFromAsyncStorage(ASYNC_STORAGE_SESSION_KEY),
+    removeItemFromAsyncStorage(ASYNC_STORAGE_USER_KEY),
+    removeItemFromAsyncStorage(ASYNC_STORAGE_GOAL_KEY),
+    removeItemFromAsyncStorage(ASYNC_STORAGE_LAST_MODE_KEY),
+  ]);
+}
+
+/**
  * Background refresh of authenticated user via GET /api/mobile/auth/me
  * Only clears auth on HTTP 401 Unauthorized; never on offline or network timeouts.
  */
 async function fetchMeBackground(token: string): Promise<void> {
   try {
-    const base = (process.env.EXPO_PUBLIC_API_URL || 'https://nutri-flexs.vercel.app').replace(/\/+$/, '');
+    const base = API_BASE_URL;
     const res = await fetch(`${base}/api/mobile/auth/me`, {
       method: 'GET',
       headers: {
@@ -342,11 +414,13 @@ async function fetchMeBackground(token: string): Promise<void> {
         };
         notify();
 
-        // Update AsyncStorage cache with latest server data
-        await Promise.allSettled([
-          writeItemToAsyncStorage(ASYNC_STORAGE_USER_KEY, updatedUser),
-          userGoal ? writeItemToAsyncStorage(ASYNC_STORAGE_GOAL_KEY, userGoal) : Promise.resolve(),
-        ]);
+        // Update AsyncStorage cache with latest { user, nutritionGoal, lastMode } and SecureStore token
+        await persistSession({
+          token,
+          user: updatedUser,
+          nutritionGoal: userGoal,
+          lastMode: state.lastMode || 'track',
+        });
       }
     }
     // Any other HTTP code (500, 502, 503, 404, etc.): do not wipe auth!
@@ -358,7 +432,7 @@ async function fetchMeBackground(token: string): Promise<void> {
 
 export const authActions = {
   /**
-   * Async hydration method: loads token from SecureStore and user + goal from AsyncStorage.
+   * Async hydration method: loads token from SecureStore and user + nutritionGoal from AsyncStorage.
    * On cold start, if token & user exist, stay logged in. In the background call GET /api/mobile/auth/me
    * to refresh; only clear auth if the server returns HTTP 401 Unauthorized (never on network timeout or offline).
    */
@@ -367,6 +441,7 @@ export const authActions = {
     user: UserProfile | null;
     token: string | null;
     nutritionGoal: NutritionGoalProfile | null;
+    lastMode: string;
   }> => {
     state = { ...state, isLoading: true, error: null };
     notify();
@@ -374,11 +449,30 @@ export const authActions = {
     let token: string | null = null;
     let user: UserProfile | null = null;
     let nutritionGoal: NutritionGoalProfile | null = null;
+    let lastMode: string = 'track';
 
     try {
       token = await readTokenFromSecureStore();
-      user = await readItemFromAsyncStorage<UserProfile>(ASYNC_STORAGE_USER_KEY);
-      nutritionGoal = await readItemFromAsyncStorage<NutritionGoalProfile>(ASYNC_STORAGE_GOAL_KEY);
+
+      // 1. Load session { user, nutritionGoal, lastMode } from AsyncStorage
+      const session = await readItemFromAsyncStorage<SessionCache>(ASYNC_STORAGE_SESSION_KEY);
+      if (session && typeof session === 'object') {
+        user = session.user || null;
+        nutritionGoal = session.nutritionGoal || null;
+        if (session.lastMode) lastMode = session.lastMode;
+      }
+
+      // 2. Resilient fallbacks for individual keys
+      if (!user) {
+        user = await readItemFromAsyncStorage<UserProfile>(ASYNC_STORAGE_USER_KEY);
+      }
+      if (!nutritionGoal) {
+        nutritionGoal = await readItemFromAsyncStorage<NutritionGoalProfile>(ASYNC_STORAGE_GOAL_KEY);
+      }
+      const storedLastMode = await readItemFromAsyncStorage<string>(ASYNC_STORAGE_LAST_MODE_KEY);
+      if (storedLastMode) {
+        lastMode = storedLastMode;
+      }
     } catch (storageErr) {
       console.warn('[useAuthStore hydrate storage read error]:', storageErr);
     }
@@ -396,13 +490,15 @@ export const authActions = {
         token,
         user: normalizedUser,
         nutritionGoal: mergedGoal,
+        lastMode,
         isAuthenticated: true,
         isLoading: false,
         error: null,
       };
       notify();
 
-      // Trigger non-blocking background refresh
+      // Trigger non-blocking background refresh:
+      // ONLY clear session if server returns HTTP 401 Unauthorized (never on network timeout or offline)
       fetchMeBackground(token).catch(() => {});
 
       return {
@@ -410,6 +506,7 @@ export const authActions = {
         user: normalizedUser,
         token,
         nutritionGoal: mergedGoal,
+        lastMode,
       };
     }
 
@@ -419,6 +516,7 @@ export const authActions = {
       token: null,
       user: null,
       nutritionGoal: null,
+      lastMode: 'track',
       isAuthenticated: false,
       isLoading: false,
       error: null,
@@ -430,20 +528,23 @@ export const authActions = {
       user: null,
       token: null,
       nutritionGoal: null,
+      lastMode: 'track',
     };
   },
 
   /**
-   * Persists { token, user, nutritionGoal } in expo-secure-store (token)
-   * and @react-native-async-storage/async-storage (user & goal cache) on login.
+   * Persists session: saves token in expo-secure-store and { user, nutritionGoal, lastMode }
+   * in @react-native-async-storage/async-storage on login.
    */
   login: async (params: {
     token: string;
     user: UserProfile;
     nutritionGoal?: NutritionGoalProfile | null;
+    lastMode?: 'track' | 'order' | string;
   }): Promise<void> => {
     const { token, user } = params;
     const nutritionGoal = params.nutritionGoal || user.nutritionGoal || user.goals || null;
+    const lastMode = params.lastMode || state.lastMode || 'track';
 
     const normalizedUser: UserProfile = {
       ...user,
@@ -457,34 +558,37 @@ export const authActions = {
       user: normalizedUser,
       token,
       nutritionGoal,
+      lastMode,
       isAuthenticated: true,
       isLoading: false,
       error: null,
     };
     notify();
 
-    await Promise.allSettled([
-      writeTokenToSecureStore(token),
-      writeItemToAsyncStorage(ASYNC_STORAGE_USER_KEY, normalizedUser),
-      nutritionGoal
-        ? writeItemToAsyncStorage(ASYNC_STORAGE_GOAL_KEY, nutritionGoal)
-        : removeItemFromAsyncStorage(ASYNC_STORAGE_GOAL_KEY),
-    ]);
+    await persistSession({
+      token,
+      user: normalizedUser,
+      nutritionGoal,
+      lastMode,
+    });
   },
 
   /**
-   * Persists { token, user, nutritionGoal } on register.
+   * Persists session: saves token in expo-secure-store and { user, nutritionGoal, lastMode }
+   * in @react-native-async-storage/async-storage on register.
    */
   register: async (params: {
     token: string;
     user: UserProfile;
     nutritionGoal?: NutritionGoalProfile | null;
+    lastMode?: 'track' | 'order' | string;
   }): Promise<void> => {
     await authActions.login(params);
   },
 
   /**
-   * Persists updated goals in @react-native-async-storage/async-storage on updateGoals.
+   * Persists session: saves token in expo-secure-store and { user, nutritionGoal, lastMode }
+   * in @react-native-async-storage/async-storage on updateGoals.
    */
   updateGoals: async (goal: Partial<NutritionGoalProfile>): Promise<void> => {
     const mergedGoal: NutritionGoalProfile = {
@@ -523,10 +627,25 @@ export const authActions = {
     };
     notify();
 
-    await Promise.allSettled([
-      writeItemToAsyncStorage(ASYNC_STORAGE_GOAL_KEY, mergedGoal),
-      updatedUser ? writeItemToAsyncStorage(ASYNC_STORAGE_USER_KEY, updatedUser) : Promise.resolve(),
-    ]);
+    await persistSession({
+      token: state.token,
+      user: updatedUser,
+      nutritionGoal: mergedGoal,
+      lastMode: state.lastMode || 'track',
+    });
+  },
+
+  /**
+   * Sets lastMode ('track' or 'order') and persists to storage
+   */
+  setLastMode: (mode: 'track' | 'order' | string) => {
+    const cleanMode = mode.includes('order') ? 'order' : 'track';
+    state = {
+      ...state,
+      lastMode: cleanMode,
+    };
+    notify();
+    persistSession({ lastMode: cleanMode }).catch(() => {});
   },
 
   /**
@@ -536,12 +655,14 @@ export const authActions = {
     token?: string;
     user?: any;
     nutritionGoal?: any;
+    lastMode?: string;
   }): Promise<void> => {
     if (params.token && params.user) {
       await authActions.login({
         token: params.token,
         user: params.user,
         nutritionGoal: params.nutritionGoal,
+        lastMode: params.lastMode,
       });
     } else if (params.user) {
       authActions.updateProfile(params.user);
@@ -549,12 +670,13 @@ export const authActions = {
   },
 
   /**
-   * Sets auth session and persists data
+   * Sets auth session and persists data to SecureStore and AsyncStorage
    */
   setAuthSession: (params: {
     user: UserProfile;
     token?: string;
     nutritionGoal?: NutritionGoalProfile | null;
+    lastMode?: 'track' | 'order' | string;
   }) => {
     const goal =
       params.nutritionGoal !== undefined
@@ -568,29 +690,30 @@ export const authActions = {
     };
 
     const token = params.token || state.token;
+    const lastMode = params.lastMode || state.lastMode || 'track';
 
     state = {
       ...state,
       user: normalizedUser,
       token,
       nutritionGoal: goal,
+      lastMode,
       isAuthenticated: true,
       isLoading: false,
       error: null,
     };
     notify();
 
-    if (token) {
-      writeTokenToSecureStore(token).catch(() => {});
-    }
-    writeItemToAsyncStorage(ASYNC_STORAGE_USER_KEY, normalizedUser).catch(() => {});
-    if (goal) {
-      writeItemToAsyncStorage(ASYNC_STORAGE_GOAL_KEY, goal).catch(() => {});
-    }
+    persistSession({
+      token,
+      user: normalizedUser,
+      nutritionGoal: goal,
+      lastMode,
+    }).catch(() => {});
   },
 
   /**
-   * Updates user profile and syncs nested goals to storage
+   * Updates user profile and syncs nested goals and session to storage
    */
   updateProfile: (updates: Partial<UserProfile>) => {
     if (!state.user) {
@@ -606,7 +729,7 @@ export const authActions = {
           isAuthenticated: true,
         };
         notify();
-        writeItemToAsyncStorage(ASYNC_STORAGE_USER_KEY, newUser).catch(() => {});
+        persistSession({ user: newUser, nutritionGoal: state.nutritionGoal }).catch(() => {});
       }
       return;
     }
@@ -624,10 +747,7 @@ export const authActions = {
     };
     notify();
 
-    writeItemToAsyncStorage(ASYNC_STORAGE_USER_KEY, mergedUser).catch(() => {});
-    if (state.nutritionGoal) {
-      writeItemToAsyncStorage(ASYNC_STORAGE_GOAL_KEY, state.nutritionGoal).catch(() => {});
-    }
+    persistSession({ user: mergedUser, nutritionGoal: state.nutritionGoal }).catch(() => {});
   },
 
   /**
@@ -642,12 +762,13 @@ export const authActions = {
         nutritionGoal: null,
       };
       notify();
-      removeItemFromAsyncStorage(ASYNC_STORAGE_GOAL_KEY).catch(() => {});
+      persistSession({ nutritionGoal: null }).catch(() => {});
     }
   },
 
   /**
    * Hydrates current authenticated user and nutrition goals from backend.
+   * Whenever me/fetchMe succeeds, persists token in SecureStore and { user, nutritionGoal, lastMode } in AsyncStorage.
    */
   fetchMe: async (): Promise<void> => {
     state = { ...state, isLoading: true, error: null };
@@ -666,14 +787,14 @@ export const authActions = {
         Authorization: `Bearer ${token}`,
       };
 
-      const base = (process.env.EXPO_PUBLIC_API_URL || 'https://nutri-flexs.vercel.app').replace(/\/+$/, '');
+      const base = API_BASE_URL;
       const res = await fetch(`${base}/api/mobile/auth/me`, {
         method: 'GET',
         headers,
       });
 
       if (res.status === 401) {
-        // Clear auth only on 401 Unauthorized
+        // Clear auth ONLY on 401 Unauthorized
         await authActions.signOut();
         return;
       }
@@ -681,12 +802,12 @@ export const authActions = {
       if (res.ok) {
         const data = await res.json();
         if (data?.user) {
-          const userGoal = data.nutritionGoal || data.user.nutritionGoal || data.user.goals || null;
+          const userGoal = data.nutritionGoal || data.user.nutritionGoal || data.user.goals || state.nutritionGoal;
           const updatedUser: UserProfile = {
             ...state.user,
             ...data.user,
             avatarInitials: computeAvatarInitials(data.user.name),
-            passBalance: typeof data.user.passBalance === 'number' ? data.user.passBalance : 0,
+            passBalance: typeof data.user.passBalance === 'number' ? data.user.passBalance : (state.user?.passBalance ?? 0),
             isGuest: false,
             nutritionGoal: userGoal,
           };
@@ -702,10 +823,12 @@ export const authActions = {
           };
           notify();
 
-          await Promise.allSettled([
-            writeItemToAsyncStorage(ASYNC_STORAGE_USER_KEY, updatedUser),
-            userGoal ? writeItemToAsyncStorage(ASYNC_STORAGE_GOAL_KEY, userGoal) : Promise.resolve(),
-          ]);
+          await persistSession({
+            token,
+            user: updatedUser,
+            nutritionGoal: userGoal,
+            lastMode: state.lastMode || 'track',
+          });
           return;
         }
       }
@@ -716,6 +839,13 @@ export const authActions = {
 
     state = { ...state, isLoading: false };
     notify();
+  },
+
+  /**
+   * Alias for fetchMe: refreshes session from GET /api/mobile/auth/me and persists
+   */
+  me: async (): Promise<void> => {
+    await authActions.fetchMe();
   },
 
   topUpPass: (amount: number) => {
@@ -729,7 +859,21 @@ export const authActions = {
       user: updatedUser,
     };
     notify();
-    writeItemToAsyncStorage(ASYNC_STORAGE_USER_KEY, updatedUser).catch(() => {});
+    persistSession({ user: updatedUser }).catch(() => {});
+  },
+
+  setPassBalance: (balance: number) => {
+    if (!state.user || !state.isAuthenticated || state.user.isGuest) return;
+    const updatedUser = {
+      ...state.user,
+      passBalance: Math.max(0, balance),
+    };
+    state = {
+      ...state,
+      user: updatedUser,
+    };
+    notify();
+    persistSession({ user: updatedUser }).catch(() => {});
   },
 
   resetAuth: () => {
@@ -737,6 +881,7 @@ export const authActions = {
       user: null,
       token: null,
       nutritionGoal: null,
+      lastMode: 'track',
       isLoading: false,
       isAuthenticated: false,
       error: null,
@@ -750,27 +895,22 @@ export const authActions = {
   },
 
   signOut: async () => {
-    // 1. Clear JWT tokens from expo-secure-store
-    await clearSecureStoreToken();
+    // 1. Clear JWT tokens from expo-secure-store and session cache from AsyncStorage
+    await clearPersistedSession();
 
-    // 2. Clear user and goal cache from AsyncStorage
-    await Promise.allSettled([
-      removeItemFromAsyncStorage(ASYNC_STORAGE_USER_KEY),
-      removeItemFromAsyncStorage(ASYNC_STORAGE_GOAL_KEY),
-    ]);
-
-    // 3. Reset auth state
+    // 2. Reset auth state
     state = {
       user: null,
       token: null,
       nutritionGoal: null,
+      lastMode: 'track',
       isLoading: false,
       isAuthenticated: false,
       error: null,
     };
     notify();
 
-    // 4. Reset cart
+    // 3. Reset cart
     try {
       cartActions.clearCart();
       cartActions.setPassApplied(false);
@@ -784,6 +924,7 @@ export function useAuthStore(): AuthState &
     passBalance: number;
     token: string | null;
     nutritionGoal: NutritionGoalProfile | null;
+    lastMode: string;
     avatarInitials: string;
     calorieTarget: number | null;
     proteinTarget: number | null;
@@ -807,6 +948,7 @@ export function useAuthStore(): AuthState &
     ...currentState,
     token: currentState.token,
     nutritionGoal: currentGoal,
+    lastMode: currentState.lastMode || 'track',
     passBalance: isAuthed ? (currentState.user?.passBalance ?? 0) : 0,
     avatarInitials: isAuthed ? (currentState.user?.avatarInitials || computeAvatarInitials(currentState.user?.name)) : '?',
     calorieTarget: currentGoal?.calorieTarget ?? currentGoal?.dailyCalorieGoal ?? currentState.user?.targets?.calories ?? null,
@@ -834,13 +976,17 @@ useAuthStore.subscribe = (fn: (s: AuthState) => void) => {
 useAuthStore.hydrate = authActions.hydrate;
 useAuthStore.login = authActions.login;
 useAuthStore.register = authActions.register;
-useAuthStore.updateGoals = authActions.updateGoals;
+useAuthStore.me = authActions.me;
 useAuthStore.fetchMe = authActions.fetchMe;
+useAuthStore.updateGoals = authActions.updateGoals;
+useAuthStore.setLastMode = authActions.setLastMode;
 useAuthStore.signOut = authActions.signOut;
 useAuthStore.setAuthSession = authActions.setAuthSession;
 useAuthStore.updateProfile = authActions.updateProfile;
 useAuthStore.setNutritionGoal = authActions.setNutritionGoal;
 useAuthStore.setAuth = authActions.setAuth;
 useAuthStore.resetAuth = authActions.resetAuth;
+useAuthStore.topUpPass = authActions.topUpPass;
+useAuthStore.setPassBalance = authActions.setPassBalance;
 
 export default useAuthStore;

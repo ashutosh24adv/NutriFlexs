@@ -26,9 +26,10 @@ function notify() {
   }
 }
 
+import { getLocalDateString } from '../utils/date';
+
 function getTodayDateStr(): string {
-  const now = new Date();
-  return now.toISOString().split('T')[0];
+  return getLocalDateString();
 }
 
 export const diaryActions = {
@@ -173,7 +174,7 @@ export function useDiaryStore() {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      const iso = d.toISOString().split('T')[0];
+      const iso = getLocalDateString(d);
       const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
       const mealsForDay = currentState.meals.filter((m) => m.dateStr === iso);
 
@@ -202,7 +203,7 @@ export function useDiaryStore() {
   for (let i = 0; i < 30; i++) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
-    const iso = d.toISOString().split('T')[0];
+    const iso = getLocalDateString(d);
     const hasMeals = currentState.meals.some((m) => m.dateStr === iso);
     if (hasMeals) {
       streakDays++;

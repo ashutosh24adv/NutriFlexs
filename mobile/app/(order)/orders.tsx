@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Platform,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -18,6 +19,8 @@ import {
 } from 'lucide-react-native';
 import { useCartStore } from '../../src/store/cartStore';
 import { useAuthStore } from '../../src/store/authStore';
+import { getAuthToken } from '../../src/services/apiClient';
+import { API_BASE_URL } from '../../src/config/api';
 
 interface ParsedItem {
   id: string;
@@ -135,6 +138,7 @@ export default function OrdersScreen() {
 
   const [orders, setOrders] = useState<RawOrder[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const fetchOrders = useCallback(async () => {
     setIsLoading(true);
@@ -144,32 +148,23 @@ export default function OrdersScreen() {
         return;
       }
 
-      let token: string | null = null;
-      try {
-        const SecureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
-        if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
-          for (const key of ['token', 'jwt_token', 'auth_token']) {
-            const val = await SecureStore.getItemAsync(key);
-            if (val) {
-              token = val.trim();
-              break;
-            }
-          }
-        }
-      } catch {}
-
+      const token = await getAuthToken();
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       };
       if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+        const cleanToken = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
+        headers['Authorization'] = `Bearer ${cleanToken}`;
       }
 
       const bases = [
-        process.env.EXPO_PUBLIC_API_URL || 'https://nutri-flexs.vercel.app',
+        API_BASE_URL,
+        process.env.EXPO_PUBLIC_API_URL,
         'http://localhost:3000',
-        'http://10.91.111.142:3000',
-      ];
+        'https://nutri-flexs.vercel.app',
+      ].filter((b): b is string => Boolean(b && typeof b === 'string'));
+
       let fetched: RawOrder[] = [];
       let success = false;
 
@@ -180,10 +175,14 @@ export default function OrdersScreen() {
           const url = `${cleanBase}/api/mobile/orders?userId=${encodeURIComponent(
             user.id || ''
           )}&email=${encodeURIComponent(user.email || '')}`;
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 6000);
           const res = await fetch(url, {
             method: 'GET',
             headers,
+            signal: controller.signal,
           });
+          clearTimeout(timer);
           if (res.ok) {
             const data = await res.json();
             const list = Array.isArray(data?.orders)
@@ -205,10 +204,14 @@ export default function OrdersScreen() {
         for (const base of bases) {
           try {
             const cleanBase = base.replace(/\/$/, '');
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 6000);
             const res = await fetch(`${cleanBase}/api/orders`, {
               method: 'GET',
               headers,
+              signal: controller.signal,
             });
+            clearTimeout(timer);
             if (res.ok) {
               const data = await res.json();
               const list = Array.isArray(data?.orders)
@@ -232,8 +235,14 @@ export default function OrdersScreen() {
       setOrders([]);
     } finally {
       setIsLoading(false);
+      setRefreshing(false);
     }
   }, [isAuthenticated, user]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchOrders();
+  }, [fetchOrders]);
 
   useEffect(() => {
     fetchOrders();
@@ -276,6 +285,14 @@ export default function OrdersScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#1D4D3E"
+            colors={['#1D4D3E']}
+          />
+        }
       >
         {/* Screen Header */}
         <View style={styles.header}>
@@ -305,8 +322,9 @@ export default function OrdersScreen() {
             <View style={styles.emptyIconCircle}>
               <RotateCcw size={32} color="#1D4D3E" />
             </View>
-            <Text style={styles.emptyText}>
-              No orders yet — grab a post-workout meal in 5 mins
+            <Text style={styles.emptyTitle}>No orders yet</Text>
+            <Text style={styles.emptySubtitle}>
+              Grab a fresh high-protein meal ready in 5 mins.
             </Text>
             <TouchableOpacity
               activeOpacity={0.85}
@@ -562,6 +580,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    fontSize: 13.5,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+    maxWidth: 280,
   },
   emptyText: {
     fontSize: 15,

@@ -159,22 +159,13 @@ export async function performSignOut(router?: any): Promise<void> {
 }
 
 /**
- * Safely trigger Expo Haptics feedback with fallback
+ * Safely trigger haptics feedback with fallback
  */
 export async function triggerHaptic(type: 'selection' | 'success' | 'warning' | 'light' = 'selection'): Promise<void> {
   try {
-    // @ts-ignore
-    const ExpoHaptics = typeof require !== 'undefined' ? require('expo-haptics') : null;
-    if (!ExpoHaptics) return;
-
-    if (type === 'selection' && typeof ExpoHaptics.selectionAsync === 'function') {
-      await ExpoHaptics.selectionAsync();
-    } else if (type === 'success' && typeof ExpoHaptics.notificationAsync === 'function') {
-      await ExpoHaptics.notificationAsync(ExpoHaptics.NotificationFeedbackType?.Success || 'success');
-    } else if (type === 'warning' && typeof ExpoHaptics.notificationAsync === 'function') {
-      await ExpoHaptics.notificationAsync(ExpoHaptics.NotificationFeedbackType?.Warning || 'warning');
-    } else if (type === 'light' && typeof ExpoHaptics.impactAsync === 'function') {
-      await ExpoHaptics.impactAsync(ExpoHaptics.ImpactFeedbackStyle?.Light || 'light');
+    const RN = typeof require !== 'undefined' ? require('react-native') : null;
+    if (RN && RN.Vibration && typeof RN.Vibration.vibrate === 'function') {
+      RN.Vibration.vibrate(type === 'success' ? 40 : 20);
     }
   } catch {
     // Silently continue in environments without haptic motor

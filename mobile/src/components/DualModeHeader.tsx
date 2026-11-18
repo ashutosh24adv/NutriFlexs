@@ -7,9 +7,11 @@ import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
 import { radii } from '../theme/radii';
 import { KioskPickerModal } from './KioskPickerModal';
-import { useAuthStore, computeAvatarInitials } from '../store/authStore';
+import { useAuthStore, authActions, computeAvatarInitials } from '../store/authStore';
 import { useDiaryStore } from '../store/diaryStore';
 import { useHealthSync } from '../services/useHealthSync';
+import { API_BASE_URL } from '../config/api';
+import { getLocalDateString } from '../utils/date';
 
 export type AppMode = 'order' | 'track';
 
@@ -43,10 +45,54 @@ export const DualModeHeader: React.FC<DualModeHeaderProps> = ({
   const pathname = usePathname();
 
   const authStore = useAuthStore();
-  const { user, isAuthenticated } = authStore;
+  const { user, isAuthenticated, nutritionGoal } = authStore;
   const isAuthed = Boolean(isAuthenticated && user && !user.isGuest);
-  const userName = isAuthed && user?.name?.trim() ? user.name.trim() : '';
-  const initials = isAuthed ? computeAvatarInitials(userName) : '?';
+  const initials = user?.name
+    ? computeAvatarInitials(user.name)
+    : (user?.avatarInitials || authStore.avatarInitials || '?');
+
+  // Remote summary state for consumed calories & target from GET /api/mobile/nutrition/summary
+  const [remoteConsumed, setRemoteConsumed] = useState<number | null>(null);
+  const [remoteTarget, setRemoteTarget] = useState<number | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadSummary() {
+      try {
+        const token = authStore.token;
+        if (!token) return;
+        const base = (process.env.EXPO_PUBLIC_API_URL || API_BASE_URL || 'https://nutri-flexs.vercel.app').replace(/\/+$/, '');
+        const todayDateStr = getLocalDateString();
+        const res = await fetch(`${base}/api/mobile/nutrition/summary?date=${todayDateStr}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          const summary = data.summary || data;
+          if (summary?.consumed?.calories !== undefined) {
+            setRemoteConsumed(Math.round(summary.consumed.calories));
+          }
+          const tgt =
+            summary?.targets?.calorieTarget ||
+            summary?.targets?.calories ||
+            summary?.targets?.dailyCalorieGoal;
+          if (tgt) {
+            setRemoteTarget(Math.round(tgt));
+          }
+        }
+      } catch (err) {
+        // Fallback cleanly to store
+      }
+    }
+    loadSummary();
+    return () => {
+      isMounted = false;
+    };
+  }, [authStore.token]);
 
   // Kiosk Location state & modal
   const [modalVisible, setModalVisible] = useState(false);
@@ -83,22 +129,24 @@ export const DualModeHeader: React.FC<DualModeHeaderProps> = ({
     }
   };
 
-  // Dynamic real calorie budget calculation
-  const authGoal = (authStore as any)?.nutritionGoal || (user as any)?.nutritionGoal;
+  // Dynamic real calorie budget calculation strictly bound to useAuthStore and GET /api/mobile/nutrition/summary
+  const authGoal = nutritionGoal || (authStore as any)?.nutritionGoal || (user as any)?.nutritionGoal || (user as any)?.goals;
   const calorieTarget =
     authGoal?.calorieTarget ||
     authGoal?.dailyCalorieGoal ||
     authGoal?.calories ||
+    remoteTarget ||
     (user as any)?.targets?.calorieTarget ||
     (user as any)?.targets?.calories ||
     (user as any)?.dailyCalorieGoal ||
     (user as any)?.calorieTarget ||
+    authStore.calorieTarget ||
     2000;
 
   const { todayCalories } = useDiaryStore();
   const { telemetry } = useHealthSync();
 
-  const consumed = todayCalories || 0;
+  const consumed = remoteConsumed !== null ? remoteConsumed : (todayCalories || 0);
   const burned =
     telemetry?.activeCaloriesBurned ??
     telemetry?.activeBurned ??
@@ -113,6 +161,9 @@ export const DualModeHeader: React.FC<DualModeHeaderProps> = ({
     propActiveTab ?? (pathname?.includes('track') ? 'track' : 'order');
 
   const handleTabChange = (tab: AppMode) => {
+    try {
+      authActions.setLastMode(tab);
+    } catch {}
     if (onTabChange) {
       onTabChange(tab);
     } else {
@@ -127,23 +178,18 @@ export const DualModeHeader: React.FC<DualModeHeaderProps> = ({
   return (
     <>
       <View style={styles.container}>
-        {/* Top Row: Pickup Kiosk on Left + Avatar Initials on Right */}
+        {/* Top Row: Compact Pickup Kiosk selector pill on the left + circular avatar initials on the right */}
         <View style={styles.topRow}>
           <TouchableOpacity
             activeOpacity={0.75}
             onPress={handleKioskPress}
-            style={styles.locationSelector}
+            style={styles.kioskPill}
           >
-            <View style={styles.labelRow}>
-              <Ionicons name="location-sharp" size={12} color="rgba(255, 255, 255, 0.85)" />
-              <Text style={styles.locationLabel}>PICKUP KIOSK</Text>
-            </View>
-            <View style={styles.locationRow}>
-              <Text style={styles.locationName} numberOfLines={1}>
-                {selectedKiosk}
-              </Text>
-              <Text style={styles.dropdownArrow}> ▾</Text>
-            </View>
+            <Text style={styles.kioskPinIcon}>📍</Text>
+            <Text style={styles.kioskPillText} numberOfLines={1}>
+              Pickup at {selectedKiosk}
+            </Text>
+            <Text style={styles.kioskDropdownArrow}> ▾</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -152,10 +198,10 @@ export const DualModeHeader: React.FC<DualModeHeaderProps> = ({
             style={styles.avatarButton}
           >
             <View style={styles.avatar}>
-              {isAuthed && initials !== '?' ? (
+              {initials && initials !== '?' ? (
                 <Text style={styles.avatarText}>{initials}</Text>
               ) : (
-                <Ionicons name="lock-closed" size={15} color="rgba(255, 255, 255, 0.9)" />
+                <Ionicons name="person" size={16} color="rgba(255, 255, 255, 0.9)" />
               )}
             </View>
           </TouchableOpacity>
@@ -238,42 +284,39 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
   },
   topRow: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
-    paddingBottom: spacing.xs,
+    paddingBottom: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  locationSelector: {
-    flex: 1,
-    marginRight: spacing.md,
-  },
-  labelRow: {
+  kioskPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+    maxWidth: '78%',
   },
-  locationLabel: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  locationName: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  dropdownArrow: {
-    color: 'rgba(255, 255, 255, 0.85)',
+  kioskPinIcon: {
     fontSize: 12,
+    marginRight: 4,
+  },
+  kioskPillText: {
+    color: '#FFFFFF',
+    fontSize: 13,
     fontWeight: '700',
+    flexShrink: 1,
+  },
+  kioskDropdownArrow: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 3,
   },
   avatarButton: {
     minWidth: 40,
@@ -294,7 +337,8 @@ const styles = StyleSheet.create({
   avatarText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   segmentedRow: {
     flexDirection: 'row',

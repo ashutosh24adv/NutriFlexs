@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma, withDbRetry } from "@/lib/prisma";
@@ -7,33 +8,71 @@ import { getMobileAuthUser } from "@/lib/mobile-auth";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export interface MobileHealthSyncPayload {
-  userId?: string;
-  date?: string;
-  dateKey?: string;
-  steps?: number;
-  activeCalories?: number;
-  heartRate?: number;
-  distanceMeters?: number;
-  restingCalories?: number;
-  totalCalories?: number;
-  avgHeartRate?: number;
-  workoutsCount?: number;
-  hydrationMl?: number;
-  source?: string;
-  syncedAt?: string;
-  [key: string]: any;
-}
-
-function parseNumber(val: any, fallback = 0): number {
-  if (typeof val === "number" && !isNaN(val)) return val;
-  if (typeof val === "string" && val.trim() !== "" && !isNaN(Number(val))) return Number(val);
-  return fallback;
+function getLocalDateString(date = new Date(), timeZone = "Asia/Kolkata"): string {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(date);
 }
 
 /**
+ * Zod schema for health telemetry payload.
+ * Explicitly allows 0 for all numeric telemetry values (steps, activeCalories, heartRate, distanceMeters, etc.).
+ */
+export const healthSyncSchema = z.object({
+  date: z.string().optional(),
+  dateKey: z.string().optional(),
+  syncedAt: z.string().optional(),
+  steps: z.coerce
+    .number({ invalid_type_error: "steps must be a number" })
+    .min(0, "steps cannot be negative")
+    .default(0),
+  activeCalories: z.coerce
+    .number({ invalid_type_error: "activeCalories must be a number" })
+    .min(0, "activeCalories cannot be negative")
+    .default(0),
+  heartRate: z.coerce
+    .number({ invalid_type_error: "heartRate must be a number" })
+    .min(0, "heartRate cannot be negative")
+    .default(0),
+  distanceMeters: z.coerce
+    .number({ invalid_type_error: "distanceMeters must be a number" })
+    .min(0, "distanceMeters cannot be negative")
+    .default(0),
+  restingCalories: z.coerce
+    .number({ invalid_type_error: "restingCalories must be a number" })
+    .min(0, "restingCalories cannot be negative")
+    .optional()
+    .default(0),
+  totalCalories: z.coerce
+    .number({ invalid_type_error: "totalCalories must be a number" })
+    .min(0, "totalCalories cannot be negative")
+    .optional(),
+  avgHeartRate: z.coerce
+    .number({ invalid_type_error: "avgHeartRate must be a number" })
+    .min(0, "avgHeartRate cannot be negative")
+    .optional(),
+  workoutsCount: z.coerce
+    .number({ invalid_type_error: "workoutsCount must be a number" })
+    .min(0, "workoutsCount cannot be negative")
+    .optional()
+    .default(0),
+  hydrationMl: z.coerce
+    .number({ invalid_type_error: "hydrationMl must be a number" })
+    .min(0, "hydrationMl cannot be negative")
+    .optional()
+    .default(0),
+  source: z.string().optional().default("Native Health Bridge"),
+});
+
+export type HealthSyncInput = z.infer<typeof healthSyncSchema>;
+
+/**
  * GET /api/mobile/health-sync?date=YYYY-MM-DD
- * Retrieves the latest synced health telemetry stored for the current athlete user in Neon Postgres.
+ * Retrieves the latest synced health telemetry stored for the current user in Neon Postgres.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -71,10 +110,11 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const dateParam = searchParams.get("date");
-    const todayStr = new Date().toISOString().split("T")[0];
-    const targetDateKey = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
-      ? dateParam
-      : todayStr;
+    const todayStr = getLocalDateString();
+    const targetDateKey =
+      dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
+        ? dateParam
+        : todayStr;
 
     // Fetch metric from Neon Postgres
     const metric = await withDbRetry(() =>
@@ -89,6 +129,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      metric,
       user: {
         id: user.id,
         name: user.name,
@@ -128,7 +169,10 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error("[HealthSync GET Error]:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Failed to retrieve health telemetry" },
+      {
+        success: false,
+        error: error.message || "Failed to retrieve health telemetry",
+      },
       { status: 500 }
     );
   }
@@ -136,29 +180,19 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/mobile/health-sync
- * Accepts { date, steps, activeCalories, heartRate, distanceMeters } (including 0 values),
- * upserts DailyHealthMetric in Neon Postgres, and returns success.
+ * Accepts { date, steps, activeCalories, heartRate, distanceMeters } (explicitly allowing 0 in Zod validation),
+ * upserts DailyHealthMetric in Neon Postgres for authenticated userId and date, and returns { success: true, metric }.
  */
 export async function POST(req: NextRequest) {
   try {
-    const body: MobileHealthSyncPayload = await req.json().catch(() => ({}));
-
-    // Resolve target authenticated user
-    let targetUser = null;
+    // 1. Authenticate via Bearer JWT (lib/mobile-auth.ts)
     const authUser = await getMobileAuthUser(req);
+    let targetUser = null;
+
     if (authUser) {
       targetUser = await withDbRetry(() =>
         prisma.user.findUnique({
           where: { id: authUser.id },
-          select: { id: true, name: true, email: true },
-        })
-      );
-    }
-
-    if (!targetUser && body.userId) {
-      targetUser = await withDbRetry(() =>
-        prisma.user.findUnique({
-          where: { id: body.userId },
           select: { id: true, name: true, email: true },
         })
       );
@@ -184,33 +218,58 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Safely parse telemetry accepting 0 values
-    const steps = parseNumber(body.steps ?? body.stepCount, 0);
-    const activeCalories = parseNumber(body.activeCalories ?? body.activeCals ?? body.activeBurn, 0);
-    const heartRate = parseNumber(body.heartRate ?? body.avgHeartRate ?? body.bpm, 0);
-    const distanceMeters = parseNumber(body.distanceMeters ?? body.distance, 0);
-    const restingCalories = parseNumber(body.restingCalories, 0);
-    const totalCalories = parseNumber(
-      body.totalCalories,
-      activeCalories + restingCalories
-    );
-    const workoutsCount = parseNumber(body.workoutsCount, 0);
-    const hydrationMl = parseNumber(body.hydrationMl ?? body.waterMl, 0);
-    const source =
-      typeof body.source === "string" && body.source.trim()
-        ? body.source.trim()
-        : "Native Health Bridge";
+    // 2. Parse and validate request body with Zod (explicitly allowing 0 values)
+    const rawBody = await req.json().catch(() => ({}));
+
+    // Normalize field aliases before Zod validation
+    const normalizedBody = {
+      ...rawBody,
+      steps: rawBody.steps ?? rawBody.stepCount ?? 0,
+      activeCalories:
+        rawBody.activeCalories ?? rawBody.activeCals ?? rawBody.activeBurn ?? 0,
+      heartRate:
+        rawBody.heartRate ?? rawBody.avgHeartRate ?? rawBody.bpm ?? 0,
+      distanceMeters: rawBody.distanceMeters ?? rawBody.distance ?? 0,
+      date: rawBody.date ?? rawBody.dateKey ?? rawBody.syncedAt,
+    };
+
+    const parseResult = healthSyncSchema.safeParse(normalizedBody);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid health sync payload",
+          details: parseResult.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const {
+      steps,
+      activeCalories,
+      heartRate,
+      distanceMeters,
+      restingCalories,
+      workoutsCount,
+      hydrationMl,
+      source,
+    } = parseResult.data;
+
+    const totalCalories =
+      parseResult.data.totalCalories ??
+      (activeCalories + (restingCalories ?? 0));
 
     // Resolve dateKey: "YYYY-MM-DD"
-    const rawDate = body.date || body.dateKey || body.syncedAt;
+    const rawDate = parseResult.data.date || parseResult.data.dateKey;
     let dateKey: string;
     if (rawDate && /^\d{4}-\d{2}-\d{2}/.test(String(rawDate))) {
       dateKey = String(rawDate).substring(0, 10);
     } else {
-      dateKey = new Date().toISOString().split("T")[0];
+      dateKey = getLocalDateString();
     }
 
-    // Upsert DailyHealthMetric in Neon PostgreSQL
+    // 3. Upsert DailyHealthMetric in Neon Postgres for authenticated userId and date
     const metric = await withDbRetry(() =>
       prisma.dailyHealthMetric.upsert({
         where: {
@@ -224,35 +283,35 @@ export async function POST(req: NextRequest) {
           dateKey,
           steps: Math.round(steps),
           activeCalories,
-          restingCalories,
+          restingCalories: restingCalories ?? 0,
           totalCalories,
           avgHeartRate: heartRate,
           distanceMeters,
-          workoutsCount: Math.round(workoutsCount),
-          hydrationMl,
-          source,
-          rawPayload: JSON.stringify(body),
+          workoutsCount: Math.round(workoutsCount ?? 0),
+          hydrationMl: hydrationMl ?? 0,
+          source: source || "Native Health Bridge",
+          rawPayload: JSON.stringify(rawBody),
           syncedAt: new Date(),
         },
         update: {
           steps: Math.round(steps),
           activeCalories,
-          restingCalories,
+          restingCalories: restingCalories ?? 0,
           totalCalories,
           avgHeartRate: heartRate,
           distanceMeters,
-          workoutsCount: Math.round(workoutsCount),
-          hydrationMl,
-          source,
-          rawPayload: JSON.stringify(body),
+          workoutsCount: Math.round(workoutsCount ?? 0),
+          hydrationMl: hydrationMl ?? 0,
+          source: source || "Native Health Bridge",
+          rawPayload: JSON.stringify(rawBody),
           syncedAt: new Date(),
         },
       })
     );
 
+    // 4. Return { success: true, metric }
     return NextResponse.json({
       success: true,
-      persistedToNeon: true,
       metric,
       telemetry: {
         date: metric.dateKey,
@@ -276,7 +335,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Failed to persist health telemetry to Neon Postgres",
+        error:
+          error.message ||
+          "Failed to persist health telemetry to Neon Postgres",
       },
       { status: 500 }
     );

@@ -16,6 +16,7 @@ import { QuickReorderStrip, QuickReorderItem } from '../../src/components/QuickR
 import { FloatingCartBar } from '../../src/components/FloatingCartBar';
 import { useCartStore } from '../../src/store/cartStore';
 import { useAuthStore } from '../../src/store/authStore';
+import { getAuthToken } from '../../src/services/apiClient';
 
 interface MenuItem {
   id: string;
@@ -154,14 +155,44 @@ export default function OrderHomeScreen() {
     let isMounted = true;
     const fetchPastOrders = async () => {
       try {
-        const base = (process.env.EXPO_PUBLIC_API_URL || 'https://nutri-flexs.vercel.app').replace(/\/$/, '');
-        const url = `${base}/api/mobile/orders?userId=${encodeURIComponent(user.id || '')}&email=${encodeURIComponent(user.email || '')}`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const data = await res.json();
-          const list = Array.isArray(data?.orders) ? data.orders : Array.isArray(data) ? data : [];
-          if (isMounted) setPastOrders(list);
+        const token = await getAuthToken();
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        };
+        if (token) {
+          const clean = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
+          headers['Authorization'] = `Bearer ${clean}`;
         }
+        const bases = [
+          process.env.EXPO_PUBLIC_API_URL,
+          'http://localhost:3000',
+          'https://nutri-flexs.vercel.app',
+        ].filter((b): b is string => Boolean(b && typeof b === 'string'));
+
+        for (const base of bases) {
+          try {
+            const cleanBase = base.replace(/\/$/, '');
+            const url = `${cleanBase}/api/mobile/orders?userId=${encodeURIComponent(
+              user.id || ''
+            )}&email=${encodeURIComponent(user.email || '')}`;
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 5000);
+            const res = await fetch(url, { method: 'GET', headers, signal: controller.signal });
+            clearTimeout(timer);
+            if (res.ok) {
+              const data = await res.json();
+              const list = Array.isArray(data?.orders)
+                ? data.orders
+                : Array.isArray(data)
+                ? data
+                : [];
+              if (isMounted) setPastOrders(list);
+              return;
+            }
+          } catch {}
+        }
+        if (isMounted) setPastOrders([]);
       } catch {
         if (isMounted) setPastOrders([]);
       }

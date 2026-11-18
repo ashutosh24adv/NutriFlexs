@@ -6,7 +6,10 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/mobile/wallet/create-order
- * Authenticated. Generates a Razorpay order for wallet top-up.
+ * Authenticated via Bearer JWT.
+ * Validates top-up amount (₹100 to ₹10,000).
+ * Generates Razorpay order (amount * 100 paise, INR).
+ * Returns { orderId, amount, currency, keyId }.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -31,16 +34,20 @@ export async function POST(req: NextRequest) {
       amountInINR = parseFloat(body.amount);
     }
 
-    if (!amountInINR || isNaN(amountInINR) || amountInINR <= 0) {
+    // Validate amount: strictly ₹100 to ₹10,000
+    if (!amountInINR || isNaN(amountInINR) || amountInINR < 100 || amountInINR > 10000) {
       return NextResponse.json(
-        { success: false, error: "Valid top-up amount greater than 0 is required" },
+        {
+          success: false,
+          error: "Top-up amount must be between ₹100 and ₹10,000",
+        },
         { status: 400 }
       );
     }
 
-    const key_id = process.env.RAZORPAY_KEY_ID || "rzp_test_nutriflexs_demo";
-    const key_secret = process.env.RAZORPAY_KEY_SECRET || "demo_secret";
-    const razorpay = new Razorpay({ key_id, key_secret });
+    const keyId = process.env.RAZORPAY_KEY_ID || "rzp_test_nutriflexs_demo";
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || "demo_secret";
+    const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
 
     const amountInPaise = Math.round(amountInINR * 100);
     const receipt = `topup_${authUser.id.slice(0, 8)}_${Date.now()}`;
@@ -59,12 +66,11 @@ export async function POST(req: NextRequest) {
       success: true,
       orderId: razorpayOrder.id,
       razorpayOrderId: razorpayOrder.id,
-      amount: razorpayOrder.amount,
-      amountInPaise: razorpayOrder.amount,
-      amountInINR: amountInINR,
+      amount: razorpayOrder.amount, // in paise
+      amountInINR,
       currency: "INR",
-      key: key_id,
-      keyId: key_id,
+      keyId,
+      key: keyId,
     });
   } catch (error: any) {
     console.error("[Wallet Create-Order Error]:", error);
@@ -74,4 +80,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

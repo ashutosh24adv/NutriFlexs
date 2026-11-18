@@ -44,9 +44,13 @@ export function normalizeApiUrl(rawUrl?: string | null): string {
 
 /**
  * Cleanly resolved base API URL for all mobile network requests.
- * Evaluates process.env.EXPO_PUBLIC_API_URL with fallback to live Vercel domain.
+ * Evaluates process.env.EXPO_PUBLIC_API_URL || "https://nutri-flexs.vercel.app" (strictly with zero trailing slash).
  */
-export const API_BASE_URL = normalizeApiUrl(process.env.EXPO_PUBLIC_API_URL);
+const rawBaseUrl = (process.env.EXPO_PUBLIC_API_URL && process.env.EXPO_PUBLIC_API_URL.trim().length > 0)
+  ? process.env.EXPO_PUBLIC_API_URL.trim()
+  : 'https://nutri-flexs.vercel.app';
+
+export const API_BASE_URL: string = normalizeApiUrl(rawBaseUrl).replace(/\/+$/, '');
 
 /**
  * Helper to construct full endpoint URLs

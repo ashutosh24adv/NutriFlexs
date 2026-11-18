@@ -53,8 +53,8 @@ export default function PlanReadyScreen() {
     redirect?: string;
   }>();
 
-  const fullName = params.name || 'Athlete';
-  const firstName = fullName.trim().split(/\s+/)[0] || 'Athlete';
+  const fullName = params.name || 'Member';
+  const firstName = fullName.trim().split(/\s+/)[0] || 'Member';
   const sex = params.sex || 'Male';
   const age = parseInt(params.age || '25', 10) || 25;
   const heightCm = parseFloat(params.heightCm || '175') || 175;
@@ -64,7 +64,12 @@ export default function PlanReadyScreen() {
   const targetWeightKg = parseFloat(params.desiredTargetWeightKg || '70') || weightKg;
   const goalDays = parseInt(params.goalDays || '90', 10) || 90;
   const goalPace = params.goalPace || 'Moderate';
-  const redirectTarget = params.redirect === 'order' ? '/(order)' : '/(track)';
+  const redirectTarget =
+    params.redirect === 'order'
+      ? '/(order)'
+      : params.redirect === 'cart'
+      ? '/cart'
+      : '/(track)';
 
   // Calculate science-backed daily targets
   const targets = useMemo(() => {
@@ -173,12 +178,11 @@ export default function PlanReadyScreen() {
 
     // 1. Immediately save finalized targets to useAuthStore
     try {
-      if (typeof (authStore as any)?.setNutritionGoal === 'function') {
-        (authStore as any).setNutritionGoal(finalizedTargets);
-      }
+      await useAuthStore.updateGoals(finalizedTargets);
       if (typeof (authStore as any)?.updateProfile === 'function') {
         (authStore as any).updateProfile({
           goals: finalizedTargets,
+          nutritionGoal: finalizedTargets,
           targets: {
             calories: targets.calories,
             proteinGrams: targets.protein,
@@ -186,35 +190,37 @@ export default function PlanReadyScreen() {
             fatGrams: targets.fat,
             waterMl: targets.water,
           },
-        } as any);
-      }
-      const rawStore = useAuthStore as any;
-      if (typeof rawStore.getState === 'function') {
-        const storeState = rawStore.getState();
-        if (typeof storeState?.setNutritionGoal === 'function') {
-          storeState.setNutritionGoal(finalizedTargets);
-        }
+        });
       }
     } catch (storeErr) {
       console.warn('[PlanReady] Store persistence warning:', storeErr);
     }
 
-    // 2. Trigger PUT /api/mobile/nutrition/goals with a 5s timeout fallback
+    // 2. Trigger PUT /api/mobile/nutrition/goals with a 5s timeout fallback so network delays never freeze the screen
     const putGoalsPromise = mobileApiRequest('/api/mobile/nutrition/goals', {
       method: 'PUT',
       body: JSON.stringify(finalizedTargets),
     });
 
-    const timeoutPromise = new Promise<{ ok: boolean; error: string }>((resolve) =>
-      setTimeout(() => resolve({ ok: false, error: 'Request timed out after 5s fallback' }), 5000)
+    const timeoutPromise = new Promise<{ ok: boolean; timeout?: boolean }>((resolve) =>
+      setTimeout(() => resolve({ ok: false, timeout: true }), 5000)
     );
 
-    Promise.race([putGoalsPromise, timeoutPromise]).catch((err) => {
-      console.warn('[PlanReady] Background sync warning:', err);
-    });
+    try {
+      await Promise.race([putGoalsPromise, timeoutPromise]);
+    } catch (err) {
+      console.warn('[PlanReady] PUT /api/mobile/nutrition/goals error or timeout:', err);
+    }
 
-    // 3. Immediately call router.replace('/(track)')
-    router.replace('/(track)');
+    // 3. Auto-route to destination and dismiss all screens in auth/onboarding stack
+    try {
+      if (typeof (router as any).dismissAll === 'function') {
+        (router as any).dismissAll();
+      }
+    } catch {}
+
+    const target = redirectTarget || '/(track)';
+    router.replace(target as any);
   };
 
   return (

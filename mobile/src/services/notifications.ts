@@ -49,6 +49,87 @@ export interface WaterReminderOptions {
   repeats?: boolean;
 }
 
+export interface NotificationPreferences {
+  orderUpdates: boolean;
+  reminders: boolean;
+}
+
+const DEFAULT_PREFERENCES: NotificationPreferences = {
+  orderUpdates: true,
+  reminders: true,
+};
+
+const PREFERENCES_STORAGE_KEY = '@nutriflex_notification_preferences';
+
+// In-memory fallback if AsyncStorage is unavailable
+let inMemoryPreferences: NotificationPreferences = { ...DEFAULT_PREFERENCES };
+
+/**
+ * Safely fetches notification preferences from AsyncStorage with in-memory fallback
+ */
+export async function getNotificationPreferences(): Promise<NotificationPreferences> {
+  try {
+    const asyncStorageMod =
+      typeof require !== 'undefined'
+        ? require('@react-native-async-storage/async-storage')
+        : null;
+    const AsyncStorage = asyncStorageMod?.default || asyncStorageMod;
+    if (AsyncStorage && typeof AsyncStorage.getItem === 'function') {
+      const stored = await AsyncStorage.getItem(PREFERENCES_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        inMemoryPreferences = { ...DEFAULT_PREFERENCES, ...parsed };
+        return inMemoryPreferences;
+      }
+    }
+  } catch (err) {
+    console.warn('[notifications] Failed loading notification preferences:', err);
+  }
+  return inMemoryPreferences;
+}
+
+/**
+ * Saves notification preferences to AsyncStorage and applies side-effects (scheduling or cancelling)
+ */
+export async function setNotificationPreferences(
+  prefs: Partial<NotificationPreferences>
+): Promise<NotificationPreferences> {
+  const current = await getNotificationPreferences();
+  const updated: NotificationPreferences = {
+    ...current,
+    ...prefs,
+  };
+  inMemoryPreferences = updated;
+
+  try {
+    const asyncStorageMod =
+      typeof require !== 'undefined'
+        ? require('@react-native-async-storage/async-storage')
+        : null;
+    const AsyncStorage = asyncStorageMod?.default || asyncStorageMod;
+    if (AsyncStorage && typeof AsyncStorage.setItem === 'function') {
+      await AsyncStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(updated));
+    }
+  } catch (err) {
+    console.warn('[notifications] Failed saving notification preferences:', err);
+  }
+
+  // Handle side-effects of preference toggles
+  if (prefs.reminders === true) {
+    await scheduleMealReminder().catch(() => null);
+    await scheduleWaterReminder().catch(() => null);
+  } else if (prefs.reminders === false) {
+    await cancelAllNotifications().catch(() => null);
+  }
+
+  if (prefs.orderUpdates === true) {
+    await setupNotificationChannels().catch(() => null);
+    await registerForPushNotificationsAsync().catch(() => null);
+  }
+
+  return updated;
+}
+
 // Cached Expo push token in-memory
 let cachedPushToken: string | null = null;
 let channelsInitialized = false;
@@ -266,6 +347,11 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
  */
 export async function scheduleMealReminder(options?: MealReminderOptions): Promise<string | null> {
   try {
+    const prefs = await getNotificationPreferences();
+    if (!prefs.reminders) {
+      return null;
+    }
+
     const Notifications = getNotificationsModule();
     if (!Notifications || typeof Notifications.scheduleNotificationAsync !== 'function') {
       return null;
@@ -308,6 +394,11 @@ export async function scheduleMealReminder(options?: MealReminderOptions): Promi
  */
 export async function scheduleWaterReminder(options?: WaterReminderOptions): Promise<string | null> {
   try {
+    const prefs = await getNotificationPreferences();
+    if (!prefs.reminders) {
+      return null;
+    }
+
     const Notifications = getNotificationsModule();
     if (!Notifications || typeof Notifications.scheduleNotificationAsync !== 'function') {
       return null;
@@ -352,6 +443,11 @@ export async function sendLocalOrderNotification(
   data?: Record<string, any>
 ): Promise<string | null> {
   try {
+    const prefs = await getNotificationPreferences();
+    if (!prefs.orderUpdates) {
+      return null;
+    }
+
     const Notifications = getNotificationsModule();
     if (!Notifications || typeof Notifications.scheduleNotificationAsync !== 'function') {
       return null;
@@ -416,6 +512,8 @@ export default {
   registerForPushNotificationsAsync,
   sendPushTokenToBackend,
   getCachedPushToken,
+  getNotificationPreferences,
+  setNotificationPreferences,
   scheduleMealReminder,
   scheduleWaterReminder,
   sendLocalOrderNotification,

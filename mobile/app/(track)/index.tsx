@@ -23,6 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useHealthSync } from '../../src/services/useHealthSync';
 import { useDiaryStore, diaryActions } from '../../src/store/diaryStore';
 import { useAuthStore } from '../../src/store/authStore';
+import { getLocalDateString } from '../../src/utils/date';
 import { API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL } from '../../src/config/api';
 
 type TimeframeOption = '1d' | '1w' | '1m' | '1y' | 'All Time';
@@ -52,9 +53,9 @@ export default function TrackTodayScreen() {
   const [selectedSlotForLog, setSelectedSlotForLog] = useState<MealSlot | undefined>(undefined);
 
   const authStore = useAuthStore();
-  const { user } = authStore;
+  const { user, nutritionGoal } = authStore;
 
-  const authGoal = (authStore as any)?.nutritionGoal || (user as any)?.nutritionGoal;
+  const authGoal = nutritionGoal || (authStore as any)?.nutritionGoal || (user as any)?.nutritionGoal || (user as any)?.goals;
   const authCalorieTarget =
     authGoal?.calorieTarget ||
     authGoal?.calories ||
@@ -115,7 +116,7 @@ export default function TrackTodayScreen() {
     setWaterMl,
   } = useDiaryStore();
 
-  const todayDateStr = new Date().toISOString().split('T')[0];
+  const todayDateStr = getLocalDateString();
 
   // Real hydrated data from GET /api/mobile/nutrition/summary?date=YYYY-MM-DD
   const [remoteSummary, setRemoteSummary] = useState<{
@@ -225,12 +226,12 @@ export default function TrackTodayScreen() {
               calculatedStreak = 1;
             }
 
-            const apiStreakDays =
-              typeof summary.streakDays === 'number'
-                ? summary.streakDays
-                : typeof summary.user?.streakDays === 'number'
-                ? summary.user.streakDays
-                : calculatedStreak;
+            // Strictly computed consecutive logged days (0 Day Streak for new accounts, never hardcoded 5)
+            const apiStreakDays = calculatedStreak;
+
+            if (!nutritionGoal && (summary.nutritionGoal || summary.goals)) {
+              authStore.updateGoals(summary.nutritionGoal || summary.goals).catch(() => {});
+            }
 
             setRemoteSummary({
               targets: fetchedTargets,
@@ -290,20 +291,21 @@ export default function TrackTodayScreen() {
   };
   const waterGoal = authWaterGoal || remoteSummary?.targets?.waterMl || targets.waterMl || 3000;
 
-  // Compute streakDays dynamically (0 for new user, never hardcoded 5)
+  // Strictly compute streakDays from consecutive logged days (0 Day Streak for new accounts, never hardcoded 5)
   const dynamicStreakDays = React.useMemo(() => {
-    if (typeof remoteSummary?.streakDays === 'number') {
-      return remoteSummary.streakDays;
-    }
+    // If user has no meals logged today, no active meals, and dateGroups empty, strictly 0
     if (activeMeals.length === 0 && todayMeals.length === 0 && dateGroups.length === 0) {
       return 0;
+    }
+    if (typeof remoteSummary?.streakDays === 'number') {
+      return remoteSummary.streakDays;
     }
     return streakDays || 0;
   }, [remoteSummary, activeMeals.length, todayMeals.length, dateGroups.length, streakDays]);
 
   const nutritionScore = calculateNutritionScore(calorieGoal, protein.target);
 
-  // Wire water logging (+250ml, +500ml) to POST /api/mobile/nutrition/water
+  // Wire water logging (+250ml, +500ml) to POST /api/mobile/nutrition/water with Bearer auth & immediate refresh
   const handleLogWater = async (amount: number) => {
     addWater(amount);
     const newTotal = waterMl + amount;
@@ -339,6 +341,9 @@ export default function TrackTodayScreen() {
       }
     } catch (e) {
       console.warn('[WaterLog] Error syncing water:', e);
+    } finally {
+      // Immediately invalidate/refresh summary state
+      fetchSummary();
     }
   };
 
@@ -446,6 +451,9 @@ export default function TrackTodayScreen() {
               }
             } catch (err) {
               console.warn('[DeleteMeal] Error syncing delete:', err);
+            } finally {
+              // Immediately invalidate/refresh summary state
+              fetchSummary();
             }
           },
         },

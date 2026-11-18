@@ -8,6 +8,7 @@ export async function verifyAndCompletePayment(params: {
   razorpayOrderId: string;
   razorpayPaymentId: string;
   razorpaySignature: string;
+  walletUsed?: number;
 }) {
   const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = params;
 
@@ -25,6 +26,7 @@ export async function verifyAndCompletePayment(params: {
           name: true,
           email: true,
           phone: true,
+          passBalance: true,
         },
       },
       trainer: true,
@@ -38,7 +40,15 @@ export async function verifyAndCompletePayment(params: {
 
   // 2. Anti-replay & Idempotency: If already marked PAID, return existing state safely
   if (existingOrder.paymentStatus === PaymentStatus.PAID) {
-    return { order: existingOrder, payment: existingOrder.payment };
+    const freshUser = await prisma.user.findUnique({
+      where: { id: existingOrder.userId },
+      select: { passBalance: true },
+    });
+    return {
+      order: existingOrder,
+      payment: existingOrder.payment,
+      walletBalance: freshUser?.passBalance ?? 0,
+    };
   }
 
   // 3. Cryptographic signature verification
@@ -56,40 +66,77 @@ export async function verifyAndCompletePayment(params: {
     throw new Error("Invalid payment signature verification");
   }
 
-  // 4. Atomic transaction to mark payment & order as paid
-  const { updatedPayment, updatedOrder } = await prisma.$transaction(async (tx) => {
-    const updatedPayment = await tx.payment.update({
-      where: { orderId },
-      data: {
-        razorpayPaymentId,
-        razorpaySignature,
-        status: PaymentStatus.PAID,
-      },
-    });
+  // 4. Determine walletUsed amount (if partial wallet was applied)
+  let walletUsed = 0;
+  if (typeof params.walletUsed === "number" && params.walletUsed > 0) {
+    walletUsed = params.walletUsed;
+  } else if (existingOrder.paymentMethod?.startsWith("PARTIAL_WALLET:")) {
+    const parsed = parseFloat(existingOrder.paymentMethod.replace("PARTIAL_WALLET:", ""));
+    if (!isNaN(parsed) && parsed > 0) {
+      walletUsed = parsed;
+    }
+  } else if (existingOrder.payment?.method?.startsWith("RAZORPAY_WALLET:")) {
+    const parsed = parseFloat(existingOrder.payment.method.replace("RAZORPAY_WALLET:", ""));
+    if (!isNaN(parsed) && parsed > 0) {
+      walletUsed = parsed;
+    }
+  }
 
-    const updatedOrder = await tx.order.update({
-      where: { id: orderId },
-      data: {
-        paymentStatus: PaymentStatus.PAID,
-        status: OrderStatus.ACCEPTED,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
+  // 5. Atomic transaction to deduct walletUsed (if any), mark payment & order as paid
+  const { updatedPayment, updatedOrder, updatedUser } = await prisma.$transaction(
+    async (tx) => {
+      let updatedUser = null;
+      if (walletUsed > 0) {
+        updatedUser = await tx.user.update({
+          where: { id: existingOrder.userId },
+          data: {
+            passBalance: {
+              decrement: walletUsed,
+            },
           },
+          select: { id: true, passBalance: true },
+        });
+      } else {
+        updatedUser = await tx.user.findUnique({
+          where: { id: existingOrder.userId },
+          select: { id: true, passBalance: true },
+        });
+      }
+
+      const updatedPayment = await tx.payment.update({
+        where: { orderId },
+        data: {
+          razorpayPaymentId,
+          razorpaySignature,
+          status: PaymentStatus.PAID,
         },
-        trainer: true,
-      },
-    });
+      });
 
-    return { updatedPayment, updatedOrder };
-  });
+      const updatedOrder = await tx.order.update({
+        where: { id: orderId },
+        data: {
+          paymentStatus: PaymentStatus.PAID,
+          status: OrderStatus.CONFIRMED,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              passBalance: true,
+            },
+          },
+          trainer: true,
+        },
+      });
 
-  // 5. Process referral reward idempotently (only once upon first payment transition)
+      return { updatedPayment, updatedOrder, updatedUser };
+    }
+  );
+
+  // 6. Process referral reward idempotently (only once upon first payment transition)
   if (updatedOrder.trainerId) {
     try {
       await processTrainerReferralOnPaymentSuccess(
@@ -102,5 +149,11 @@ export async function verifyAndCompletePayment(params: {
     }
   }
 
-  return { order: updatedOrder, payment: updatedPayment };
+  return {
+    order: updatedOrder,
+    payment: updatedPayment,
+    walletBalance: updatedUser?.passBalance ?? 0,
+    passBalance: updatedUser?.passBalance ?? 0,
+    walletUsed,
+  };
 }

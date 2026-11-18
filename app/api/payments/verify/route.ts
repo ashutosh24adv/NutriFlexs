@@ -4,19 +4,37 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifyAndCompletePayment } from "@/services/payment.service";
 import { safeErrorResponse, stripSensitiveFields } from "@/lib/api-security";
+import { getMobileAuthUser } from "@/lib/mobile-auth";
 
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    let currentUser = session?.user as any;
+    if (!currentUser) {
+      const mobileUser = await getMobileAuthUser(request);
+      if (mobileUser) {
+        currentUser = mobileUser;
+      }
+    }
+
+    if (!currentUser) {
       return NextResponse.json(
         { success: false, error: "Authentication required to verify payment" },
         { status: 401 }
       );
     }
 
-    const body = await request.json();
-    const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
+    const body = await request.json().catch(() => ({}));
+    const orderId = body.orderId || body.order_id;
+    const razorpayOrderId = body.razorpayOrderId || body.razorpay_order_id;
+    const razorpayPaymentId = body.razorpayPaymentId || body.razorpay_payment_id;
+    const razorpaySignature = body.razorpaySignature || body.razorpay_signature;
+    const walletUsed =
+      typeof body.walletUsed === "number"
+        ? body.walletUsed
+        : typeof body.walletAmountUsed === "number"
+        ? body.walletAmountUsed
+        : undefined;
 
     if (!orderId) {
       return NextResponse.json(
@@ -38,8 +56,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const currentUserId = (session.user as any)?.id;
-    const currentUserRole = (session.user as any)?.role;
+    const currentUserId = currentUser?.id;
+    const currentUserRole = currentUser?.role;
     const isOwner = Boolean(currentUserId && order.userId === currentUserId);
     const isAdmin = currentUserRole === "ADMIN" || currentUserRole === "SUPER_ADMIN";
 
@@ -59,6 +77,7 @@ export async function POST(request: Request) {
       razorpayOrderId: finalRzpOrderId,
       razorpayPaymentId: finalRzpPaymentId,
       razorpaySignature: finalRzpSignature,
+      walletUsed,
     });
 
     return NextResponse.json({ success: true, ...stripSensitiveFields(result) });

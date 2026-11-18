@@ -8,14 +8,9 @@
  */
 
 import { Alert } from 'react-native';
-import { normalizeApiUrl, PROD_API_URL, LOCAL_LAN_URL, LOCAL_USB_URL } from '../config/api';
+import { normalizeApiUrl, PROD_API_URL, LOCAL_LAN_URL, LOCAL_USB_URL, API_BASE_URL } from '../config/api';
 
-export { normalizeApiUrl, PROD_API_URL, LOCAL_LAN_URL, LOCAL_USB_URL };
-
-export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL && process.env.EXPO_PUBLIC_API_URL.trim().length > 0
-    ? normalizeApiUrl(process.env.EXPO_PUBLIC_API_URL)
-    : 'https://nutri-flexs.vercel.app';
+export { normalizeApiUrl, PROD_API_URL, LOCAL_LAN_URL, LOCAL_USB_URL, API_BASE_URL };
 
 export const RAZORPAY_KEY_ID =
   process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_nutriflexs_demo';

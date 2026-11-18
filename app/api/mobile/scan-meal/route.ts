@@ -10,7 +10,20 @@ export const maxDuration = 60;
 const scanMealSchema = z.object({
   imageBase64: z.string().min(1, "imageBase64 is required"),
   mimeType: z.string().optional(),
+  portionMultiplier: z.coerce.number().positive().optional().default(1),
 });
+
+export interface PortionPreset {
+  label: string;
+  multiplier: number;
+}
+
+export interface PortionMultiplierMetadata {
+  currentMultiplier: number;
+  defaultMultiplier: number;
+  supportedMultipliers: number[];
+  presets: PortionPreset[];
+}
 
 export interface MealItem {
   name: string;
@@ -20,6 +33,13 @@ export interface MealItem {
   protein: number;
   carbs: number;
   fats: number;
+  portionMultiplier: number;
+  baseGrams: number;
+  baseCalories: number;
+  baseProtein: number;
+  baseCarbs: number;
+  baseFats: number;
+  availableMultipliers: number[];
 }
 
 export interface MealTotals {
@@ -29,10 +49,18 @@ export interface MealTotals {
   fats: number;
 }
 
-export interface ScanMealResult {
+export interface RawScanMealResult {
   mealTitle: string;
   confidence: "HIGH" | "MEDIUM" | "LOW";
-  items: MealItem[];
+  items: {
+    name: string;
+    portionLabel: string;
+    grams: number;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fats: number;
+  }[];
   totals: MealTotals;
 }
 
@@ -62,7 +90,7 @@ Expertise Guidelines:
    - Give a clean, appetizing mealTitle like "Grilled Chicken, Brown Rice & Dal Bowl" or "Paneer Bhurji with Multigrain Rotis".`;
 
 // Curated library of realistic Indian fitness meals for intelligent fallback
-const FALLBACK_MEALS: ScanMealResult[] = [
+const FALLBACK_MEALS: RawScanMealResult[] = [
   {
     mealTitle: "Grilled Herb Chicken Breast, Brown Rice & Tadka Dal",
     confidence: "HIGH",
@@ -260,11 +288,7 @@ const FALLBACK_MEALS: ScanMealResult[] = [
   },
 ];
 
-/**
- * Deterministically selects an intelligent Indian fitness nutritional fallback
- * based on input length or hash, ensuring reproducible yet varied scans.
- */
-function getIntelligentFallback(seed: string): ScanMealResult {
+function getIntelligentFallback(seed: string): RawScanMealResult {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
     hash = (hash << 5) - hash + seed.charCodeAt(i);
@@ -282,7 +306,7 @@ async function callGeminiVision(
   imageBase64: string,
   mimeType: string,
   apiKey: string
-): Promise<{ result: ScanMealResult; model: string } | null> {
+): Promise<{ result: RawScanMealResult; model: string } | null> {
   const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
 
   const payload = {
@@ -367,7 +391,6 @@ async function callGeminiVision(
         console.warn(
           `[scan-meal] Gemini model ${model} returned status ${response.status}: ${response.statusText}`
         );
-        // Continue to fallback model on 429, 404, 500, etc.
         continue;
       }
 
@@ -386,7 +409,7 @@ async function callGeminiVision(
 
       const parsed = JSON.parse(cleanJson);
 
-      const items: MealItem[] = Array.isArray(parsed.items)
+      const items: RawScanMealResult["items"] = Array.isArray(parsed.items)
         ? parsed.items.map((it: any) => ({
             name: String(it.name || "Item"),
             portionLabel: String(it.portionLabel || "1 portion"),
@@ -401,18 +424,18 @@ async function callGeminiVision(
       const totals: MealTotals = {
         calories: parsed.totals?.calories
           ? Math.round(Number(parsed.totals.calories))
-          : items.reduce((acc, i) => acc + i.calories, 0),
+          : items.reduce((acc: number, i) => acc + i.calories, 0),
         protein: parsed.totals?.protein
           ? Math.round(Number(parsed.totals.protein) * 10) / 10
           : Math.round(
-              items.reduce((acc, i) => acc + i.protein, 0) * 10
+              items.reduce((acc: number, i) => acc + i.protein, 0) * 10
             ) / 10,
         carbs: parsed.totals?.carbs
           ? Math.round(Number(parsed.totals.carbs) * 10) / 10
-          : Math.round(items.reduce((acc, i) => acc + i.carbs, 0) * 10) / 10,
+          : Math.round(items.reduce((acc: number, i) => acc + i.carbs, 0) * 10) / 10,
         fats: parsed.totals?.fats
           ? Math.round(Number(parsed.totals.fats) * 10) / 10
-          : Math.round(items.reduce((acc, i) => acc + i.fats, 0) * 10) / 10,
+          : Math.round(items.reduce((acc: number, i) => acc + i.fats, 0) * 10) / 10,
       };
 
       const confidence = ["HIGH", "MEDIUM", "LOW"].includes(parsed.confidence)
@@ -436,12 +459,23 @@ async function callGeminiVision(
   return null;
 }
 
+const SUPPORTED_MULTIPLIERS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+const PORTION_PRESETS: PortionPreset[] = [
+  { label: "0.5x (Half Portion)", multiplier: 0.5 },
+  { label: "1.0x (Standard Serving)", multiplier: 1.0 },
+  { label: "1.5x (Large Portion)", multiplier: 1.5 },
+  { label: "2.0x (Double Portion)", multiplier: 2.0 },
+];
+
 export async function POST(request: NextRequest) {
   try {
-    // 1. Authenticate mobile client with Bearer JWT / cookie
+    // 1. Authenticate mobile client with Bearer JWT (lib/mobile-auth.ts)
     const user = await getMobileAuthUser(request);
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     // 2. Validate request payload with Zod
@@ -467,7 +501,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { imageBase64, mimeType: providedMime } = validation.data;
+    const {
+      imageBase64,
+      mimeType: providedMime,
+      portionMultiplier: requestedMultiplier,
+    } = validation.data;
+
+    const multiplier = requestedMultiplier > 0 ? requestedMultiplier : 1.0;
 
     // Clean base64 string and extract MIME type if provided in Data URI format
     let mimeType = providedMime || "image/jpeg";
@@ -485,7 +525,7 @@ export async function POST(request: NextRequest) {
 
     // 3. Attempt Gemini Vision AI scan if API key is present
     const apiKey = process.env.GEMINI_API_KEY;
-    let scanResult: ScanMealResult | null = null;
+    let rawResult: RawScanMealResult | null = null;
     let source: "gemini" | "estimator_fallback" = "estimator_fallback";
     let modelUsed: string | undefined;
 
@@ -496,49 +536,114 @@ export async function POST(request: NextRequest) {
         apiKey
       );
       if (geminiResponse) {
-        scanResult = geminiResponse.result;
+        rawResult = geminiResponse.result;
         modelUsed = geminiResponse.model;
         source = "gemini";
       }
     }
 
-    // 4. Intelligent fallback estimator if Gemini API key missing, rate-limited, or failed
-    if (!scanResult) {
-      scanResult = getIntelligentFallback(cleanBase64.substring(0, 100));
+    // 4. Intelligent fallback estimator if Gemini API key missing or failed
+    if (!rawResult) {
+      rawResult = getIntelligentFallback(cleanBase64.substring(0, 100));
       source = "estimator_fallback";
     }
 
-    // 5. Always return clean, reliable 200 JSON adhering to schema
+    // 5. Build portion multiplier metadata and scale items
+    const baseItems = rawResult.items;
+    const baseTotals = rawResult.totals;
+
+    const scaledItems: MealItem[] = baseItems.map((item) => ({
+      name: item.name,
+      portionLabel: item.portionLabel,
+      grams: Math.round(item.grams * multiplier),
+      calories: Math.round(item.calories * multiplier),
+      protein: Math.round(item.protein * multiplier * 10) / 10,
+      carbs: Math.round(item.carbs * multiplier * 10) / 10,
+      fats: Math.round(item.fats * multiplier * 10) / 10,
+      portionMultiplier: multiplier,
+      baseGrams: item.grams,
+      baseCalories: item.calories,
+      baseProtein: item.protein,
+      baseCarbs: item.carbs,
+      baseFats: item.fats,
+      availableMultipliers: [0.5, 1.0, 1.5, 2.0],
+    }));
+
+    const scaledTotals: MealTotals = {
+      calories: Math.round(baseTotals.calories * multiplier),
+      protein: Math.round(baseTotals.protein * multiplier * 10) / 10,
+      carbs: Math.round(baseTotals.carbs * multiplier * 10) / 10,
+      fats: Math.round(baseTotals.fats * multiplier * 10) / 10,
+    };
+
+    const portionMultiplierMetadata: PortionMultiplierMetadata = {
+      currentMultiplier: multiplier,
+      defaultMultiplier: 1.0,
+      supportedMultipliers: SUPPORTED_MULTIPLIERS,
+      presets: PORTION_PRESETS,
+    };
+
+    // 6. Return response with breakdown and portion multiplier metadata
     return NextResponse.json({
       success: true,
-      mealTitle: scanResult.mealTitle,
-      confidence: scanResult.confidence,
-      items: scanResult.items,
-      totals: scanResult.totals,
+      mealTitle: rawResult.mealTitle,
+      confidence: rawResult.confidence,
+      items: scaledItems,
+      totals: scaledTotals,
+      baseTotals,
+      portionMultiplier: multiplier,
+      portionMultiplierMetadata,
       source,
       modelUsed,
       userId: user.id,
-      // Provide nested data for client convenience
       data: {
-        mealTitle: scanResult.mealTitle,
-        confidence: scanResult.confidence,
-        items: scanResult.items,
-        totals: scanResult.totals,
+        mealTitle: rawResult.mealTitle,
+        confidence: rawResult.confidence,
+        items: scaledItems,
+        totals: scaledTotals,
+        baseTotals,
+        portionMultiplier: multiplier,
+        portionMultiplierMetadata,
       },
     });
   } catch (err: any) {
-    // Catch-all to guarantee endpoint never returns 500 error
     console.error("[scan-meal] Unexpected handler error:", err);
     const fallback = FALLBACK_MEALS[0];
+    const defaultMetadata: PortionMultiplierMetadata = {
+      currentMultiplier: 1.0,
+      defaultMultiplier: 1.0,
+      supportedMultipliers: SUPPORTED_MULTIPLIERS,
+      presets: PORTION_PRESETS,
+    };
+
+    const items: MealItem[] = fallback.items.map((item) => ({
+      ...item,
+      portionMultiplier: 1.0,
+      baseGrams: item.grams,
+      baseCalories: item.calories,
+      baseProtein: item.protein,
+      baseCarbs: item.carbs,
+      baseFats: item.fats,
+      availableMultipliers: [0.5, 1.0, 1.5, 2.0],
+    }));
+
     return NextResponse.json({
       success: true,
       mealTitle: fallback.mealTitle,
       confidence: "MEDIUM",
-      items: fallback.items,
+      items,
       totals: fallback.totals,
+      baseTotals: fallback.totals,
+      portionMultiplier: 1.0,
+      portionMultiplierMetadata: defaultMetadata,
       source: "estimator_fallback",
       errorNote: "Graceful recovery executed",
-      data: fallback,
+      data: {
+        ...fallback,
+        items,
+        portionMultiplier: 1.0,
+        portionMultiplierMetadata: defaultMetadata,
+      },
     });
   }
 }

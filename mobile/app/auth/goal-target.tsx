@@ -18,7 +18,8 @@ import {
   Target,
   Sparkles,
 } from 'lucide-react-native';
-import { triggerHaptic } from './_authHelpers';
+import { triggerHaptic, mobileApiRequest } from './_authHelpers';
+import { useAuthStore } from '../../src/store/authStore';
 
 export default function GoalTargetScreen() {
   const router = useRouter();
@@ -34,7 +35,7 @@ export default function GoalTargetScreen() {
     redirect?: string;
   }>();
 
-  const name = params.name || 'Athlete';
+  const name = params.name || 'Member';
   const currentWeightKg = parseFloat(params.weightKg || '74') || 74;
   const primaryGoal = params.primaryGoal || 'Lose weight';
   const isLoss = primaryGoal === 'Lose weight';
@@ -112,8 +113,33 @@ export default function GoalTargetScreen() {
     }
   }, [isLoss, weeklyChangeRate]);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     triggerHaptic('selection');
+
+    // Immediately persist calibrated targets to useAuthStore
+    try {
+      await useAuthStore.updateGoals({
+        desiredTargetWeightKg: resolvedTargetKg,
+        goalDays: timelineDays,
+        goalPace: pace,
+        primaryGoal,
+      });
+
+      // Non-blocking background sync of calibrated targets to PUT /api/mobile/nutrition/goals
+      mobileApiRequest('/api/mobile/nutrition/goals', {
+        method: 'PUT',
+        body: JSON.stringify({
+          desiredTargetWeightKg: resolvedTargetKg,
+          goalDays: timelineDays,
+          goalPace: pace,
+          primaryGoal,
+        }),
+      }).catch((err) => {
+        console.warn('[GoalTarget] Non-blocking PUT goals error:', err);
+      });
+    } catch (storeErr) {
+      console.warn('[GoalTarget] Store update warning:', storeErr);
+    }
 
     const query = new URLSearchParams({
       name,

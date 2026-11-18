@@ -1,58 +1,64 @@
-/**
- * NutriFlexs Cold-Start Brand Intro Screen
- *
- * 1.8-second Netflix-style zoom-through brand reveal:
- * - Warm Off-White background (#F7F8F6)
- * - Forest Green (#1D4D3E) brand palette
- * - Bold NUTRIFLEXS wordmark scales into center with a crisp haptic pulse (Medium)
- * - Wordmark then dramatically scales (1.0 -> 18.0) and fades out zooming straight through the letters
- * - Concurrently hydrates useAuthStore:
- *     - If authenticated: routes to /(track) or /(order) based on last active mode
- *     - If unauthenticated: routes to /welcome
- * - Uses router.replace(...)
- */
-
 import React, { useEffect, useRef } from 'react';
 import * as ReactNative from 'react-native';
-const { View, Text, StyleSheet, Platform } = ReactNative;
+const { View, Text, StyleSheet, Platform, Animated, Easing } = ReactNative;
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSequence,
-  withDelay,
-  Easing,
-  runOnJS,
-} from 'react-native-reanimated';
 import { authActions } from '../src/store/useAuthStore';
 
-// Safe haptic feedback trigger
-function getHapticsModule(): any {
-  try {
-    // @ts-ignore
-    if (typeof require !== 'undefined') {
-      return require('expo-haptics');
-    }
-  } catch {
-    // safe fallback
-  }
-  return null;
-}
-
+// Safe haptic feedback trigger using native Vibration bridge
 async function triggerCrispHaptic(): Promise<void> {
   try {
-    const Haptics = getHapticsModule();
-    if (Haptics && typeof Haptics.impactAsync === 'function') {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle?.Medium || 'medium');
-      return;
-    }
     if (Platform.OS === 'android' || Platform.OS === 'ios') {
-      (ReactNative as any).Vibration?.vibrate?.(25);
+      const vibration = (ReactNative as any).Vibration;
+      if (vibration && typeof vibration.vibrate === 'function') {
+        vibration.vibrate(25);
+      }
     }
   } catch {
     // Safe no-op on web / simulators without haptic engine
+  }
+}
+
+/**
+ * Non-blocking background session refresh:
+ * Sends GET /api/mobile/auth/me with Bearer token.
+ * ONLY clears session and invokes onUnauthorized() if the server returns HTTP 401 Unauthorized.
+ * On network timeout, 500, or offline state, it NEVER clears session or routes to /welcome.
+ */
+async function refreshSessionInBackground(
+  token: string,
+  onUnauthorized: () => void
+): Promise<void> {
+  try {
+    const base = (process.env.EXPO_PUBLIC_API_URL || 'https://nutri-flexs.vercel.app').replace(/\/+$/, '');
+    const res = await fetch(`${base}/api/mobile/auth/me`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (res.status === 401) {
+      console.warn('[BrandIntroScreen] Background refresh 401 Unauthorized: clearing session and routing to /welcome');
+      await authActions.signOut();
+      onUnauthorized();
+      return;
+    }
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.user) {
+        authActions.updateProfile(data.user);
+        if (data.nutritionGoal) {
+          authActions.updateGoals(data.nutritionGoal);
+        }
+      }
+    }
+    // Any other status (500, 502, 503, 404, etc.): keep cached session!
+  } catch (netErr) {
+    // Network timeout, DNS failure, or offline: NEVER clear session or route to /welcome!
+    console.log('[BrandIntroScreen] Background refresh skipped (network offline/timeout):', netErr);
   }
 }
 
@@ -61,165 +67,197 @@ export default function BrandIntroScreen() {
   const destinationRef = useRef<string | null>(null);
   const hasNavigatedRef = useRef<boolean>(false);
 
-  // Reanimated shared values
-  const scale = useSharedValue(0.8);
-  const opacity = useSharedValue(0);
-  const taglineOpacity = useSharedValue(0);
-  const ambientScale = useSharedValue(0.9);
+  // Native-driven Animated values for 60fps performance
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const taglineOpacityAnim = useRef(new Animated.Value(0)).current;
+  const ambientScaleAnim = useRef(new Animated.Value(0.9)).current;
 
   const navigateToDestination = () => {
     if (hasNavigatedRef.current) return;
     hasNavigatedRef.current = true;
     const target = destinationRef.current || '/welcome';
-    router.replace(target);
+    router.replace(target as any);
   };
 
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Concurrently hydrate useAuthStore during the 1.8-second animation
-    async function performHydration() {
+    // 1. Cold start hydration: hydrate useAuthStore before deciding route
+    const hydrationPromise = (async () => {
       try {
         const result = await authActions.hydrate();
 
-        if (result.isAuthenticated && result.user) {
-          // Check last active mode (defaulting to /(order))
-          let lastMode = 'order';
-
-          try {
-            const secureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
-            if (secureStore && typeof secureStore.getItemAsync === 'function') {
-              const saved = await secureStore.getItemAsync('last_active_mode');
-              if (saved) lastMode = saved;
-            }
-          } catch {}
-
-          try {
-            const asyncStorageMod = typeof require !== 'undefined' ? require('@react-native-async-storage/async-storage') : null;
-            const asyncStorage = asyncStorageMod?.default || asyncStorageMod;
-            if (asyncStorage && typeof asyncStorage.getItem === 'function') {
-              const saved = await asyncStorage.getItem('last_active_mode');
-              if (saved) lastMode = saved;
-            }
-          } catch {}
-
+        if (result.token && result.user) {
+          // If token and user exist, route directly into /(track) (or lastMode)
+          const rawMode = (result.lastMode || '').toLowerCase();
+          const targetRoute = rawMode === 'order' || rawMode === '/(order)' ? '/(order)' : '/(track)';
           if (isMounted) {
-            destinationRef.current = lastMode === 'track' ? '/(track)' : '/(order)';
+            destinationRef.current = targetRoute;
           }
+
+          // Trigger a non-blocking background GET /api/mobile/auth/me refresh:
+          // ONLY clear session and route to /welcome if the server explicitly returns HTTP 401 Unauthorized
+          // (never on network timeout, 500, or offline state).
+          refreshSessionInBackground(result.token, () => {
+            if (isMounted) {
+              destinationRef.current = '/welcome';
+              if (hasNavigatedRef.current) {
+                router.replace('/welcome');
+              }
+            }
+          }).catch(() => {});
         } else {
           if (isMounted) {
             destinationRef.current = '/welcome';
           }
         }
       } catch (err) {
-        console.warn('[BrandIntroScreen] Hydration check fallback:', err);
+        console.warn('[BrandIntroScreen] Cold start hydration fallback:', err);
         if (isMounted) {
           destinationRef.current = '/welcome';
         }
       }
-    }
+    })();
 
-    performHydration();
-
-    // 2. 1.8-second Netflix-style zoom-through animation
-    // Phase 1 (0 -> 750ms): Wordmark enters from 0.8 to 1.0 with haptic pulse
-    // Phase 2 (750ms -> 1800ms, ~1050ms): Dramatic scale 1.0 -> 18.0 zooming through screen into next route
-    try {
-      scale.value = withSequence(
-        withTiming(1.0, {
-          duration: 750,
-          easing: Easing.out(Easing.cubic),
-        }, (finished) => {
-          if (finished) {
-            runOnJS(triggerCrispHaptic)();
-          }
-        }),
-        withTiming(18.0, {
-          duration: 1050,
-          easing: Easing.in(Easing.cubic),
-        })
-      );
-
-      // Fade in wordmark (0 -> 350ms), hold, then fade out zooming through (1200ms -> 1800ms)
-      opacity.value = withSequence(
-        withTiming(1.0, { duration: 350, easing: Easing.out(Easing.quad) }),
-        withDelay(
-          850,
-          withTiming(0.0, {
-            duration: 600,
-            easing: Easing.in(Easing.quad),
-          }, (finished) => {
-            if (finished) {
-              runOnJS(navigateToDestination)();
-            }
-          })
-        )
-      );
-
-      // Tagline subtly fades in then fades out before the deep zoom
-      taglineOpacity.value = withSequence(
-        withTiming(1.0, { duration: 500, easing: Easing.out(Easing.quad) }),
-        withDelay(300, withTiming(0.0, { duration: 400, easing: Easing.in(Easing.quad) }))
-      );
-
-      // Ambient forest backdrop expands
-      ambientScale.value = withSequence(
-        withTiming(1.0, { duration: 750, easing: Easing.out(Easing.cubic) }),
-        withTiming(3.5, { duration: 1050, easing: Easing.in(Easing.cubic) })
-      );
-    } catch {
-      // Safe fallback if reanimated native driver is unsupported
-    }
-
-    // High-precision 1800ms safety timer guaranteeing navigation
-    const safetyTimer = setTimeout(() => {
+    // Helper ensuring hydration completes before navigation route is decided
+    const proceedWhenReady = async () => {
+      try {
+        await Promise.race([
+          hydrationPromise,
+          new Promise((resolve) => setTimeout(resolve, 2500)),
+        ]);
+      } catch {}
       if (isMounted) {
         navigateToDestination();
       }
+    };
+
+    // 2. 1.8-second Netflix-style zoom-through animation using React Native Native Driver (60fps)
+    Animated.parallel([
+      // Scale: 0.8 -> 1.0 (750ms), then dramatic 1.0 -> 18.0 (1050ms) zooming straight through letters
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.0,
+          duration: 750,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 18.0,
+          duration: 1050,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+      // Opacity: fade in (350ms), delay, then fade out (600ms)
+      Animated.sequence([
+        Animated.timing(opacityAnim, {
+          toValue: 1.0,
+          duration: 350,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.delay(850),
+        Animated.timing(opacityAnim, {
+          toValue: 0.0,
+          duration: 600,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+      // Tagline: subtle fade in, hold, and fade out
+      Animated.sequence([
+        Animated.timing(taglineOpacityAnim, {
+          toValue: 1.0,
+          duration: 500,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.delay(300),
+        Animated.timing(taglineOpacityAnim, {
+          toValue: 0.0,
+          duration: 400,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+      // Ambient glow backdrop expands
+      Animated.sequence([
+        Animated.timing(ambientScaleAnim, {
+          toValue: 1.0,
+          duration: 750,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(ambientScaleAnim, {
+          toValue: 3.5,
+          duration: 1050,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start(() => {
+      proceedWhenReady();
+    });
+
+    // High-precision haptic pulse at 750ms when wordmark locks center
+    const hapticTimer = setTimeout(() => {
+      triggerCrispHaptic();
+    }, 750);
+
+    // High-precision 1800ms safety timer guaranteeing navigation
+    const safetyTimer = setTimeout(() => {
+      proceedWhenReady();
     }, 1800);
 
     return () => {
       isMounted = false;
+      clearTimeout(hapticTimer);
       clearTimeout(safetyTimer);
     };
   }, [router]);
-
-  const animatedWordmarkStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: scale.value }],
-      opacity: opacity.value,
-    };
-  });
-
-  const animatedTaglineStyle = useAnimatedStyle(() => {
-    return {
-      opacity: taglineOpacity.value,
-    };
-  });
-
-  const animatedBackdropStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: ambientScale.value }],
-    };
-  });
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" backgroundColor="#F7F8F6" />
 
       {/* Ambient Forest Green Backdrop Glow */}
-      <Animated.View style={[styles.ambientGlow, animatedBackdropStyle]} />
+      <Animated.View
+        style={[
+          styles.ambientGlow,
+          {
+            transform: [{ scale: ambientScaleAnim }],
+          },
+        ]}
+      />
 
       {/* Center Brand Zoom Container */}
-      <Animated.View style={[styles.brandWrapper, animatedWordmarkStyle]}>
+      <Animated.View
+        style={[
+          styles.brandWrapper,
+          {
+            transform: [{ scale: scaleAnim }],
+            opacity: opacityAnim,
+          },
+        ]}
+      >
         <View style={styles.wordmarkRow}>
           <Text style={styles.brandWordmark}>NUTRIFLEXS</Text>
         </View>
 
-        <Animated.View style={[styles.taglineWrapper, animatedTaglineStyle]}>
-          <View style={styles.taglineDivider} />
+        {/* Emerald Accent Bar */}
+        <View style={styles.emeraldAccentBar} />
+
+        <Animated.View
+          style={[
+            styles.taglineWrapper,
+            {
+              opacity: taglineOpacityAnim,
+            },
+          ]}
+        >
           <Text style={styles.taglineText}>ATHLETIC FUEL & NUTRITION OS</Text>
-          <View style={styles.taglineDivider} />
         </Animated.View>
       </Animated.View>
     </View>
@@ -260,22 +298,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     includeFontPadding: false,
   },
-  taglineWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 14,
+  emeraldAccentBar: {
+    width: 56,
+    height: 3.5,
+    borderRadius: 2,
+    backgroundColor: '#10B981', // Emerald accent bar
+    marginTop: 10,
+    marginBottom: 8,
   },
-  taglineDivider: {
-    width: 20,
-    height: 1.5,
-    backgroundColor: '#F59E0B',
-    opacity: 0.8,
+  taglineWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
   },
   taglineText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#F59E0B', // Amber athletic accent
+    color: '#1D4D3E', // Deep Forest Green subtle accent
+    opacity: 0.75,
     letterSpacing: 2.2,
     textAlign: 'center',
   },

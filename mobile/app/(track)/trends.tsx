@@ -8,6 +8,7 @@ import { MealLoggerModal } from '../../src/components/MealLoggerModal';
 import { Ionicons } from '@expo/vector-icons';
 import { useDiaryStore } from '../../src/store/diaryStore';
 import { useHealthSync } from '../../src/services/useHealthSync';
+import { getLocalDateString } from '../../src/utils/date';
 import { API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL } from '../../src/config/api';
 
 type TimeframeOption = '1d' | '1w' | '1m' | '1y' | 'All Time';
@@ -49,7 +50,7 @@ export default function TrackTrendsScreen() {
     waterMl,
   } = useDiaryStore();
 
-  const todayDateStr = new Date().toISOString().split('T')[0];
+  const todayDateStr = getLocalDateString();
 
   // Fetch real 7-day bars from GET /api/mobile/nutrition/summary?date=YYYY-MM-DD
   const fetchSummary = useCallback(async () => {
@@ -255,6 +256,27 @@ export default function TrackTrendsScreen() {
             </View>
           </View>
         </View>
+
+        {/* Clean Empty State Card when no logs exist yet */}
+        {!hasLoggedData && (
+          <View style={styles.emptyStateCard}>
+            <View style={styles.emptyStateIconCircle}>
+              <Ionicons name="bar-chart-outline" size={24} color="#1D4D3E" />
+            </View>
+            <Text style={styles.emptyStateTitle}>No Trend Data Yet</Text>
+            <Text style={styles.emptyStateSubtitle}>
+              Log your meals today to unlock your 7-day macro distribution, protein target hit rate, and consistency charts.
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleLogMeal}
+              style={styles.emptyStateButton}
+            >
+              <Ionicons name="add" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.emptyStateButtonText}>Log Today's First Meal</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* 7-Day Stacked Capsule Pill Bar Chart built strictly from real logs */}
         <StackedBarChart
@@ -546,6 +568,55 @@ const styles = StyleSheet.create({
   logMealCtaText: {
     color: '#FFFFFF',
     fontSize: typography.sizes.sm,
+    fontFamily: typography.fontFamilies.bold,
+  },
+  emptyStateCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#EBECE8',
+    padding: spacing.xl,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E8F1ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  emptyStateTitle: {
+    fontSize: typography.sizes.md,
+    fontFamily: typography.fontFamilies.bold,
+    color: '#111827',
+    marginBottom: 4,
+  },
+  emptyStateSubtitle: {
+    fontSize: typography.sizes.xs,
+    fontFamily: typography.fontFamilies.regular,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  emptyStateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1D4D3E',
+    paddingVertical: 10,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.pill,
+  },
+  emptyStateButtonText: {
+    color: '#FFFFFF',
+    fontSize: typography.sizes.xs,
     fontFamily: typography.fontFamilies.bold,
   },
 });
