@@ -22,7 +22,7 @@ function getLocalDateString(date = new Date(), timeZone = "Asia/Kolkata"): strin
  * Zod schema for health telemetry payload.
  * Explicitly allows 0 for all numeric telemetry values (steps, activeCalories, heartRate, distanceMeters, etc.).
  */
-export const healthSyncSchema = z.object({
+const healthSyncSchema = z.object({
   date: z.string().optional(),
   dateKey: z.string().optional(),
   syncedAt: z.string().optional(),
@@ -68,7 +68,7 @@ export const healthSyncSchema = z.object({
   source: z.string().optional().default("Native Health Bridge"),
 });
 
-export type HealthSyncInput = z.infer<typeof healthSyncSchema>;
+type HealthSyncInput = z.infer<typeof healthSyncSchema>;
 
 /**
  * GET /api/mobile/health-sync?date=YYYY-MM-DD

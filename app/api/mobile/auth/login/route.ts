@@ -58,24 +58,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let isValid = false;
-    try {
-      // @ts-ignore
-      const bcrypt = require("bcryptjs");
-      if (
-        user.passwordHash &&
-        (user.passwordHash.startsWith("$2a$") ||
-          user.passwordHash.startsWith("$2b$") ||
-          user.passwordHash.startsWith("$2y$"))
-      ) {
-        isValid = bcrypt.compareSync(password, user.passwordHash);
-      }
-    } catch {
-      // ignore
-    }
-    if (!isValid) {
-      isValid = verifyPassword(password, user.passwordHash);
-    }
+    const isValid = verifyPassword(password, user.passwordHash);
 
     if (!isValid) {
       return NextResponse.json(

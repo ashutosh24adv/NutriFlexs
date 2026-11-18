@@ -185,15 +185,8 @@ export async function POST(req: NextRequest) {
       parseInt(String(targetObj.waterGoalMl || targetObj.waterMl || targetObj.water || ""), 10) ||
       baseline.waterGoalMl;
 
-    // Hash password with bcryptjs (with scrypt fallback)
-    let hashedPassword: string;
-    try {
-      // @ts-ignore
-      const bcrypt = require("bcryptjs");
-      hashedPassword = bcrypt.hashSync(password, 10);
-    } catch {
-      hashedPassword = hashPassword(password);
-    }
+    // Hash password with standard scrypt
+    const hashedPassword = hashPassword(password);
 
     // Fast Prisma transaction (<500ms): create User (passBalance: 0) + initial NutritionGoal
     const [user, nutritionGoal] = await withDbRetry(() =>

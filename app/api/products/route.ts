@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getProducts } from "@/services/product.service";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const categoryId = searchParams.get("categoryId") || undefined;

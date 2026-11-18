@@ -75,4 +75,4 @@ jobs:
         run: npx prisma generate
 
       - name: Build Next.js Web Application
-        run: npm run build
+        run: npx next build
