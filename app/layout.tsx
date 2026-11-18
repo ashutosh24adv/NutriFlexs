@@ -1,19 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins, Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
-  variable: "--font-heading",
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-sans",
-});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -43,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${poppins.variable} ${inter.variable}`}>
+    <html lang="en">
       <body className="bg-nutri-bg text-nutri-charcoal min-h-screen flex flex-col font-sans antialiased selection:bg-nutri-green-light selection:text-nutri-green">
         <Providers>{children}</Providers>
       </body>
