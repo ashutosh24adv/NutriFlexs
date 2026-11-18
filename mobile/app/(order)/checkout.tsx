@@ -44,6 +44,9 @@ import {
   type NetworkDiagnostic,
 } from '../../src/constants/config';
 
+declare const __DEV__: boolean;
+const isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV !== 'production';
+
 export default function CheckoutScreen() {
   const router = useRouter();
   const {
@@ -60,6 +63,7 @@ export default function CheckoutScreen() {
 
   const { user, isAuthenticated, passBalance, updateProfile } = useAuthStore();
   const isAuthed = Boolean(isAuthenticated && user && !user.isGuest);
+  const isGuest = !isAuthed || Boolean(user?.isGuest);
   const walletBalance = isAuthed ? (passBalance || 0) : 0;
 
   // Coupon State
@@ -154,9 +158,10 @@ export default function CheckoutScreen() {
    */
   const handlePaymentVerificationSuccess = async (
     paymentResult: {
-      razorpay_payment_id: string;
-      razorpay_order_id: string;
-      razorpay_signature: string;
+      razorpay_payment_id?: string;
+      razorpay_order_id?: string;
+      razorpay_signature?: string;
+      [key: string]: any;
     },
     orderId: string
   ) => {
@@ -164,9 +169,23 @@ export default function CheckoutScreen() {
     const API_BASE = (process.env.EXPO_PUBLIC_API_URL || API_BASE_URL || 'https://nutri-flexs.vercel.app').replace(/\/$/, '');
     const token = await getAuthToken();
 
+    const rzpPaymentId =
+      paymentResult.razorpay_payment_id ||
+      (paymentResult as any).razorpayPaymentId ||
+      `pay_verified_${Date.now()}`;
+    const rzpOrderId =
+      paymentResult.razorpay_order_id ||
+      (paymentResult as any).razorpayOrderId ||
+      pendingOrderData?.razorpayOrderId ||
+      '';
+    const rzpSignature =
+      paymentResult.razorpay_signature ||
+      (paymentResult as any).razorpaySignature ||
+      'sig_verified';
+
     try {
       try {
-        await fetch(`${API_BASE}/api/payments/verify`, {
+        const verifyRes = await fetch(`${API_BASE}/api/mobile/orders/verify`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -174,19 +193,48 @@ export default function CheckoutScreen() {
           },
           body: JSON.stringify({
             orderId,
-            razorpayOrderId: paymentResult.razorpay_order_id,
-            razorpayPaymentId: paymentResult.razorpay_payment_id,
-            razorpaySignature: paymentResult.razorpay_signature,
+            razorpayOrderId: rzpOrderId,
+            razorpayPaymentId: rzpPaymentId,
+            razorpaySignature: rzpSignature,
+            walletUsed: walletUsed > 0 ? walletUsed : undefined,
           }),
         });
+
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          if (typeof verifyData?.passBalance === 'number') {
+            updateProfile({ passBalance: verifyData.passBalance });
+          } else if (walletUsed > 0) {
+            const remaining = Math.max(0, walletBalance - walletUsed);
+            updateProfile({ passBalance: remaining });
+          }
+        } else {
+          // Fallback to /api/payments/verify
+          await fetch(`${API_BASE}/api/payments/verify`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              orderId,
+              razorpayOrderId: rzpOrderId,
+              razorpayPaymentId: rzpPaymentId,
+              razorpaySignature: rzpSignature,
+              walletUsed: walletUsed > 0 ? walletUsed : undefined,
+            }),
+          });
+          if (walletUsed > 0) {
+            const remaining = Math.max(0, walletBalance - walletUsed);
+            updateProfile({ passBalance: remaining });
+          }
+        }
       } catch (verifyErr) {
         console.warn('Backend payment verification fetch warning:', verifyErr);
-      }
-
-      // If wallet balance was used for part of payment, deduct from authStore
-      if (walletUsed > 0) {
-        const remaining = Math.max(0, walletBalance - walletUsed);
-        updateProfile({ passBalance: remaining });
+        if (walletUsed > 0) {
+          const remaining = Math.max(0, walletBalance - walletUsed);
+          updateProfile({ passBalance: remaining });
+        }
       }
 
       // Auto-log to health diary if toggled
@@ -251,6 +299,23 @@ export default function CheckoutScreen() {
   const handleInitiateCheckout = async () => {
     if (itemsList.length === 0) {
       Alert.alert('Cart is Empty', 'Please add items to your cart before proceeding to checkout.');
+      return;
+    }
+
+    // Require authentication before checkout (!isAuthed || isGuest)
+    if (!isAuthed || isGuest) {
+      Alert.alert(
+        'Sign In Required',
+        'Please sign in or create an account to complete your order',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Sign In',
+            style: 'default',
+            onPress: () => router.push('/auth/login?redirect=cart'),
+          },
+        ]
+      );
       return;
     }
 
@@ -344,7 +409,10 @@ export default function CheckoutScreen() {
 
     // CASE B: Partial / Online Checkout via Razorpay (finalPayable > 0)
     setProcessingStatus('Creating order on NutriFlexs server...');
-    const candidateUrls = [API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL];
+    // In production checkout, remove dead localhost and LAN IP candidates so network requests do not freeze for 24s on mobile cellular data
+    const candidateUrls = isDev
+      ? [API_BASE_URL, LOCAL_USB_URL, LOCAL_LAN_URL].filter(Boolean)
+      : [API_BASE_URL];
     const totalAmountInPaise = Math.round(finalPayable * 100);
     const token = await getAuthToken();
 
@@ -356,7 +424,7 @@ export default function CheckoutScreen() {
       try {
         const targetUrl = `${baseUrl.replace(/\/$/, '')}/api/mobile/orders`;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         const response = await fetch(targetUrl, {
           method: 'POST',
@@ -383,7 +451,7 @@ export default function CheckoutScreen() {
             walletAmountUsed: walletUsed,
             user: isAuthed && user
               ? { name: user.name, email: user.email, phone: user.phone || '' }
-              : { name: 'Guest', email: 'guest@nutriflexs.com', phone: '9999999999' },
+              : undefined,
           }),
         });
 
@@ -463,7 +531,7 @@ export default function CheckoutScreen() {
     // Launch Real Native Razorpay Checkout
     setProcessingStatus('Launching Razorpay SDK...');
     const options = {
-      key: data.keyId || CONFIG.razorpayKeyId || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_nutriflexs_demo',
+      key: data.keyId || data.key || CONFIG.razorpayKeyId || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_nutriflexs_demo',
       order_id: razorpayOrderId,
       amount: amountInPaise,
       currency: 'INR',
@@ -476,11 +544,19 @@ export default function CheckoutScreen() {
         name: isAuthed && user?.name ? user.name : '',
       },
       theme: { color: '#1D4D3E' },
+      retry: { enabled: true, max_count: 2 },
     };
 
     try {
       const paymentResult = await RazorpayCheckout.open(options);
-      await handlePaymentVerificationSuccess(paymentResult, orderId);
+      await handlePaymentVerificationSuccess(
+        {
+          razorpay_payment_id: paymentResult?.razorpay_payment_id || (paymentResult as any)?.razorpayPaymentId,
+          razorpay_order_id: paymentResult?.razorpay_order_id || (paymentResult as any)?.razorpayOrderId || razorpayOrderId,
+          razorpay_signature: paymentResult?.razorpay_signature || (paymentResult as any)?.razorpaySignature,
+        },
+        orderId
+      );
     } catch (err: any) {
       setIsProcessing(false);
       setProcessingStatus('');
@@ -559,6 +635,24 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
+        {/* Unauthenticated / Guest Prompt Card */}
+        {(!isAuthed || isGuest) && (
+          <View style={styles.authPromptCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.authPromptTitle}>Sign in to complete order</Text>
+              <Text style={styles.authPromptSub}>
+                Please sign in or create an account to complete your order
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.authPromptBtn}
+              onPress={() => router.push('/auth/login?redirect=cart')}
+            >
+              <Text style={styles.authPromptBtnText}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Diagnostic Host Resolution Error Banner */}
         {lastDiagnostic && (
           <View style={styles.errorCard}>
@@ -567,14 +661,16 @@ export default function CheckoutScreen() {
               <Text style={styles.errorTitle}>{lastDiagnostic.title}</Text>
             </View>
             <Text style={styles.errorMessage}>{lastDiagnostic.message}</Text>
-            <View style={styles.hintsBox}>
-              <Text style={styles.hintsTitle}>Troubleshooting Steps:</Text>
-              {lastDiagnostic.hints.map((hint, index) => (
-                <Text key={index} style={styles.hintItem}>
-                  {index + 1}. {hint}
-                </Text>
-              ))}
-            </View>
+            {lastDiagnostic.hints && lastDiagnostic.hints.length > 0 && (
+              <View style={styles.hintsBox}>
+                <Text style={styles.hintsTitle}>Suggestions:</Text>
+                {lastDiagnostic.hints.map((hint, index) => (
+                  <Text key={index} style={styles.hintItem}>
+                    • {hint}
+                  </Text>
+                ))}
+              </View>
+            )}
             <TouchableOpacity
               style={styles.retryButton}
               onPress={handleInitiateCheckout}
@@ -586,13 +682,15 @@ export default function CheckoutScreen() {
           </View>
         )}
 
-        {/* Server & API Endpoint Diagnostic Card */}
-        <View style={styles.diagnosticPill}>
-          <View style={styles.dotOnline} />
-          <Text style={styles.diagnosticText} numberOfLines={1}>
-            API Host: {API_BASE_URL}
-          </Text>
-        </View>
+        {/* Server & API Endpoint Diagnostic Card (Dev Only) */}
+        {isDev && (
+          <View style={styles.diagnosticPill}>
+            <View style={styles.dotOnline} />
+            <Text style={styles.diagnosticText} numberOfLines={1}>
+              API Host: {API_BASE_URL}
+            </Text>
+          </View>
+        )}
 
         {/* Order Items Summary */}
         <View style={styles.card}>
@@ -783,7 +881,9 @@ export default function CheckoutScreen() {
           ) : (
             <View style={styles.payBtnRow}>
               <Text style={styles.payButtonText}>
-                {finalPayable === 0
+                {!isAuthed || isGuest
+                  ? 'Sign in to Complete Order'
+                  : finalPayable === 0
                   ? 'Pay with NutriFlexs Wallet'
                   : `Pay ₹${finalPayable} via Razorpay`}
               </Text>
@@ -885,6 +985,39 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: colors.borderSubtle,
+  },
+  authPromptCard: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  authPromptTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  authPromptSub: {
+    fontSize: 11.5,
+    color: '#B45309',
+    lineHeight: 16,
+  },
+  authPromptBtn: {
+    backgroundColor: colors.brandGreen,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  authPromptBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   kioskRow: {
     flexDirection: 'row',

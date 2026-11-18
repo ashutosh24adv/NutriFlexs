@@ -79,9 +79,14 @@ export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Live Age Calculation
+  // Live Age Calculation - only calculate when year has 4 valid digits (1930 <= year <= 2018)
+  const numericYear = parseInt(dobYear, 10);
+  const isValidYear = dobYear.length === 4 && !isNaN(numericYear) && numericYear >= 1930 && numericYear <= 2018;
   const formattedDob = `${dobYear}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`;
-  const liveAge = useMemo(() => calculateAge(formattedDob), [formattedDob]);
+  const liveAge = useMemo(() => {
+    if (!isValidYear) return null;
+    return calculateAge(formattedDob);
+  }, [isValidYear, formattedDob]);
 
   // Height Unit Toggle Handler
   const toggleHeightUnit = (targetUnit: 'cm' | 'ft') => {
@@ -214,12 +219,24 @@ export default function SignupScreen() {
       await saveSecureToken(token);
 
       // 2. Immediately persist { token, user, nutritionGoal } into useAuthStore
-      const normalizedUser = user || {
-        id: `u_${Date.now()}`,
-        name: name.trim(),
-        email: registerPayload.email,
-        phone: registerPayload.phone,
-        passBalance: 0,
+      const normalizedUser = {
+        ...user,
+        id: user?.id || `u_${Date.now()}`,
+        name: user?.name || name.trim(),
+        email: user?.email || registerPayload.email,
+        phone: user?.phone || registerPayload.phone,
+        passBalance: user?.passBalance ?? 0,
+        membershipTier: user?.membershipTier || 'PRO',
+        homeKiosk: user?.homeKiosk || 'Cult.fit HSR Layout, Bengaluru',
+        sex: user?.sex || sex,
+        dateOfBirth: user?.dateOfBirth || formattedDob,
+        heightCm: user?.heightCm || resolvedHeightCm,
+        weightKg: user?.weightKg || resolvedWeightKg,
+        workoutFrequency: user?.workoutFrequency || workoutFrequency,
+        primaryGoal: user?.primaryGoal || primaryGoal,
+        dietPreference: user?.dietPreference || dietPreference,
+        goals: nutritionGoal || user?.goals || null,
+        nutritionGoal: nutritionGoal || user?.nutritionGoal || null,
       };
 
       try {
@@ -243,13 +260,7 @@ export default function SignupScreen() {
       }
 
       // Ensure profile and goals are reflected
-      updateProfile({
-        id: normalizedUser.id,
-        name: normalizedUser.name || name.trim(),
-        email: normalizedUser.email || registerPayload.email,
-        phone: normalizedUser.phone || registerPayload.phone,
-        passBalance: normalizedUser.passBalance ?? 0,
-      });
+      updateProfile(normalizedUser);
 
       // Background hydration
       if (typeof fetchMe === 'function') {
@@ -261,7 +272,7 @@ export default function SignupScreen() {
       const query = new URLSearchParams({
         name: name.trim(),
         sex,
-        age: liveAge.toString(),
+        age: (liveAge ?? 25).toString(),
         heightCm: resolvedHeightCm.toString(),
         weightKg: resolvedWeightKg.toString(),
         workoutFrequency,
@@ -444,9 +455,11 @@ export default function SignupScreen() {
                 <Calendar size={15} color="#1D4D3E" />
                 <Text style={styles.labelWithIcon}>Date of Birth</Text>
               </View>
-              <View style={styles.liveAgeBadge}>
-                <Text style={styles.liveAgeText}>🎂 {liveAge} yrs old</Text>
-              </View>
+              {isValidYear && liveAge !== null ? (
+                <View style={styles.liveAgeBadge}>
+                  <Text style={styles.liveAgeText}>🎂 {liveAge} yrs old</Text>
+                </View>
+              ) : null}
             </View>
             <View style={styles.dobInputsRow}>
               <View style={styles.dobInputCol}>

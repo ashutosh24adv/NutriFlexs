@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withDbRetry } from "@/lib/prisma";
 import { OrderStatus, PaymentStatus } from "@/types/enums";
 import { Razorpay } from "@/lib/razorpay";
 import { getMobileAuthUser } from "@/lib/mobile-auth";
@@ -27,10 +27,12 @@ export async function GET(request: Request) {
       if (queryUserId) {
         userId = queryUserId;
       } else if (queryEmail) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: queryEmail.toLowerCase().trim() },
-          select: { id: true },
-        });
+        const dbUser = await withDbRetry(() =>
+          prisma.user.findUnique({
+            where: { email: queryEmail.toLowerCase().trim() },
+            select: { id: true },
+          })
+        );
         if (dbUser) userId = dbUser.id;
       }
     }
@@ -71,16 +73,27 @@ export async function POST(request: Request) {
       walletAmountUsed,
     } = body;
 
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Order must contain at least one item" },
+        { status: 400 }
+      );
+    }
+
     // 1. Resolve authenticated user in Neon PostgreSQL
     let user = null;
     const authUser = await getMobileAuthUser(request);
     if (authUser) {
-      user = await prisma.user.findUnique({ where: { id: authUser.id } });
+      user = await withDbRetry(() =>
+        prisma.user.findUnique({ where: { id: authUser.id } })
+      );
     }
     if (!user && userInfo.email) {
-      user = await prisma.user.findUnique({
-        where: { email: String(userInfo.email).toLowerCase().trim() },
-      });
+      user = await withDbRetry(() =>
+        prisma.user.findUnique({
+          where: { email: String(userInfo.email).toLowerCase().trim() },
+        })
+      );
     }
 
     if (!user) {
@@ -139,7 +152,7 @@ export async function POST(request: Request) {
     let subtotal = 0;
     let totalProtein = 0;
     let totalCalories = 0;
-    const orderItemsCreate = [];
+    const orderItemsCreate: any[] = [];
 
     for (const item of items) {
       let product = dbProducts.find(
@@ -209,30 +222,32 @@ export async function POST(request: Request) {
       walletUsed > 0 ? `PARTIAL_WALLET:${walletUsed}` : "RAZORPAY";
 
     // 5. Create Order record in Neon PostgreSQL
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        userId: user.id,
-        outletId: outlet ? outlet.id : "default-outlet",
-        status: OrderStatus.ORDER_PLACED,
-        subtotal: subtotal || (finalPayable + walletUsed),
-        discount,
-        totalAmount: finalPayable,
-        totalProtein,
-        totalCalories,
-        paymentStatus: PaymentStatus.PENDING,
-        paymentMethod,
-        couponId,
-        estimatedPrepMinutes: 5,
-        items: {
-          create: orderItemsCreate,
+    const order = await withDbRetry(() =>
+      prisma.order.create({
+        data: {
+          orderNumber,
+          userId: user.id,
+          outletId: outlet ? outlet.id : "default-outlet",
+          status: OrderStatus.ORDER_PLACED,
+          subtotal: subtotal || (finalPayable + walletUsed),
+          discount,
+          totalAmount: finalPayable,
+          totalProtein,
+          totalCalories,
+          paymentStatus: PaymentStatus.PENDING,
+          paymentMethod,
+          couponId,
+          estimatedPrepMinutes: 5,
+          items: {
+            create: orderItemsCreate,
+          },
         },
-      },
-      include: {
-        items: true,
-        outlet: true,
-      },
-    });
+        include: {
+          items: true,
+          outlet: true,
+        },
+      })
+    );
 
     // 6. Initialize Razorpay and generate order for finalPayable
     const key_id = process.env.RAZORPAY_KEY_ID || "rzp_test_nutriflexs_demo";
@@ -252,15 +267,17 @@ export async function POST(request: Request) {
       },
     });
 
-    const payment = await prisma.payment.create({
-      data: {
-        orderId: order.id,
-        razorpayOrderId: razorpayOrder.id,
-        amount: finalPayable,
-        status: PaymentStatus.PENDING,
-        method: walletUsed > 0 ? `RAZORPAY_WALLET:${walletUsed}` : "RAZORPAY",
-      },
-    });
+    const payment = await withDbRetry(() =>
+      prisma.payment.create({
+        data: {
+          orderId: order.id,
+          razorpayOrderId: razorpayOrder.id,
+          amount: finalPayable,
+          status: PaymentStatus.PENDING,
+          method: walletUsed > 0 ? `RAZORPAY_WALLET:${walletUsed}` : "RAZORPAY",
+        },
+      })
+    );
 
     return NextResponse.json({
       success: true,

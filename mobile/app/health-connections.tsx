@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -72,8 +72,20 @@ export default function HealthConnectionsScreen() {
   const [connectionStatus, setConnectionStatus] = useState<PlatformConnectionStatus>('connected');
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [isManualSyncing, setIsManualSyncing] = useState(false);
-  const isSyncActive = hookIsSyncing || isManualSyncing;
+  const [isBottomSyncing, setIsBottomSyncing] = useState(false);
+  const isSyncActive = hookIsSyncing || isManualSyncing || isBottomSyncing;
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Auto-recovery watchdog: ensure bottom button spinning state never hangs longer than 10s
+  useEffect(() => {
+    if (isBottomSyncing || isManualSyncing) {
+      const timer = setTimeout(() => {
+        setIsBottomSyncing(false);
+        setIsManualSyncing(false);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [isBottomSyncing, isManualSyncing]);
 
   const computedStatus: PlatformConnectionStatus = (() => {
     if (hasPermissions || (grantedPermissions && grantedPermissions.length > 0)) return 'connected';
@@ -114,74 +126,120 @@ export default function HealthConnectionsScreen() {
     return 'Connected Fitness Platform';
   };
 
-  // Detected Underlying Data Sources dynamically rendered from live hook sources
-  const detectedSources: UnderlyingSource[] = (hookSources && hookSources.length > 0)
-    ? hookSources.map((s: any) => {
-        const pkg = s.packageName || s.appPackage || (isIOS ? 'com.apple.Health' : 'com.google.android.apps.healthdata');
+  // Detected Underlying Data Sources: deduplicated & filtered of internal origins (e.g. '._platform', 'android.platform')
+  const detectedSources: UnderlyingSource[] = (() => {
+    if (hookSources && hookSources.length > 0) {
+      const filtered = hookSources.filter((s: any) => {
+        const pkg = (s.packageName || s.appPackage || s.id || '').toLowerCase();
+        return (
+          !pkg.includes('._platform') &&
+          !pkg.includes('android.platform') &&
+          !pkg.startsWith('.') &&
+          !pkg.startsWith('_') &&
+          pkg !== 'platform' &&
+          s.id !== 'internal'
+        );
+      });
+
+      const seenNames = new Set<string>();
+      const seenIds = new Set<string>();
+      const list: UnderlyingSource[] = [];
+
+      for (const s of filtered) {
+        const pkg =
+          s.packageName ||
+          (s as any).appPackage ||
+          (isIOS ? 'com.apple.Health' : 'com.google.android.apps.healthdata');
         const isLive = Boolean(s.isConnected || hasPermissions);
-        return {
+        const name =
+          s.name ||
+          (pkg.includes('shealth')
+            ? 'Samsung Health'
+            : pkg === 'com.google.android.apps.fitness'
+            ? 'Google Fit'
+            : 'Health Provider');
+
+        const normName = name.trim().toLowerCase();
+        const normId = (s.id || pkg).trim().toLowerCase();
+
+        // Strict deduplication so Samsung Health is never displayed twice
+        if (normName === 'samsung health' && seenNames.has('samsung health')) {
+          continue;
+        }
+        if (seenNames.has(normName) || seenIds.has(normId)) {
+          continue;
+        }
+
+        seenNames.add(normName);
+        seenIds.add(normId);
+
+        list.push({
           id: s.id || pkg,
-          name: s.name || (pkg.includes('shealth') ? 'Samsung Health' : pkg === 'com.google.android.apps.fitness' ? 'Google Fit' : 'Health Provider'),
+          name,
           appPackage: pkg,
           hardware: s.description || getSourceDescription(pkg, s.name),
           lastSynced: s.lastSyncedAt
             ? new Date(s.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : (telemetry?.lastSyncedAt
-                ? new Date(telemetry.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                : 'Standby / Awaiting sync'),
+            : telemetry?.lastSyncedAt
+            ? new Date(telemetry.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : 'Standby / Awaiting sync',
           status: isLive ? 'active' : 'standby',
           icon: getSourceIcon(pkg, s.name),
-        };
-      })
-    : (isIOS
-        ? [
-            {
-              id: 'apple_health',
-              name: 'Apple HealthKit',
-              appPackage: 'com.apple.Health',
-              hardware: 'Apple HealthKit Telemetry Engine',
-              lastSynced: telemetry?.lastSyncedAt
-                ? new Date(telemetry.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                : 'Standby / Awaiting sync',
-              status: hasPermissions ? 'active' : 'standby',
-              icon: 'watch-outline',
-            },
-          ]
-        : [
-            {
-              id: 'health_connect',
-              name: 'Android Health Connect',
-              appPackage: 'com.google.android.apps.healthdata',
-              hardware: 'Android Health Connect Platform Hub',
-              lastSynced: telemetry?.lastSyncedAt
-                ? new Date(telemetry.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                : 'Standby / Awaiting sync',
-              status: hasPermissions ? 'active' : 'standby',
-              icon: 'heart-circle-outline',
-            },
-            {
-              id: 'samsung_health',
-              name: 'Samsung Health',
-              appPackage: 'samsung.health',
-              hardware: 'Samsung Health Sensor & Step Hub',
-              lastSynced: telemetry?.lastSyncedAt
-                ? new Date(telemetry.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                : 'Standby / Awaiting sync',
-              status: hasPermissions ? 'active' : 'standby',
-              icon: 'watch-outline',
-            },
-            {
-              id: 'google_fit',
-              name: 'Google Fit',
-              appPackage: 'com.google.android.apps.fitness',
-              hardware: 'Google Fit Activity & Motion',
-              lastSynced: telemetry?.lastSyncedAt
-                ? new Date(telemetry.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                : 'Standby / Awaiting sync',
-              status: hasPermissions ? 'active' : 'standby',
-              icon: 'fitness-outline',
-            },
-          ]);
+        });
+      }
+      return list;
+    }
+
+    return isIOS
+      ? [
+          {
+            id: 'apple_health',
+            name: 'Apple HealthKit',
+            appPackage: 'com.apple.Health',
+            hardware: 'Apple HealthKit Telemetry Engine',
+            lastSynced: telemetry?.lastSyncedAt
+              ? new Date(telemetry.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : 'Standby / Awaiting sync',
+            status: hasPermissions ? 'active' : 'standby',
+            icon: 'watch-outline',
+          },
+        ]
+      : [
+          {
+            id: 'health_connect',
+            name: 'Android Health Connect',
+            appPackage: 'com.google.android.apps.healthdata',
+            hardware: 'Android Health Connect Platform Hub',
+            lastSynced: telemetry?.lastSyncedAt
+              ? new Date(telemetry.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : 'Standby / Awaiting sync',
+            status: hasPermissions ? 'active' : 'standby',
+            icon: 'heart-circle-outline',
+          },
+          {
+            id: 'samsung_health',
+            name: 'Samsung Health',
+            appPackage: 'samsung.health',
+            hardware: 'Samsung Health Sensor & Step Hub',
+            lastSynced: telemetry?.lastSyncedAt
+              ? new Date(telemetry.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : 'Standby / Awaiting sync',
+            status: hasPermissions ? 'active' : 'standby',
+            icon: 'watch-outline',
+          },
+          {
+            id: 'google_fit',
+            name: 'Google Fit',
+            appPackage: 'com.google.android.apps.fitness',
+            hardware: 'Google Fit Activity & Motion',
+            lastSynced: telemetry?.lastSyncedAt
+              ? new Date(telemetry.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : 'Standby / Awaiting sync',
+            status: hasPermissions ? 'active' : 'standby',
+            icon: 'fitness-outline',
+          },
+        ];
+  })();
 
   // Activity metrics data streams
   const dataStreams: DataStreamMetric[] = [
@@ -323,7 +381,9 @@ export default function HealthConnectionsScreen() {
   };
 
   const handleManualSync = async () => {
+    if (isBottomSyncing || isManualSyncing) return;
     setIsManualSyncing(true);
+    setIsBottomSyncing(true);
     let timeoutId: any = null;
     try {
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -334,20 +394,21 @@ export default function HealthConnectionsScreen() {
 
       const synced = await Promise.race([syncNow(), timeoutPromise]);
       const current = synced || telemetry;
-      const steps = Number(current.steps) || 0;
-      const kcal = Number(current.activeBurned ?? current.activeCalories ?? 0);
+      const steps = Number(current?.steps) || 0;
+      const kcal = Number(current?.activeBurned ?? current?.activeCalories ?? 0);
       const summaryText = `Synced just now • ${steps.toLocaleString()} steps, ${kcal} kcal`;
       setToastMessage(summaryText);
     } catch (err: any) {
       console.warn('[HealthConnections] Manual sync notice:', err);
       const current = telemetry;
-      const steps = Number(current.steps) || 0;
-      const kcal = Number(current.activeBurned ?? current.activeCalories ?? 0);
+      const steps = Number(current?.steps) || 0;
+      const kcal = Number(current?.activeBurned ?? current?.activeCalories ?? 0);
       const summaryText = `Synced just now • ${steps.toLocaleString()} steps, ${kcal} kcal`;
       setToastMessage(summaryText);
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
       setIsManualSyncing(false);
+      setIsBottomSyncing(false);
     }
   };
 
@@ -669,16 +730,16 @@ export default function HealthConnectionsScreen() {
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={handleManualSync}
-            disabled={isSyncActive}
+            disabled={isBottomSyncing}
             style={styles.bottomSyncButton}
           >
-            {isSyncActive ? (
+            {isBottomSyncing ? (
               <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 8 }} />
             ) : (
               <Ionicons name="sync" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
             )}
             <Text style={styles.bottomSyncButtonText}>
-              {isSyncActive ? 'Syncing...' : 'Sync Now'}
+              {isBottomSyncing ? 'Syncing...' : 'Sync Now'}
             </Text>
           </TouchableOpacity>
         </View>

@@ -39,13 +39,18 @@ export const WaterTracker: React.FC<WaterTrackerProps> = ({
   const handleAdd = async (amount: number) => {
     const nextVal = consumedMl + amount;
     setConsumedMl(nextVal);
+
+    // If a parent handler is provided, delegate to it and DO NOT send a duplicate HTTP request
     if (onAddWater) {
       onAddWater(amount);
-    } else if (onLogWater) {
+      return;
+    }
+    if (onLogWater) {
       onLogWater(amount);
+      return;
     }
 
-    // Direct server persistence with Bearer token
+    // Direct server persistence with Bearer token only if standalone (no parent handler)
     try {
       const token = await getAuthToken();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };

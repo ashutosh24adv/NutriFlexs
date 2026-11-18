@@ -10,7 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { RotateCcw } from 'lucide-react-native';
+import { RotateCcw, UtensilsCrossed } from 'lucide-react-native';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { spacing } from '../../src/theme/spacing';
@@ -19,6 +19,9 @@ import { useCartStore } from '../../src/store/cartStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { getAuthToken } from '../../src/services/apiClient';
 import { API_BASE_URL } from '../../src/config/api';
+
+declare const __DEV__: boolean;
+const isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV !== 'production';
 
 interface ParsedItem {
   id: string;
@@ -169,12 +172,16 @@ export default function ReorderScreen() {
         headers['Authorization'] = `Bearer ${cleanToken}`;
       }
 
-      const bases = [
-        API_BASE_URL,
-        process.env.EXPO_PUBLIC_API_URL,
-        'http://localhost:3000',
-        'https://nutri-flexs.vercel.app',
-      ].filter((b): b is string => Boolean(b && typeof b === 'string'));
+      const bases = Array.from(
+        new Set(
+          [
+            API_BASE_URL,
+            process.env.EXPO_PUBLIC_API_URL,
+            'https://nutri-flexs.vercel.app',
+            isDev ? 'http://localhost:3000' : undefined,
+          ].filter((b): b is string => Boolean(b && typeof b === 'string'))
+        )
+      );
 
       let fetched: RawOrder[] = [];
       let success = false;
@@ -342,7 +349,7 @@ export default function ReorderScreen() {
           /* Clean Empty State */
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconCircle}>
-              <RotateCcw size={32} color="#1D4D3E" />
+              <UtensilsCrossed size={32} color="#1D4D3E" />
             </View>
             <Text style={styles.emptyTitle}>No orders yet</Text>
             <Text style={styles.emptySubtitle}>

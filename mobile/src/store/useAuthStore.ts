@@ -181,30 +181,43 @@ async function readTokenFromSecureStore(): Promise<string | null> {
     }
   }
 
-  return memoryCache.get('jwt_token') || null;
+  for (const key of SECURE_STORE_TOKEN_KEYS) {
+    const memVal = memoryCache.get(key);
+    if (memVal && typeof memVal === 'string' && memVal.trim().length > 0) {
+      return memVal.trim();
+    }
+  }
+
+  return null;
 }
 
 async function writeTokenToSecureStore(token: string): Promise<void> {
-  memoryCache.set('jwt_token', token);
+  for (const key of SECURE_STORE_TOKEN_KEYS) {
+    memoryCache.set(key, token);
+  }
 
   if (typeof localStorage !== 'undefined') {
     try {
-      localStorage.setItem('jwt_token', token);
-      localStorage.setItem('token', token);
+      for (const key of SECURE_STORE_TOKEN_KEYS) {
+        localStorage.setItem(key, token);
+      }
     } catch {}
   }
 
   try {
     const secureStore = await getSecureStore();
     if (secureStore && typeof secureStore.setItemAsync === 'function') {
-      await secureStore.setItemAsync('jwt_token', token);
-      await secureStore.setItemAsync('token', token);
+      await Promise.allSettled(
+        SECURE_STORE_TOKEN_KEYS.map((k) => secureStore.setItemAsync(k, token))
+      );
     }
   } catch {}
 }
 
 export async function clearSecureStoreToken(): Promise<void> {
-  memoryCache.delete('jwt_token');
+  for (const key of SECURE_STORE_TOKEN_KEYS) {
+    memoryCache.delete(key);
+  }
 
   if (typeof localStorage !== 'undefined') {
     try {
@@ -212,6 +225,7 @@ export async function clearSecureStoreToken(): Promise<void> {
         localStorage.removeItem(key);
       }
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem('user_session');
     } catch {}
   }
@@ -220,7 +234,7 @@ export async function clearSecureStoreToken(): Promise<void> {
     const secureStore = await getSecureStore();
     if (secureStore && typeof secureStore.deleteItemAsync === 'function') {
       await Promise.allSettled(
-        [...SECURE_STORE_TOKEN_KEYS, 'refreshToken', 'user_session'].map((k) =>
+        [...SECURE_STORE_TOKEN_KEYS, 'refreshToken', 'refresh_token', 'user_session', 'user_session_jwt'].map((k) =>
           secureStore.deleteItemAsync(k)
         )
       );
@@ -339,18 +353,23 @@ export async function persistSession(params: {
     lastMode,
   };
   promises.push(writeItemToAsyncStorage(ASYNC_STORAGE_SESSION_KEY, sessionData));
+  promises.push(writeItemToAsyncStorage('auth_session', sessionData));
 
   // Mirror individual keys for backwards compatibility across existing readers
   if (user) {
     promises.push(writeItemToAsyncStorage(ASYNC_STORAGE_USER_KEY, user));
+    promises.push(writeItemToAsyncStorage('user_profile', user));
   }
   if (nutritionGoal) {
     promises.push(writeItemToAsyncStorage(ASYNC_STORAGE_GOAL_KEY, nutritionGoal));
+    promises.push(writeItemToAsyncStorage('nutrition_goal', nutritionGoal));
   } else {
     promises.push(removeItemFromAsyncStorage(ASYNC_STORAGE_GOAL_KEY));
+    promises.push(removeItemFromAsyncStorage('nutrition_goal'));
   }
   if (lastMode) {
     promises.push(writeItemToAsyncStorage(ASYNC_STORAGE_LAST_MODE_KEY, lastMode));
+    promises.push(writeItemToAsyncStorage('last_active_mode', lastMode));
   }
 
   await Promise.allSettled(promises);
@@ -363,9 +382,13 @@ export async function clearPersistedSession(): Promise<void> {
   await Promise.allSettled([
     clearSecureStoreToken(),
     removeItemFromAsyncStorage(ASYNC_STORAGE_SESSION_KEY),
+    removeItemFromAsyncStorage('auth_session'),
     removeItemFromAsyncStorage(ASYNC_STORAGE_USER_KEY),
+    removeItemFromAsyncStorage('user_profile'),
     removeItemFromAsyncStorage(ASYNC_STORAGE_GOAL_KEY),
+    removeItemFromAsyncStorage('nutrition_goal'),
     removeItemFromAsyncStorage(ASYNC_STORAGE_LAST_MODE_KEY),
+    removeItemFromAsyncStorage('last_active_mode'),
   ]);
 }
 
@@ -455,7 +478,10 @@ export const authActions = {
       token = await readTokenFromSecureStore();
 
       // 1. Load session { user, nutritionGoal, lastMode } from AsyncStorage
-      const session = await readItemFromAsyncStorage<SessionCache>(ASYNC_STORAGE_SESSION_KEY);
+      let session = await readItemFromAsyncStorage<SessionCache>(ASYNC_STORAGE_SESSION_KEY);
+      if (!session) {
+        session = await readItemFromAsyncStorage<SessionCache>('auth_session');
+      }
       if (session && typeof session === 'object') {
         user = session.user || null;
         nutritionGoal = session.nutritionGoal || null;
@@ -464,12 +490,15 @@ export const authActions = {
 
       // 2. Resilient fallbacks for individual keys
       if (!user) {
-        user = await readItemFromAsyncStorage<UserProfile>(ASYNC_STORAGE_USER_KEY);
+        user = (await readItemFromAsyncStorage<UserProfile>(ASYNC_STORAGE_USER_KEY)) ||
+               (await readItemFromAsyncStorage<UserProfile>('user_profile'));
       }
       if (!nutritionGoal) {
-        nutritionGoal = await readItemFromAsyncStorage<NutritionGoalProfile>(ASYNC_STORAGE_GOAL_KEY);
+        nutritionGoal = (await readItemFromAsyncStorage<NutritionGoalProfile>(ASYNC_STORAGE_GOAL_KEY)) ||
+                        (await readItemFromAsyncStorage<NutritionGoalProfile>('nutrition_goal'));
       }
-      const storedLastMode = await readItemFromAsyncStorage<string>(ASYNC_STORAGE_LAST_MODE_KEY);
+      const storedLastMode = (await readItemFromAsyncStorage<string>(ASYNC_STORAGE_LAST_MODE_KEY)) ||
+                             (await readItemFromAsyncStorage<string>('last_active_mode'));
       if (storedLastMode) {
         lastMode = storedLastMode;
       }
@@ -729,7 +758,12 @@ export const authActions = {
           isAuthenticated: true,
         };
         notify();
-        persistSession({ user: newUser, nutritionGoal: state.nutritionGoal }).catch(() => {});
+        persistSession({
+          token: state.token,
+          user: newUser,
+          nutritionGoal: state.nutritionGoal,
+          lastMode: state.lastMode || 'track',
+        }).catch(() => {});
       }
       return;
     }
@@ -747,7 +781,12 @@ export const authActions = {
     };
     notify();
 
-    persistSession({ user: mergedUser, nutritionGoal: state.nutritionGoal }).catch(() => {});
+    persistSession({
+      token: state.token,
+      user: mergedUser,
+      nutritionGoal: state.nutritionGoal,
+      lastMode: state.lastMode || 'track',
+    }).catch(() => {});
   },
 
   /**

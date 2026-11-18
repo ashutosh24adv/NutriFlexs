@@ -131,6 +131,19 @@ export const KNOWN_HEALTH_APPS: Record<string, { name: string; icon: string; des
   },
 };
 
+export function isInternalOrigin(packageName?: string): boolean {
+  if (!packageName || typeof packageName !== 'string') return true;
+  const p = packageName.trim().toLowerCase();
+  return (
+    p.includes('._platform') ||
+    p.includes('android.platform') ||
+    p.startsWith('.') ||
+    p.startsWith('_') ||
+    p === 'platform' ||
+    p.endsWith('._platform')
+  );
+}
+
 /**
  * Dynamically resolves package names to clean human-readable source app names.
  */
@@ -140,6 +153,47 @@ export function formatDataOriginSource(packageName: string): {
   icon: string;
   description: string;
 } {
+  if (isInternalOrigin(packageName)) {
+    return {
+      id: 'internal',
+      name: 'Internal Platform',
+      icon: '⚙️',
+      description: 'Internal platform telemetry',
+    };
+  }
+
+  // Canonical mapping for Samsung Health & Galaxy Watch plugins to prevent duplicate cards
+  if (
+    packageName === 'com.sec.android.app.shealth' ||
+    packageName.startsWith('com.sec.') ||
+    packageName.startsWith('com.samsung.')
+  ) {
+    return {
+      id: 'samsungHealth',
+      name: 'Samsung Health',
+      icon: '⌚',
+      description: 'Galaxy Watch and Samsung Health workouts',
+    };
+  }
+
+  if (packageName === 'com.google.android.apps.healthdata') {
+    return {
+      id: 'healthConnect',
+      name: 'Android Health Connect',
+      icon: '🩺',
+      description: 'Google Health Connect platform hub',
+    };
+  }
+
+  if (packageName === 'com.google.android.apps.fitness') {
+    return {
+      id: 'googleFit',
+      name: 'Google Fit',
+      icon: '👟',
+      description: 'Google Fit activity and step cadence',
+    };
+  }
+
   if (KNOWN_HEALTH_APPS[packageName]) {
     const known = KNOWN_HEALTH_APPS[packageName];
     return {
@@ -147,16 +201,6 @@ export function formatDataOriginSource(packageName: string): {
       name: known.name,
       icon: known.icon,
       description: known.description,
-    };
-  }
-
-  // Auto-recognize any Samsung Health / Galaxy Watch plugins
-  if (packageName.startsWith('com.sec.') || packageName.startsWith('com.samsung.')) {
-    return {
-      id: packageName.replace(/[^a-zA-Z0-9]/g, '_'),
-      name: 'Samsung Health',
-      icon: '⌚',
-      description: 'Galaxy Watch and Samsung Health workouts',
     };
   }
 
@@ -452,7 +496,46 @@ class HealthSyncService {
   }
 
   public getSources(): HealthSourceInfo[] {
-    return Array.from(this.detectedSources.values());
+    const list = Array.from(this.detectedSources.values());
+    const seenNames = new Set<string>();
+    const seenIds = new Set<string>();
+    const deduplicated: HealthSourceInfo[] = [];
+
+    for (const src of list) {
+      if (
+        !src ||
+        isInternalOrigin(src.packageName) ||
+        isInternalOrigin(src.id) ||
+        src.id === 'internal' ||
+        src.name.toLowerCase().includes('internal platform')
+      ) {
+        continue;
+      }
+
+      const normName = src.name.trim().toLowerCase();
+      const normId = src.id.trim().toLowerCase();
+
+      // Deduplicate Samsung Health specifically so it is never added twice
+      if (normName === 'samsung health') {
+        if (seenNames.has('samsung health') || seenIds.has('samsunghealth')) {
+          continue;
+        }
+        seenNames.add('samsung health');
+        seenIds.add('samsunghealth');
+        deduplicated.push(src);
+        continue;
+      }
+
+      if (seenIds.has(normId) || seenNames.has(normName)) {
+        continue;
+      }
+
+      seenIds.add(normId);
+      seenNames.add(normName);
+      deduplicated.push(src);
+    }
+
+    return deduplicated;
   }
 
   public getSyncHistory(): SyncHistoryEntry[] {
@@ -774,7 +857,7 @@ class HealthSyncService {
       }
 
       // 3. Request Health Permissions
-      let granted: any;
+      let granted: any = null;
       try {
         granted = await HealthConnect.requestPermission(HEALTH_PERMISSIONS);
       } catch (error: any) {
@@ -816,21 +899,41 @@ class HealthSyncService {
             { text: 'Open Health Connect Settings', onPress: () => openHealthConnectSettings() },
           ]
         );
-        this.permissions.overallStatus = 'denied';
-        this.grantedPermissions = [];
-        this.notify();
-        return false;
       }
 
-      const isGranted = Array.isArray(granted) && granted.length > 0;
+      // ALWAYS call HealthConnect.getGrantedPermissions() to query live granted permissions
+      let liveGranted: any[] = [];
+      if (typeof HealthConnect.getGrantedPermissions === 'function') {
+        try {
+          const res = await HealthConnect.getGrantedPermissions();
+          if (Array.isArray(res)) {
+            liveGranted = res;
+          }
+        } catch (permErr) {
+          console.warn('[HealthSync] Error querying HealthConnect.getGrantedPermissions():', permErr);
+        }
+      }
 
-      if (isGranted) {
-        this.grantedPermissions = granted.map((p: any) =>
-          typeof p === 'string' ? p : p?.recordType || String(p)
-        );
-      } else {
+      const normalizeList = (list: any[]) =>
+        list.map((p: any) => (typeof p === 'string' ? p : p?.recordType || String(p)));
+
+      const livePerms = normalizeList(liveGranted);
+      const reqPerms = Array.isArray(granted) ? normalizeList(granted) : [];
+
+      // Combine existing granted permissions with newly queried live permissions and request results.
+      // NEVER overwrite this.grantedPermissions with [] when requestPermission returns [] for already-granted permissions.
+      const combined = Array.from(
+        new Set([...this.grantedPermissions, ...livePerms, ...reqPerms])
+      );
+
+      if (livePerms.length > 0 || reqPerms.length > 0) {
+        this.grantedPermissions = combined;
+      } else if (this.grantedPermissions.length === 0) {
         this.grantedPermissions = [];
       }
+      // If this.grantedPermissions already had entries and HealthConnect returned [], preserve existing!
+
+      const isGranted = this.grantedPermissions.length > 0;
 
       this.permissions = {
         steps: this.grantedPermissions.includes('Steps'),
@@ -963,13 +1066,16 @@ class HealthSyncService {
     });
 
     try {
-      const realTelemetry = await Promise.race([
-        this.fetchTodayHealthTelemetry(),
+      const executeSync = async () => {
+        const realTelemetry = await this.fetchTodayHealthTelemetry();
+        const persisted = await this.syncToBackend(realTelemetry);
+        return { realTelemetry, persisted };
+      };
+
+      const { realTelemetry, persisted } = await Promise.race([
+        executeSync(),
         timeoutPromise,
       ]);
-
-      // Persist real telemetry to database
-      const persisted = await this.syncToBackend(realTelemetry);
 
       // Record Sync History Entry
       const historyItem: SyncHistoryEntry = {
@@ -1143,7 +1249,7 @@ class HealthSyncService {
     const packageRecordCounts = new Map<string, number>();
 
     const registerOrigin = (pkg?: string) => {
-      if (!pkg || typeof pkg !== 'string') return;
+      if (!pkg || typeof pkg !== 'string' || isInternalOrigin(pkg)) return;
       detectedPackageNames.add(pkg);
       packageRecordCounts.set(pkg, (packageRecordCounts.get(pkg) || 0) + 1);
     };
@@ -1317,7 +1423,30 @@ class HealthSyncService {
 
     // Dynamically populate sources array from detected data origins
     for (const pkg of detectedPackageNames) {
+      if (isInternalOrigin(pkg)) continue;
       const formatted = formatDataOriginSource(pkg);
+      if (!formatted || formatted.id === 'internal') continue;
+
+      // Special deduplication for Samsung Health: always update canonical 'samsungHealth' entry
+      if (formatted.name === 'Samsung Health' || formatted.id === 'samsungHealth') {
+        const samsung = this.detectedSources.get('samsungHealth');
+        const count = packageRecordCounts.get(pkg) || 1;
+        this.detectedSources.set('samsungHealth', {
+          id: 'samsungHealth',
+          name: 'Samsung Health',
+          packageName: pkg,
+          icon: '⌚',
+          isConnected: true,
+          isAvailable: true,
+          lastSyncedAt: nowIso,
+          recordsCount: (samsung?.recordsCount || 0) + count,
+          recordCount: (samsung?.recordCount || 0) + count,
+          description: formatted.description || 'Galaxy Watch and Samsung Health workouts',
+        });
+        this.detectedSources.delete('com_sec_android_app_shealth');
+        continue;
+      }
+
       const count = packageRecordCounts.get(pkg) || 1;
       this.detectedSources.set(formatted.id, {
         id: formatted.id,
@@ -1337,7 +1466,9 @@ class HealthSyncService {
     let resolvedSource = 'Android Health Connect';
     const isSamsungOrigin =
       detectedPackageNames.has('com.sec.android.app.shealth') ||
-      Array.from(detectedPackageNames).some((p) => p.startsWith('com.sec.') || p.startsWith('com.samsung.'));
+      Array.from(detectedPackageNames).some(
+        (p) => !isInternalOrigin(p) && (p.startsWith('com.sec.') || p.startsWith('com.samsung.'))
+      );
 
     if (isSamsungOrigin) {
       resolvedSource = 'Samsung Health';
@@ -1351,8 +1482,10 @@ class HealthSyncService {
     } else if (detectedPackageNames.has('com.google.android.apps.fitness')) {
       resolvedSource = 'Google Fit';
     } else if (detectedPackageNames.size > 0) {
-      const firstPkg = Array.from(detectedPackageNames)[0];
-      resolvedSource = formatDataOriginSource(firstPkg).name;
+      const firstPkg = Array.from(detectedPackageNames).find((p) => !isInternalOrigin(p));
+      if (firstPkg) {
+        resolvedSource = formatDataOriginSource(firstPkg).name;
+      }
     }
 
     const hc = this.detectedSources.get('healthConnect');
@@ -1427,12 +1560,14 @@ class HealthSyncService {
       const dayOrigins: string[] = [];
 
       const addOrigin = (pkg?: string) => {
-        if (!pkg || typeof pkg !== 'string') return;
+        if (!pkg || typeof pkg !== 'string' || isInternalOrigin(pkg)) return;
         if (!dayOrigins.includes(pkg)) dayOrigins.push(pkg);
         const formatted = formatDataOriginSource(pkg);
-        if (!this.detectedSources.has(formatted.id)) {
-          this.detectedSources.set(formatted.id, {
-            id: formatted.id,
+        if (!formatted || formatted.id === 'internal') return;
+        const targetId = formatted.name === 'Samsung Health' ? 'samsungHealth' : formatted.id;
+        if (!this.detectedSources.has(targetId)) {
+          this.detectedSources.set(targetId, {
+            id: targetId,
             name: formatted.name,
             packageName: pkg,
             icon: formatted.icon,

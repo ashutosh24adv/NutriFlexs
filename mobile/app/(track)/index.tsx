@@ -307,8 +307,11 @@ export default function TrackTodayScreen() {
 
   // Wire water logging (+250ml, +500ml) to POST /api/mobile/nutrition/water with Bearer auth & immediate refresh
   const handleLogWater = async (amount: number) => {
+    const currentBase = typeof remoteSummary?.waterMl === 'number' ? Math.max(remoteSummary.waterMl, waterMl) : waterMl;
+    const newTotal = currentBase + amount;
     addWater(amount);
-    const newTotal = waterMl + amount;
+    setWaterMl(newTotal);
+    setRemoteSummary((prev) => (prev ? { ...prev, waterMl: newTotal } : prev));
     setActiveNotice(`Hydration logged: +${amount}ml (Total: ${(newTotal / 1000).toFixed(2)}L)`);
 
     try {

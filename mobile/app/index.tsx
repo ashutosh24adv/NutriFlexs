@@ -83,18 +83,15 @@ export default function BrandIntroScreen() {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Cold start hydration: hydrate useAuthStore before deciding route
-    const hydrationPromise = (async () => {
+    // 1. Cold start hydration: explicitly await authActions.hydrate() before deciding route
+    const hydrationPromise = (async (): Promise<string> => {
       try {
         const result = await authActions.hydrate();
 
-        if (result.token && result.user) {
+        if (result && result.isAuthenticated && result.token && result.user) {
           // If token and user exist, route directly into /(track) (or lastMode)
           const rawMode = (result.lastMode || '').toLowerCase();
           const targetRoute = rawMode === 'order' || rawMode === '/(order)' ? '/(order)' : '/(track)';
-          if (isMounted) {
-            destinationRef.current = targetRoute;
-          }
 
           // Trigger a non-blocking background GET /api/mobile/auth/me refresh:
           // ONLY clear session and route to /welcome if the server explicitly returns HTTP 401 Unauthorized
@@ -107,30 +104,30 @@ export default function BrandIntroScreen() {
               }
             }
           }).catch(() => {});
-        } else {
-          if (isMounted) {
-            destinationRef.current = '/welcome';
-          }
+
+          return targetRoute;
         }
       } catch (err) {
-        console.warn('[BrandIntroScreen] Cold start hydration fallback:', err);
-        if (isMounted) {
-          destinationRef.current = '/welcome';
-        }
+        console.warn('[BrandIntroScreen] Cold start hydration error:', err);
       }
+      return '/welcome';
     })();
 
-    // Helper ensuring hydration completes before navigation route is decided
+    // Helper ensuring cold-start hydration awaits authActions.hydrate() before deciding route
     const proceedWhenReady = async () => {
+      if (hasNavigatedRef.current || !isMounted) return;
+
       try {
-        await Promise.race([
-          hydrationPromise,
-          new Promise((resolve) => setTimeout(resolve, 2500)),
-        ]);
-      } catch {}
-      if (isMounted) {
-        navigateToDestination();
+        const targetRoute = await hydrationPromise;
+        destinationRef.current = targetRoute;
+      } catch {
+        destinationRef.current = '/welcome';
       }
+
+      if (hasNavigatedRef.current || !isMounted) return;
+      hasNavigatedRef.current = true;
+      const target = destinationRef.current || '/welcome';
+      router.replace(target as any);
     };
 
     // 2. 1.8-second Netflix-style zoom-through animation using React Native Native Driver (60fps)

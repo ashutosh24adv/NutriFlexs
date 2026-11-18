@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { typography } from '../theme/typography';
 import { spacing } from '../theme/spacing';
@@ -85,7 +85,10 @@ export const MealDiarySection: React.FC<MealDiarySectionProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
       <View style={styles.sectionHeaderRow}>
         <View>
           <Text style={styles.mainTitle}>Meal History</Text>
@@ -201,7 +204,7 @@ export const MealDiarySection: React.FC<MealDiarySectionProps> = ({
           </View>
         );
       })}
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

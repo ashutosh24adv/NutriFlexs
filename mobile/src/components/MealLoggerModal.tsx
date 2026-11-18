@@ -7,6 +7,8 @@ import {
   StyleSheet,
   Modal,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -269,7 +271,10 @@ export const MealLoggerModal: React.FC<MealLoggerModalProps> = ({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.overlay}
+      >
         <TouchableOpacity
           style={styles.backdrop}
           activeOpacity={1}
@@ -355,7 +360,11 @@ export const MealLoggerModal: React.FC<MealLoggerModalProps> = ({
             </View>
           )}
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollBody}
+            keyboardShouldPersistTaps="handled"
+          >
             {activeTab === 'meal' ? (
               <>
                 {/* Meal Slot Selection */}
@@ -393,7 +402,12 @@ export const MealLoggerModal: React.FC<MealLoggerModalProps> = ({
                 </View>
 
                 {/* Common Food Chips */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickFoodRow}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.quickFoodRow}
+                  keyboardShouldPersistTaps="handled"
+                >
                   {filteredFoods.map((food) => {
                     const isPicked = customName === food.name;
                     return (
@@ -585,7 +599,7 @@ export const MealLoggerModal: React.FC<MealLoggerModalProps> = ({
             )}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

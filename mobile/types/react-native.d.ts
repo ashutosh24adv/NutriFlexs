@@ -136,6 +136,14 @@ declare module 'react-native' {
     showsVerticalScrollIndicator?: boolean;
     contentContainerStyle?: StyleProp<ViewStyle>;
     refreshControl?: React.ReactElement | any;
+    keyboardShouldPersistTaps?: 'always' | 'never' | 'handled' | boolean | string;
+  }
+
+  export interface KeyboardAvoidingViewProps extends ViewProps {
+    behavior?: 'height' | 'position' | 'padding';
+    contentContainerStyle?: StyleProp<ViewStyle>;
+    keyboardVerticalOffset?: number;
+    enabled?: boolean;
   }
 
   export interface SafeAreaViewProps extends ViewProps {}
@@ -185,6 +193,7 @@ declare module 'react-native' {
   export const Image: React.FC<ImageProps>;
   export const Switch: React.FC<SwitchProps>;
   export const Modal: React.FC<ModalProps>;
+  export const KeyboardAvoidingView: React.FC<KeyboardAvoidingViewProps>;
 
   export interface RefreshControlProps extends ViewProps {
     refreshing: boolean;

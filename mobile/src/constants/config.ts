@@ -57,24 +57,24 @@ export function parseNetworkDiagnostic(error: any, targetUrl: string = API_BASE_
     rawMsg.includes('ETIMEDOUT') ||
     error?.name === 'AbortError';
 
-  let title = 'Server Connection Error';
-  let message = `Could not reach backend service at: ${targetUrl}`;
+  let title = 'Connection Issue';
+  let message = 'Unable to connect to NutriFlexs server. Please check your network connection.';
   const hints: string[] = [];
 
   if (isUnknownHost) {
-    title = 'Host Resolution Error (DNS)';
-    message = `Unable to resolve host for "${targetUrl}". The mobile device cannot find this server domain on the network.`;
-    hints.push('Check device internet connection (Wi-Fi or cellular data).');
-    hints.push('Ensure the production domain is correct: https://nutri-flexs.vercel.app (note the hyphen "nutri-flexs").');
-    hints.push('If testing on local network, set EXPO_PUBLIC_API_URL in mobile/.env to your local IP (e.g. http://10.91.111.142:3000).');
+    title = 'Connection Issue';
+    message = 'Unable to connect to the server. Please check your internet connection and try again.';
+    hints.push('Check device internet connection (Wi-Fi or mobile data).');
+    hints.push('Ensure airplane mode is disabled.');
+    hints.push('Please try again in a few moments.');
   } else if (isTimeout) {
     title = 'Connection Timed Out';
-    message = `The request to ${targetUrl} took longer than ${CONFIG.requestTimeoutMs / 1000}s to respond.`;
-    hints.push('The server may be starting up (cold start) or the connection is slow.');
-    hints.push('Please check your network latency and retry in a moment.');
+    message = 'The server took longer than expected to respond. Please check your connection and retry.';
+    hints.push('Check your internet connection speed.');
+    hints.push('Please tap Retry to attempt reconnecting.');
   } else {
-    hints.push('Ensure your device has active internet access.');
-    hints.push(`Check that ${targetUrl} is live and reachable in a browser.`);
+    hints.push('Ensure your device has an active internet connection.');
+    hints.push('Please try again in a moment.');
   }
 
   return {
@@ -87,7 +87,8 @@ export function parseNetworkDiagnostic(error: any, targetUrl: string = API_BASE_
 }
 
 /**
- * Displays a user-facing diagnostic Alert with clear hints when host resolution or connection fails.
+ * Displays a clean user-facing Alert when host resolution or connection fails,
+ * suppressing technical raw popup alerts and developer troubleshooting hints.
  */
 export function showDiagnosticAlert(
   error: any,
@@ -95,8 +96,13 @@ export function showDiagnosticAlert(
   onRetry?: () => void
 ): void {
   const diag = parseNetworkDiagnostic(error, targetUrl);
-  const formattedHints = diag.hints.map((h, i) => `${i + 1}. ${h}`).join('\n\n');
-  const alertBody = `${diag.message}\n\nTroubleshooting Hints:\n${formattedHints}`;
+  // Log technical details for debugging without exposing raw internal hints to the user
+  console.warn('[Network Diagnostic Alert]:', { ...diag, targetUrl });
+
+  const userTitle = diag.title || 'Connection Issue';
+  const userMessage = diag.isTimeout
+    ? 'The server took longer than expected to respond. Please check your connection and retry.'
+    : 'Unable to connect to the server. Please check your internet connection and try again.';
 
   const buttons: Array<{ text: string; style?: 'cancel' | 'default' | 'destructive'; onPress?: () => void }> = [
     { text: 'OK', style: 'cancel' },
@@ -110,5 +116,5 @@ export function showDiagnosticAlert(
     });
   }
 
-  Alert.alert(diag.title, alertBody, buttons);
+  Alert.alert(userTitle, userMessage, buttons);
 }

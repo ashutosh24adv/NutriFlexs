@@ -68,6 +68,7 @@ export default function LoginScreen() {
         jwt?: string;
         accessToken?: string;
         user?: any;
+        nutritionGoal?: any;
       }>('/api/mobile/auth/login', {
         method: 'POST',
         body: JSON.stringify(loginPayload),
@@ -92,18 +93,39 @@ export default function LoginScreen() {
       // Store JWT in SecureStore
       await saveSecureToken(token);
 
-      // Hydrate user profile in store
-      if (res.data?.user) {
-        updateProfile({
-          id: res.data.user.id || 'usr_athlete_01',
-          name: res.data.user.name || 'Nutri Member',
-          email: res.data.user.email || (isEmail ? emailOrPhone.trim() : `${emailOrPhone.trim()}@nutriflex.fit`),
-          phone: res.data.user.phone || (!isEmail ? emailOrPhone.trim() : ''),
-          membershipTier: res.data.user.membershipTier || 'PRO',
-          homeKiosk: res.data.user.homeKiosk || 'Cult.fit HSR Layout, Bengaluru',
-          passBalance: res.data.user.passBalance ?? 0,
-        });
-      }
+      // Hydrate user profile in store with ALL athlete fields (do not strip them!)
+      const rawUser = res.data?.user || {};
+      const nutritionGoal = res.data?.nutritionGoal || rawUser.nutritionGoal || rawUser.goals || null;
+
+      const athleteUser = {
+        ...rawUser,
+        id: rawUser.id || 'usr_athlete_01',
+        name: rawUser.name || 'Nutri Member',
+        email: rawUser.email || (isEmail ? emailOrPhone.trim().toLowerCase() : `${emailOrPhone.trim()}@nutriflex.fit`),
+        phone: rawUser.phone || (!isEmail ? emailOrPhone.trim() : ''),
+        membershipTier: rawUser.membershipTier || 'PRO',
+        homeKiosk: rawUser.homeKiosk || 'Cult.fit HSR Layout, Bengaluru',
+        passBalance: rawUser.passBalance ?? 0,
+        memberCode: rawUser.memberCode,
+        avatarInitials: rawUser.avatarInitials,
+        // ALL athlete fields from res.data.user:
+        weightKg: rawUser.weightKg,
+        heightCm: rawUser.heightCm,
+        sex: rawUser.sex,
+        dateOfBirth: rawUser.dateOfBirth,
+        workoutFrequency: rawUser.workoutFrequency,
+        primaryGoal: rawUser.primaryGoal,
+        dietPreference: rawUser.dietPreference,
+        goals: rawUser.goals || nutritionGoal,
+        nutritionGoal: nutritionGoal,
+      };
+
+      // Persist session to SecureStore and AsyncStorage with complete athlete user
+      await useAuthStore.login({
+        token,
+        user: athleteUser,
+        nutritionGoal,
+      });
 
       // Background hydration
       if (typeof fetchMe === 'function') {

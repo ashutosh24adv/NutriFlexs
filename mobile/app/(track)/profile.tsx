@@ -99,24 +99,67 @@ export default function TrackProfileScreen() {
   const [isProcessingTopUp, setIsProcessingTopUp] = useState(false);
 
   const effectiveGoal = nutritionGoal || (user as any)?.nutritionGoal || (user as any)?.goals;
+
+  const effectiveCalories =
+    effectiveGoal?.calorieTarget ??
+    effectiveGoal?.dailyCalorieGoal ??
+    user?.targets?.calories ??
+    targets.calories ??
+    2000;
+  const effectiveProtein =
+    effectiveGoal?.proteinTarget ??
+    effectiveGoal?.proteinGoal ??
+    user?.targets?.proteinGrams ??
+    targets.proteinGrams ??
+    120;
+  const effectiveCarbs =
+    effectiveGoal?.carbsTarget ??
+    effectiveGoal?.carbohydrateGoal ??
+    user?.targets?.carbsGrams ??
+    targets.carbsGrams ??
+    250;
+  const effectiveFat =
+    effectiveGoal?.fatsTarget ??
+    effectiveGoal?.fatGoal ??
+    user?.targets?.fatGrams ??
+    targets.fatGrams ??
+    65;
+  const effectiveWater =
+    effectiveGoal?.waterGoalMl ??
+    user?.targets?.waterMl ??
+    targets.waterMl ??
+    3000;
+
   const [isEditingGoals, setIsEditingGoals] = useState(false);
-  const [editCalories, setEditCalories] = useState(String(effectiveGoal?.calorieTarget || targets.calories || 2000));
-  const [editProtein, setEditProtein] = useState(String(effectiveGoal?.proteinTarget || targets.proteinGrams || 120));
-  const [editCarbs, setEditCarbs] = useState(String(effectiveGoal?.carbsTarget || targets.carbsGrams || 250));
-  const [editFat, setEditFat] = useState(String(effectiveGoal?.fatsTarget || targets.fatGrams || 65));
-  const [editWater, setEditWater] = useState(String(effectiveGoal?.waterGoalMl || targets.waterMl || 3000));
+  const [editCalories, setEditCalories] = useState(String(effectiveCalories));
+  const [editProtein, setEditProtein] = useState(String(effectiveProtein));
+  const [editCarbs, setEditCarbs] = useState(String(effectiveCarbs));
+  const [editFat, setEditFat] = useState(String(effectiveFat));
+  const [editWater, setEditWater] = useState(String(effectiveWater));
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
 
   // Baseline & Diet Preferences State
+  const realWeight = (user as any)?.weightKg ?? effectiveGoal?.weightKg ?? null;
+  const realHeight = (user as any)?.heightCm ?? effectiveGoal?.heightCm ?? null;
+  const realDiet = (user as any)?.dietPreference || effectiveGoal?.dietPreference || 'Vegetarian';
+  const realRollover =
+    typeof effectiveGoal?.calorieRollover === 'boolean'
+      ? effectiveGoal.calorieRollover
+      : typeof (user as any)?.calorieRollover === 'boolean'
+      ? (user as any).calorieRollover
+      : typeof (user as any)?.calorieRolloverEnabled === 'boolean'
+      ? (user as any).calorieRolloverEnabled
+      : false;
+
   const [isEditingBaseline, setIsEditingBaseline] = useState(false);
-  const [editWeight, setEditWeight] = useState(user && (user as any).weightKg ? String((user as any).weightKg) : '');
-  const [editHeight, setEditHeight] = useState(user && (user as any).heightCm ? String((user as any).heightCm) : '');
-  const [editSex, setEditSex] = useState<string>((user as any)?.sex || (user as any)?.gender || 'Male');
-  const [editWorkoutFreq, setEditWorkoutFreq] = useState<string>((user as any)?.workoutFrequency || '4-6 days/wk');
-  const [editPrimaryGoal, setEditPrimaryGoal] = useState<string>((user as any)?.primaryGoal || 'Build muscle');
-  const [editDietPref, setEditDietPref] = useState<string>((user as any)?.dietPreference || 'Vegetarian');
-  const [editCalorieRollover, setEditCalorieRollover] = useState(false);
-  const [editDietitianHistory, setEditDietitianHistory] = useState<string>('No');
+  const [editWeight, setEditWeight] = useState(realWeight ? String(realWeight) : '74');
+  const [editHeight, setEditHeight] = useState(realHeight ? String(realHeight) : '175');
+  const [editSex, setEditSex] = useState<string>((user as any)?.sex || (user as any)?.gender || effectiveGoal?.sex || 'Male');
+  const [editWorkoutFreq, setEditWorkoutFreq] = useState<string>((user as any)?.workoutFrequency || effectiveGoal?.workoutFrequency || '4-6 days/wk');
+  const [editPrimaryGoal, setEditPrimaryGoal] = useState<string>((user as any)?.primaryGoal || effectiveGoal?.primaryGoal || 'Build muscle');
+  const [editDietPref, setEditDietPref] = useState<string>(realDiet);
+  const [editCalorieRollover, setEditCalorieRollover] = useState(realRollover);
+  const [editDietitianHistory, setEditDietitianHistory] = useState<string>((user as any)?.dietitianConsulted || effectiveGoal?.dietitianConsulted || 'No');
   const [isSavingBaseline, setIsSavingBaseline] = useState(false);
 
   // Notification Preferences State
@@ -149,35 +192,43 @@ export default function TrackProfileScreen() {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      const u = user as any;
-      const g = nutritionGoal || u.nutritionGoal || u.goals;
-      if (u.weightKg || g?.weightKg) setEditWeight(String(u.weightKg || g?.weightKg));
-      if (u.heightCm || g?.heightCm) setEditHeight(String(u.heightCm || g?.heightCm));
-      if (u.sex || u.gender || g?.sex) setEditSex(u.sex || u.gender || g?.sex);
-      if (u.workoutFrequency || u.activityLevel || g?.workoutFrequency) setEditWorkoutFreq(u.workoutFrequency || u.activityLevel || g?.workoutFrequency);
-      if (u.primaryGoal || u.primaryNutritionGoal || g?.primaryGoal) setEditPrimaryGoal(u.primaryGoal || u.primaryNutritionGoal || g?.primaryGoal);
-      if (u.dietPreference || g?.dietPreference) setEditDietPref(u.dietPreference || g?.dietPreference);
-      if (typeof g?.calorieRollover === 'boolean') setEditCalorieRollover(g.calorieRollover);
-      else if (typeof u.calorieRollover === 'boolean') setEditCalorieRollover(u.calorieRollover);
-      else if (typeof u.calorieRolloverEnabled === 'boolean') setEditCalorieRollover(u.calorieRolloverEnabled);
-      if (u.dietitianConsulted || g?.dietitianConsulted) setEditDietitianHistory(u.dietitianConsulted || g?.dietitianConsulted);
+    if (user || effectiveGoal) {
+      const u = (user || {}) as any;
+      const g = effectiveGoal || u.nutritionGoal || u.goals;
+      const w = u.weightKg ?? g?.weightKg;
+      const h = u.heightCm ?? g?.heightCm;
+      const s = u.sex ?? u.gender ?? g?.sex;
+      const f = u.workoutFrequency ?? u.activityLevel ?? g?.workoutFrequency;
+      const p = u.primaryGoal ?? u.primaryNutritionGoal ?? g?.primaryGoal;
+      const d = u.dietPreference ?? g?.dietPreference;
+      const r =
+        typeof g?.calorieRollover === 'boolean'
+          ? g.calorieRollover
+          : typeof u.calorieRollover === 'boolean'
+          ? u.calorieRollover
+          : typeof u.calorieRolloverEnabled === 'boolean'
+          ? u.calorieRolloverEnabled
+          : false;
+      const dh = u.dietitianConsulted ?? g?.dietitianConsulted;
+
+      if (w !== undefined && w !== null) setEditWeight(String(w));
+      if (h !== undefined && h !== null) setEditHeight(String(h));
+      if (s) setEditSex(s);
+      if (f) setEditWorkoutFreq(f);
+      if (p) setEditPrimaryGoal(p);
+      if (d) setEditDietPref(d);
+      setEditCalorieRollover(r);
+      if (dh) setEditDietitianHistory(dh);
     }
-  }, [user, nutritionGoal]);
+  }, [user, effectiveGoal, nutritionGoal]);
 
   useEffect(() => {
-    const goalCal = nutritionGoal?.calorieTarget || nutritionGoal?.dailyCalorieGoal || targets.calories || 2000;
-    const goalProt = nutritionGoal?.proteinTarget || nutritionGoal?.proteinGoal || targets.proteinGrams || 120;
-    const goalCarbs = nutritionGoal?.carbsTarget || nutritionGoal?.carbohydrateGoal || targets.carbsGrams || 250;
-    const goalFat = nutritionGoal?.fatsTarget || nutritionGoal?.fatGoal || targets.fatGrams || 65;
-    const goalWater = nutritionGoal?.waterGoalMl || targets.waterMl || 3000;
-
-    setEditCalories(String(goalCal));
-    setEditProtein(String(goalProt));
-    setEditCarbs(String(goalCarbs));
-    setEditFat(String(goalFat));
-    setEditWater(String(goalWater));
-  }, [targets, nutritionGoal]);
+    setEditCalories(String(effectiveCalories));
+    setEditProtein(String(effectiveProtein));
+    setEditCarbs(String(effectiveCarbs));
+    setEditFat(String(effectiveFat));
+    setEditWater(String(effectiveWater));
+  }, [effectiveCalories, effectiveProtein, effectiveCarbs, effectiveFat, effectiveWater]);
 
   const saveGoalsToBackend = async (extraPayload: Record<string, any> = {}) => {
     const payload = {
@@ -274,17 +325,19 @@ export default function TrackProfileScreen() {
 
   const handleSaveBaseline = async () => {
     setIsSavingBaseline(true);
+    const updates = {
+      weightKg: parseFloat(editWeight) || undefined,
+      heightCm: parseFloat(editHeight) || undefined,
+      sex: editSex,
+      workoutFrequency: editWorkoutFreq,
+      primaryGoal: editPrimaryGoal,
+      dietPreference: editDietPref,
+      calorieRollover: editCalorieRollover,
+      dietitianConsulted: editDietitianHistory,
+    };
     try {
-      await updateGoals({
-        weightKg: parseFloat(editWeight) || undefined,
-        heightCm: parseFloat(editHeight) || undefined,
-        sex: editSex,
-        workoutFrequency: editWorkoutFreq,
-        primaryGoal: editPrimaryGoal,
-        dietPreference: editDietPref,
-        calorieRollover: editCalorieRollover,
-        dietitianConsulted: editDietitianHistory,
-      });
+      await updateGoals(updates);
+      updateProfile(updates);
     } catch (storeErr) {
       console.warn('[Profile] Store baseline update warning:', storeErr);
     }
@@ -655,7 +708,7 @@ export default function TrackProfileScreen() {
                   keyboardType="numeric"
                 />
               ) : (
-                <Text style={styles.goalTileValue}>{targets.calories || 2000}</Text>
+                <Text style={styles.goalTileValue}>{effectiveCalories}</Text>
               )}
               <Text style={styles.goalTileUnit}>kcal / day</Text>
             </View>
@@ -671,7 +724,7 @@ export default function TrackProfileScreen() {
                   keyboardType="numeric"
                 />
               ) : (
-                <Text style={styles.goalTileValue}>{targets.proteinGrams || 120}</Text>
+                <Text style={styles.goalTileValue}>{effectiveProtein}</Text>
               )}
               <Text style={styles.goalTileUnit}>grams</Text>
             </View>
@@ -687,7 +740,7 @@ export default function TrackProfileScreen() {
                   keyboardType="numeric"
                 />
               ) : (
-                <Text style={styles.goalTileValue}>{targets.carbsGrams || 250}</Text>
+                <Text style={styles.goalTileValue}>{effectiveCarbs}</Text>
               )}
               <Text style={styles.goalTileUnit}>grams</Text>
             </View>
@@ -703,7 +756,7 @@ export default function TrackProfileScreen() {
                   keyboardType="numeric"
                 />
               ) : (
-                <Text style={styles.goalTileValue}>{targets.fatGrams || 65}</Text>
+                <Text style={styles.goalTileValue}>{effectiveFat}</Text>
               )}
               <Text style={styles.goalTileUnit}>grams</Text>
             </View>
@@ -719,7 +772,7 @@ export default function TrackProfileScreen() {
                   keyboardType="numeric"
                 />
               ) : (
-                <Text style={styles.goalTileValue}>{targets.waterMl || 3000}</Text>
+                <Text style={styles.goalTileValue}>{effectiveWater}</Text>
               )}
               <Text style={styles.goalTileUnit}>ml / day</Text>
             </View>
@@ -788,7 +841,9 @@ export default function TrackProfileScreen() {
                   <Text style={styles.baselineUnit}>kg</Text>
                 </View>
               ) : (
-                <Text style={styles.baselineReadout}>{editWeight} kg</Text>
+                <Text style={styles.baselineReadout}>
+                  {editWeight ? `${editWeight} kg` : (realWeight ? `${realWeight} kg` : '74 kg')}
+                </Text>
               )}
             </View>
 
@@ -806,7 +861,9 @@ export default function TrackProfileScreen() {
                   <Text style={styles.baselineUnit}>cm</Text>
                 </View>
               ) : (
-                <Text style={styles.baselineReadout}>{editHeight} cm</Text>
+                <Text style={styles.baselineReadout}>
+                  {editHeight ? `${editHeight} cm` : (realHeight ? `${realHeight} cm` : '175 cm')}
+                </Text>
               )}
             </View>
           </View>
@@ -894,7 +951,8 @@ export default function TrackProfileScreen() {
             <Text style={styles.prefSectionLabel}>Diet Preference</Text>
             <View style={styles.chipsRowWrap}>
               {DIET_OPTIONS.map((opt) => {
-                const isSelected = editDietPref === opt;
+                const activeDiet = isEditingBaseline ? editDietPref : (realDiet || editDietPref);
+                const isSelected = activeDiet === opt;
                 return (
                   <TouchableOpacity
                     key={opt}
@@ -924,9 +982,13 @@ export default function TrackProfileScreen() {
               </Text>
             </View>
             <Switch
-              value={editCalorieRollover}
-              onValueChange={(val) => {
+              value={isEditingBaseline ? editCalorieRollover : realRollover}
+              onValueChange={async (val) => {
                 setEditCalorieRollover(val);
+                try {
+                  await updateGoals({ calorieRollover: val });
+                  updateProfile({ calorieRollover: val });
+                } catch {}
                 saveGoalsToBackend({ calorieRollover: val });
                 setFeedbackNotice(
                   val

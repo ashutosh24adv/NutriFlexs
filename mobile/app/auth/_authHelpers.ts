@@ -177,6 +177,11 @@ export async function triggerHaptic(type: 'selection' | 'success' | 'warning' | 
  */
 export function calculateAge(dobString?: string | null): number {
   if (!dobString) return 25; // Sensible default
+  const parts = dobString.split('-');
+  const year = parseInt(parts[0], 10);
+  if (isNaN(year) || year < 1930 || year > 2018) {
+    return 25;
+  }
   const birthDate = new Date(dobString);
   if (isNaN(birthDate.getTime())) return 25;
 
@@ -199,6 +204,7 @@ export interface CalculatedPlanTargets {
 
 /**
  * Science-backed Mifflin-St Jeor daily nutrition calculator
+ * Strictly aligned with lib/nutrition-baseline.ts to prevent target jumps
  */
 export function calculateDailyTargets(params: {
   sex?: string;
@@ -209,57 +215,86 @@ export function calculateDailyTargets(params: {
   primaryGoal?: string;
   desiredTargetWeightKg?: number;
 }): CalculatedPlanTargets {
-  const sex = params.sex || 'Male';
+  const weight = params.weightKg && params.weightKg > 0 ? params.weightKg : 70;
+  const height = params.heightCm && params.heightCm > 0 ? params.heightCm : 175;
   const age = params.age && params.age > 0 ? params.age : 25;
-  const heightCm = params.heightCm && params.heightCm > 0 ? params.heightCm : 175;
-  const weightKg = params.weightKg && params.weightKg > 0 ? params.weightKg : 72;
-  const goal = params.primaryGoal || 'Maintain weight';
-  const freq = params.workoutFrequency || '4-6 days/wk';
+  const sex = params.sex || 'Male';
+  const isFemale = sex.toLowerCase().includes('female');
 
-  // 1. Basal Metabolic Rate (BMR)
-  let bmr: number;
-  if (sex.toLowerCase().includes('female')) {
-    bmr = 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
-  } else if (sex.toLowerCase().includes('male')) {
-    bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
-  } else {
-    bmr = 10 * weightKg + 6.25 * heightCm - 5 * age - 78;
+  // 1. Basal Metabolic Rate (BMR) - Mifflin-St Jeor
+  const bmr = 10 * weight + 6.25 * height - 5 * age + (isFemale ? -161 : 5);
+
+  // 2. Activity Multiplier based on workout frequency
+  const freq = (params.workoutFrequency || '').toLowerCase();
+  let activityMultiplier = 1.4; // default moderate
+  if (
+    freq.includes('7+') ||
+    freq.includes('every day') ||
+    freq.includes('daily') ||
+    freq.includes('athlete') ||
+    freq.includes('6-7')
+  ) {
+    activityMultiplier = 1.725;
+  } else if (freq.includes('4-6') || freq.includes('5') || freq.includes('active')) {
+    activityMultiplier = 1.55;
+  } else if (
+    freq.includes('0-4') ||
+    freq.includes('1-3') ||
+    freq.includes('sedentary') ||
+    freq.includes('light')
+  ) {
+    activityMultiplier = 1.35;
   }
 
-  // 2. Activity Multiplier
-  let multiplier = 1.45;
-  if (freq.includes('0-4')) {
-    multiplier = 1.375;
-  } else if (freq.includes('4-6')) {
-    multiplier = 1.55;
-  } else if (freq.includes('7+')) {
-    multiplier = 1.725;
+  let tdee = bmr * activityMultiplier;
+
+  // 3. Fitness goal adjustment
+  const goal = (params.primaryGoal || '').toLowerCase();
+  if (
+    goal.includes('lose') ||
+    goal.includes('fat loss') ||
+    goal.includes('cut') ||
+    goal.includes('weight loss')
+  ) {
+    tdee -= 400; // Calorie deficit
+  } else if (
+    goal.includes('build') ||
+    goal.includes('muscle') ||
+    goal.includes('hypertrophy') ||
+    goal.includes('mass') ||
+    goal.includes('gain')
+  ) {
+    tdee += 300; // Calorie surplus
   }
 
-  const tdee = Math.round(bmr * multiplier);
-
-  // 3. Goal Calorie Adjustment
-  let calories = tdee;
-  if (goal.toLowerCase().includes('lose')) {
-    calories = Math.max(1300, Math.round(tdee - 450));
-  } else if (goal.toLowerCase().includes('muscle') || goal.toLowerCase().includes('gain')) {
-    calories = Math.round(tdee + 350);
-  } else {
-    calories = tdee;
-  }
+  // Exact alignment with lib/nutrition-baseline.ts: rounded to nearest 50 kcal
+  const dailyCalorieGoal = Math.max(1200, Math.min(4500, Math.round(tdee / 50) * 50));
 
   // 4. Macro Distribution
-  // High-protein athlete focus: ~2.0g/kg body weight (min 110g, max 240g)
-  const protein = Math.min(240, Math.max(110, Math.round(weightKg * 2.0)));
-  // Fat: ~25% of total calories (9 kcal/g)
-  const fat = Math.round((calories * 0.25) / 9);
-  // Carbs: Remaining calories (4 kcal/g)
-  const carbs = Math.max(50, Math.round((calories - protein * 4 - fat * 9) / 4));
-  // Water: ~35-40ml/kg bodyweight, rounded to nearest 250ml, min 2500ml
-  const water = Math.max(2500, Math.round((weightKg * 38) / 250) * 250);
+  let proteinPerKg = 1.6;
+  if (
+    goal.includes('muscle') ||
+    goal.includes('build') ||
+    freq.includes('4-6') ||
+    freq.includes('7+')
+  ) {
+    proteinPerKg = 2.0;
+  } else if (goal.includes('lose') || goal.includes('fat loss')) {
+    proteinPerKg = 1.8;
+  }
+  const protein = Math.max(60, Math.min(260, Math.round(weight * proteinPerKg)));
+
+  // Fat: ~25% of calories / 9
+  const fat = Math.max(40, Math.min(120, Math.round((dailyCalorieGoal * 0.25) / 9)));
+
+  // Carbs: Remaining calories / 4
+  const carbCalories = dailyCalorieGoal - protein * 4 - fat * 9;
+  const carbs = Math.max(100, Math.min(600, Math.round(carbCalories / 4)));
+
+  const water = 3000;
 
   return {
-    calories,
+    calories: dailyCalorieGoal,
     protein,
     carbs,
     fat,

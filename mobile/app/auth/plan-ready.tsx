@@ -71,8 +71,20 @@ export default function PlanReadyScreen() {
       ? '/cart'
       : '/(track)';
 
-  // Calculate science-backed daily targets
+  // Calculate science-backed daily targets aligned with lib/nutrition-baseline.ts
   const targets = useMemo(() => {
+    // If store already has baseline goals aligned from registration/backend, prefer them
+    const existingGoal = authStore.nutritionGoal || (authStore.user as any)?.nutritionGoal || (authStore.user as any)?.goals;
+    if (existingGoal?.calorieTarget && existingGoal?.proteinTarget) {
+      return {
+        calories: existingGoal.calorieTarget,
+        protein: existingGoal.proteinTarget,
+        carbs: existingGoal.carbsTarget || existingGoal.carbohydrateGoal || 250,
+        fat: existingGoal.fatsTarget || existingGoal.fatGoal || 65,
+        water: existingGoal.waterGoalMl || 3000,
+      };
+    }
+
     return calculateDailyTargets({
       sex,
       age,
@@ -82,7 +94,7 @@ export default function PlanReadyScreen() {
       primaryGoal,
       desiredTargetWeightKg: targetWeightKg,
     });
-  }, [sex, age, heightCm, weightKg, workoutFrequency, primaryGoal, targetWeightKg]);
+  }, [authStore.nutritionGoal, authStore.user, sex, age, heightCm, weightKg, workoutFrequency, primaryGoal, targetWeightKg]);
 
   // Switches
   const [calorieRollover, setCalorieRollover] = useState(true);
