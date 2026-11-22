@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Search, Leaf, Zap, RefreshCw, X, MapPin } from "lucide-react";
+import { Search, Leaf, Zap, RefreshCw, X, MapPin, Target, TrendingDown, TrendingUp, Scale, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { FoodCard } from "@/components/customer/food-card";
 import { ProductModal } from "@/components/customer/product-modal";
 import { useCart } from "@/components/customer/cart-context";
 import { useDietary } from "@/components/customer/dietary-context";
 import { useGym } from "@/components/customer/gym-context";
+import { normalizeDietGoal } from "@/components/customer/diet-goal-badge";
 
 function DietaryAlertBanner() {
   const { nonVegRemovedAlert, clearNonVegAlert } = useDietary();
@@ -45,8 +47,13 @@ function MenuContent() {
   const { selectedGym, selectedOutlet } = useGym();
   const searchParams = useSearchParams();
   const initialCategoryParam = searchParams.get("category");
+  const initialGoalParam = searchParams.get("goal") || searchParams.get("dietGoal");
 
   const [activeCategory, setActiveCategory] = useState(initialCategoryParam ? initialCategoryParam.toLowerCase() : "all");
+  const [selectedDietGoal, setSelectedDietGoal] = useState<string>(
+    initialGoalParam ? (normalizeDietGoal(initialGoalParam) || "all") : "all"
+  );
+  const [userGoal, setUserGoal] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterHighProtein, setFilterHighProtein] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
@@ -62,45 +69,78 @@ function MenuContent() {
     }
   }, [initialCategoryParam]);
 
+  // Sync active diet goal if query param changes
   useEffect(() => {
-    async function loadMenuData() {
-      setLoading(true);
-      setError(null);
+    if (initialGoalParam) {
+      const normalized = normalizeDietGoal(initialGoalParam);
+      if (normalized) setSelectedDietGoal(normalized);
+    }
+  }, [initialGoalParam]);
+
+  // Fetch logged in customer's nutrition goal for personalization
+  useEffect(() => {
+    async function fetchUserGoal() {
       try {
-        const prodUrl = `/api/products${isVegetarian ? "?isVeg=true" : ""}`;
-        const [resProds, resCats] = await Promise.all([
-          fetch(prodUrl),
-          fetch("/api/categories"),
-        ]);
-
-        const dataProds = await resProds.json();
-        const dataCats = await resCats.json();
-
-        if (dataProds.success && dataProds.products) {
-          setProducts(dataProds.products);
-        } else {
-          setError(dataProds.error || "Failed to load products");
+        const res = await fetch("/api/user/preference");
+        const data = await res.json();
+        if (data.success && data.primaryNutritionGoal) {
+          setUserGoal(data.primaryNutritionGoal);
         }
-
-        if (dataCats.success && dataCats.categories) {
-          setCategories([
-            { id: "all", slug: "all", name: "All Fuel" },
-            ...dataCats.categories,
-          ]);
-        }
-      } catch (e: any) {
-        setError(e.message || "Network error loading menu from database");
-      } finally {
-        setLoading(false);
+      } catch {
+        // Silently ignore if not logged in
       }
     }
-    loadMenuData();
+    fetchUserGoal();
+  }, []);
+
+  const loadMenuData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const prodUrl = `/api/products${isVegetarian ? "?isVeg=true" : ""}`;
+      const [resProds, resCats] = await Promise.all([
+        fetch(prodUrl),
+        fetch("/api/categories"),
+      ]);
+
+      const dataProds = await resProds.json();
+      const dataCats = await resCats.json();
+
+      if (dataProds.success && dataProds.products) {
+        setProducts(dataProds.products);
+      } else {
+        setError(dataProds.error || "Failed to load products");
+      }
+
+      if (dataCats.success && dataCats.categories) {
+        setCategories([
+          { id: "all", slug: "all", name: "All Fuel" },
+          ...dataCats.categories,
+        ]);
+      }
+    } catch (e: any) {
+      setError("Network error loading menu from database. Please check your connection.");
+    } finally {
+      setLoading(false);
+    }
   }, [isVegetarian]);
+
+  useEffect(() => {
+    loadMenuData();
+  }, [loadMenuData]);
+
+  const normalizedUserGoal = userGoal ? normalizeDietGoal(userGoal) : null;
 
   const filteredProducts = products.filter((p) => {
     if (activeCategory !== "all") {
       const prodCatSlug = (p.categorySlug || p.category?.slug || "").toLowerCase();
       if (prodCatSlug !== activeCategory) {
+        return false;
+      }
+    }
+    if (selectedDietGoal !== "all") {
+      const itemGoals = Array.isArray(p.dietGoals) ? p.dietGoals : [];
+      if (!itemGoals.includes(selectedDietGoal)) {
         return false;
       }
     }
@@ -223,6 +263,82 @@ function MenuContent() {
         </div>
       </div>
 
+      {/* Diet Goal Classification Filter Strip */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-nutri-bg/60 border border-nutri-border rounded-2xl p-2.5 sm:px-4 sm:py-2.5 shadow-2xs">
+        <div className="flex items-center gap-2">
+          <div className="p-1 rounded-full bg-nutri-green-light text-nutri-green shrink-0">
+            <Target className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-xs font-bold text-nutri-charcoal font-heading whitespace-nowrap">
+            Fitness Goal:
+          </span>
+          {normalizedUserGoal && (
+            <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-nutri-secondary bg-white px-2.5 py-0.5 rounded-full border border-nutri-border">
+              <Sparkles className="w-3 h-3 text-emerald-600 fill-emerald-600" />
+              <span>Tailored for: <strong className="text-nutri-green capitalize">{userGoal?.replace(/_/g, " ")}</strong></span>
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+          <button
+            onClick={() => setSelectedDietGoal("all")}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all shrink-0 cursor-pointer ${
+              selectedDietGoal === "all"
+                ? "bg-nutri-charcoal text-white border-nutri-charcoal font-bold shadow-xs"
+                : "bg-white text-nutri-secondary border-nutri-border hover:border-nutri-green hover:text-nutri-charcoal"
+            }`}
+          >
+            All Goals
+          </button>
+
+          <button
+            onClick={() => setSelectedDietGoal("WEIGHT_LOSS")}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedDietGoal === "WEIGHT_LOSS"
+                ? "bg-[#EAF4E3] text-[#2F7D16] border-[#2F7D16] font-bold shadow-xs ring-1 ring-[#2F7D16]/30"
+                : "bg-white text-nutri-secondary border-nutri-border hover:border-[#2F7D16] hover:text-[#2F7D16]"
+            }`}
+          >
+            <TrendingDown className="w-3.5 h-3.5" />
+            <span>Weight Loss</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-[#2F7D16]/10 text-[#2F7D16]">
+              {products.filter((p) => p.dietGoals?.includes("WEIGHT_LOSS")).length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setSelectedDietGoal("WEIGHT_GAIN")}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedDietGoal === "WEIGHT_GAIN"
+                ? "bg-[#FFF6ED] text-[#C25E00] border-[#C25E00] font-bold shadow-xs ring-1 ring-[#C25E00]/30"
+                : "bg-white text-nutri-secondary border-nutri-border hover:border-[#C25E00] hover:text-[#C25E00]"
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>Weight Gain</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-[#C25E00]/10 text-[#C25E00]">
+              {products.filter((p) => p.dietGoals?.includes("WEIGHT_GAIN")).length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setSelectedDietGoal("WEIGHT_MAINTENANCE")}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedDietGoal === "WEIGHT_MAINTENANCE"
+                ? "bg-[#F1F5F9] text-[#334155] border-[#64748B] font-bold shadow-xs ring-1 ring-[#64748B]/30"
+                : "bg-white text-nutri-secondary border-nutri-border hover:border-[#64748B] hover:text-[#334155]"
+            }`}
+          >
+            <Scale className="w-3.5 h-3.5" />
+            <span>Weight Maintenance</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-slate-200 text-slate-700">
+              {products.filter((p) => p.dietGoals?.includes("WEIGHT_MAINTENANCE")).length}
+            </span>
+          </button>
+        </div>
+      </div>
+
       {/* Main Products Grid */}
       {loading ? (
         <div className="py-20 text-center space-y-3">
@@ -230,9 +346,25 @@ function MenuContent() {
           <p className="text-xs font-bold text-nutri-secondary">Loading products from PostgreSQL...</p>
         </div>
       ) : error ? (
-        <div className="p-8 bg-rose-50 border border-rose-200 rounded-2xl text-center space-y-2">
-          <p className="text-sm font-bold text-rose-800">Database Connection Error</p>
-          <p className="text-xs text-rose-600">{error}</p>
+        <div className="py-14 px-6 max-w-md mx-auto text-center bg-white border border-nutri-border rounded-3xl shadow-sm space-y-4 my-8">
+          <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 text-amber-700 mx-auto flex items-center justify-center">
+            <RefreshCw className="w-5 h-5" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-base font-bold font-heading text-nutri-charcoal">
+              Menu Momentarily Unavailable
+            </h3>
+            <p className="text-xs text-nutri-secondary leading-relaxed">
+              {error}
+            </p>
+          </div>
+          <Button
+            onClick={loadMenuData}
+            className="bg-nutri-green text-white hover:bg-nutri-green-dark font-bold text-xs px-6 py-2.5 rounded-full inline-flex items-center gap-2 cursor-pointer shadow-xs transition-all"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Retry Menu
+          </Button>
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="py-16 text-center bg-white border border-nutri-border rounded-2xl p-6">
@@ -241,14 +373,20 @@ function MenuContent() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {filteredProducts.map((product) => (
-            <FoodCard
-              key={product.id}
-              product={product}
-              onAddToCart={(prod) => addToCart(prod, 1)}
-              onQuickView={(prod) => setSelectedProduct(prod)}
-            />
-          ))}
+          {filteredProducts.map((product) => {
+            const isRecommended = Boolean(
+              normalizedUserGoal && product.dietGoals?.includes(normalizedUserGoal)
+            );
+            return (
+              <FoodCard
+                key={product.id}
+                product={product}
+                isRecommended={isRecommended}
+                onAddToCart={(prod) => addToCart(prod, 1)}
+                onQuickView={(prod) => setSelectedProduct(prod)}
+              />
+            );
+          })}
         </div>
       )}
 

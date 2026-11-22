@@ -34,7 +34,6 @@ import { cn } from "@/lib/utils";
 
 export default function MarketingLandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
-  const [activeIndianDish, setActiveIndianDish] = useState<"chole" | "dal" | "paneer">("chole");
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.location.hash) {
@@ -47,34 +46,6 @@ export default function MarketingLandingPage() {
       }
     }
   }, []);
-
-  // Unified 4-step process bridging food ordering & nutrition tracking
-  const unifiedSteps = [
-    {
-      num: "01",
-      title: "ORDER FRESH OR LOG HOME MEALS",
-      desc: "Grab fresh organic fuel 50m from your gym, or prepare your home-cooked meal with authentic ingredients.",
-      badge: "Step 1",
-    },
-    {
-      num: "02",
-      title: "INSTANT SCAN OR AUTO-LOG",
-      desc: "Kiosk orders automatically sync to your diary. Snap a quick photo or voice-log any Indian dish in seconds.",
-      badge: "Step 2",
-    },
-    {
-      num: "03",
-      title: "SMART GRAVY & PORTION TRACKING",
-      desc: "Choose whether you had thick gravy, mostly protein, or a regular curry with tailored bowl-to-gram conversions.",
-      badge: "Step 3",
-    },
-    {
-      num: "04",
-      title: "CRUSH YOUR DAILY MACRO GOAL",
-      desc: "Monitor real-time calories, protein targets, and deficit/surplus trends with zero guesswork.",
-      badge: "Step 4",
-    },
-  ];
 
   // Popular meals with live macro breakdown
   const popularMeals = [
@@ -112,52 +83,6 @@ export default function MarketingLandingPage() {
       tag: "Balanced Fuel",
     },
   ];
-
-  // Indian food variant showcase data
-  const indianDishes = {
-    chole: {
-      name: "Chole (Chickpea Curry)",
-      icon: "🍲",
-      variants: [
-        { name: "Chole – Mostly Chickpeas", calories: 145, protein: "8.5g", carbs: "21g", fat: "2.5g", desc: "Dense chickpeas, minimal curry reduction. High protein & fiber." },
-        { name: "Chole – Regular Curry", calories: 120, protein: "5.5g", carbs: "16g", fat: "4.5g", desc: "Balanced standard household gravy-to-chickpea ratio." },
-        { name: "Chole – Gravy Only", calories: 95, protein: "2.0g", carbs: "8g", fat: "6.5g", desc: "Spiced onion-tomato masala base with higher oil absorption." },
-      ],
-      portions: [
-        { label: "Small bowl", weight: "100g", cal: 145 },
-        { label: "Medium bowl", weight: "150g", cal: 218 },
-        { label: "Large bowl", weight: "250g", cal: 363 },
-      ],
-    },
-    dal: {
-      name: "Dal (Yellow Lentils)",
-      icon: "🥣",
-      variants: [
-        { name: "Dal – Thick", calories: 110, protein: "7.0g", carbs: "17g", fat: "2.0g", desc: "Concentrated dal cooked thick with tadka. High satiety." },
-        { name: "Dal – Regular", calories: 85, protein: "5.0g", carbs: "13g", fat: "1.8g", desc: "Standard household homestyle dal consistency." },
-        { name: "Dal – Thin", calories: 60, protein: "3.2g", carbs: "9g", fat: "1.2g", desc: "Watery broth style rasam or light lentil soup." },
-      ],
-      portions: [
-        { label: "Small bowl", weight: "100g", cal: 85 },
-        { label: "Medium bowl", weight: "150g", cal: 128 },
-        { label: "Large bowl", weight: "250g", cal: 213 },
-      ],
-    },
-    paneer: {
-      name: "Paneer Butter Masala",
-      icon: "🧀",
-      variants: [
-        { name: "Paneer Butter Masala – More Paneer", calories: 240, protein: "13.0g", carbs: "7g", fat: "18.0g", desc: "Generous cottage cheese cubes with light coating." },
-        { name: "Paneer Butter Masala – Regular", calories: 200, protein: "8.5g", carbs: "9g", fat: "15.0g", desc: "Balanced ratio of rich makhani gravy and paneer." },
-        { name: "Paneer Butter Masala – Gravy Only", calories: 160, protein: "3.0g", carbs: "10g", fat: "14.0g", desc: "Butter, cream, cashew-tomato gravy reduction." },
-      ],
-      portions: [
-        { label: "Small bowl", weight: "100g", cal: 200 },
-        { label: "Medium bowl", weight: "150g", cal: 300 },
-        { label: "Large bowl", weight: "250g", cal: 500 },
-      ],
-    },
-  };
 
   const blogPosts = [
     {
@@ -215,10 +140,10 @@ export default function MarketingLandingPage() {
       {/* =========================================================================
           1. HERO SECTION — DUAL-MODE POSITIONING & EQUAL CALLS TO ACTION
       ========================================================================= */}
-      <section className="pt-6 sm:pt-10 lg:pt-14 max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+      <section className="pt-6 sm:pt-10 lg:pt-14 max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 xl:gap-12 items-center">
           {/* Left Column: Headline, Description & Dual CTAs */}
-          <div className="lg:col-span-6 space-y-6">
+          <div className="lg:col-span-5 xl:col-span-5 space-y-6">
             <Badge
               variant="gold"
               className="bg-nutri-green-light text-nutri-green border-nutri-green-soft font-bold text-xs px-3.5 py-1 inline-flex items-center gap-1.5 shadow-2xs"
@@ -276,11 +201,11 @@ export default function MarketingLandingPage() {
           </div>
 
           {/* Right Column: Dual Visual Composition (Food Imagery + Live Nutrition Tracker UI) */}
-          <div className="lg:col-span-6 relative">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="lg:col-span-7 xl:col-span-7 relative">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 items-stretch">
               {/* Visual Card 1: Food Ordering Experience */}
-              <div className="relative rounded-3xl overflow-hidden shadow-float border border-nutri-border bg-white flex flex-col justify-between group hover:border-nutri-green/40 transition-all">
-                <div className="relative w-full h-48 sm:h-52 bg-nutri-bg overflow-hidden">
+              <div className="relative rounded-3xl overflow-hidden shadow-float border border-nutri-border bg-white flex flex-col justify-between group hover:border-nutri-green/40 transition-all h-full">
+                <div className="relative w-full h-56 sm:h-60 lg:h-64 bg-nutri-bg overflow-hidden shrink-0">
                   <Image
                     src="/images/products/grilled-chicken-quinoa-bowl.webp"
                     alt="NutriFlexs High Protein Bowl"
@@ -288,75 +213,138 @@ export default function MarketingLandingPage() {
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                     priority
                   />
-                  <div className="absolute top-3 left-3">
-                    <span className="bg-nutri-charcoal/90 backdrop-blur-md text-white font-extrabold text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
-                      <Utensils className="w-3 h-3 text-nutri-green-light" /> ORDER FOOD
+                  {/* Subtle Top & Bottom Gradient to ensure high contrast against any food photograph */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/25 pointer-events-none" />
+
+                  {/* ORDER FOOD Label: clearly visible dark semi-transparent pill with high contrast white text */}
+                  <div className="absolute top-3.5 left-3.5 z-10">
+                    <span className="bg-black/80 backdrop-blur-md text-white font-black text-[11px] px-3 py-1.5 rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-md border border-white/20">
+                      <Utensils className="w-3.5 h-3.5 text-[#86EFAC] stroke-[2.5]" />
+                      <span>ORDER FOOD</span>
                     </span>
                   </div>
-                  <div className="absolute bottom-2.5 right-2.5">
-                    <span className="bg-nutri-green text-white font-extrabold text-[10px] px-2 py-0.5 rounded-md shadow-xs">
-                      5-Min Pickup
+
+                  {/* 5-Min Pickup Badge: clearly visible bottom-right corner */}
+                  <div className="absolute bottom-3 right-3 z-10">
+                    <span className="bg-nutri-green text-white font-extrabold text-[11px] px-3 py-1 rounded-full shadow-md flex items-center gap-1 border border-white/20">
+                      <Clock className="w-3 h-3 text-white stroke-[2.5]" />
+                      <span>5-Min Pickup</span>
                     </span>
                   </div>
                 </div>
 
-                <div className="p-4 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-bold text-nutri-charcoal text-sm font-heading leading-tight">
-                      Grilled Chicken &amp; Quinoa Bowl
-                    </h3>
-                    <span className="text-xs font-extrabold text-nutri-charcoal shrink-0">₹250</span>
+                <div className="p-4.5 sm:p-5 flex-1 flex flex-col justify-between space-y-3.5">
+                  <div className="space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-bold text-nutri-charcoal text-base sm:text-lg font-heading leading-snug">
+                        Grilled Chicken &amp; Quinoa Bowl
+                      </h3>
+                      <span className="text-base font-extrabold text-nutri-charcoal shrink-0 font-heading">₹250</span>
+                    </div>
+                    <p className="text-xs text-nutri-secondary line-clamp-2 leading-relaxed">
+                      Herb-marinated chicken breast, warm tri-color quinoa, baby spinach &amp; olive vinaigrette.
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] text-nutri-secondary">
-                    <span className="font-bold text-nutri-green">32g Protein</span>
-                    <span>•</span>
-                    <span>430 kcal</span>
+
+                  <div className="pt-3 border-t border-nutri-border-light flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-extrabold text-nutri-green bg-nutri-green-light px-2.5 py-0.5 rounded-full">
+                        32g Protein
+                      </span>
+                      <span className="text-nutri-muted">•</span>
+                      <span className="font-semibold text-nutri-secondary">430 kcal</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-nutri-muted uppercase tracking-wider">
+                      Freshly Cooked
+                    </span>
                   </div>
-                  <Link href="/menu" className="block pt-1 text-[11px] font-bold text-nutri-green hover:underline">
-                    Order at Gym Kiosk →
-                  </Link>
                 </div>
               </div>
 
               {/* Visual Card 2: Track Nutrition Experience */}
-              <div className="rounded-3xl p-4.5 border border-nutri-border bg-white shadow-float flex flex-col justify-between space-y-3 hover:border-nutri-green/40 transition-all">
-                <div>
-                  <div className="flex items-center justify-between pb-2 border-b border-nutri-border-light">
-                    <span className="bg-nutri-green-light text-nutri-green font-extrabold text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
-                      <Flame className="w-3 h-3 fill-nutri-green" /> TRACK NUTRITION
-                    </span>
-                    <span className="text-[10px] font-bold text-nutri-green bg-nutri-green-light px-2 py-0.5 rounded-full border border-nutri-border-light">
-                      Live Diary
+              <div className="rounded-3xl p-4.5 sm:p-5 border border-nutri-border bg-white shadow-float flex flex-col justify-between space-y-3.5 hover:border-nutri-green/40 transition-all h-full">
+                {/* Clean Header with Perfectly Aligned Live Diary Badge */}
+                <div className="flex items-center justify-between pb-3 border-b border-nutri-border-light">
+                  <span className="bg-nutri-green-light text-nutri-green font-extrabold text-[11px] px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-2xs">
+                    <Flame className="w-3.5 h-3.5 fill-nutri-green" /> TRACK NUTRITION
+                  </span>
+                  <span className="text-[11px] font-bold text-nutri-green bg-nutri-green-light/80 px-2.5 py-1 rounded-full border border-nutri-green/20 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-nutri-green animate-pulse" />
+                    Live Diary
+                  </span>
+                </div>
+
+                {/* Daily Calorie Progress Section */}
+                <div className="bg-nutri-bg rounded-2xl p-3.5 sm:p-4 border border-nutri-border-light space-y-2.5">
+                  <div className="flex items-baseline justify-between text-xs">
+                    <div>
+                      <span className="text-[10px] font-bold text-nutri-muted uppercase tracking-wider block">Daily Calories</span>
+                      <span className="font-extrabold text-nutri-charcoal text-base sm:text-lg font-heading">
+                        1,650 <span className="text-xs font-normal text-nutri-secondary">/ 2,100 kcal</span>
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-bold text-nutri-green bg-white px-2.5 py-1 rounded-full border border-nutri-border-light shadow-2xs">
+                      450 kcal left
                     </span>
                   </div>
 
-                  {/* Micro Calorie Ring Card */}
-                  <div className="mt-3 bg-nutri-bg rounded-2xl p-3 space-y-2 border border-nutri-border-light">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-nutri-charcoal">Daily Calorie Goal</span>
-                      <span className="font-extrabold text-nutri-green">1,650 / 2,100</span>
-                    </div>
-                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                      <div className="bg-nutri-green h-full rounded-full" style={{ width: "78%" }} />
-                    </div>
-                    <p className="text-[10px] text-nutri-secondary font-medium">450 kcal remaining for dinner</p>
-                  </div>
-
-                  {/* Micro Indian Food Gravy Tag */}
-                  <div className="mt-3 p-2.5 rounded-xl border border-nutri-border-light bg-white text-xs space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-nutri-charcoal text-[11px]">Chole – Mostly Chickpeas</span>
-                      <span className="text-[10px] font-extrabold text-nutri-green">218 kcal</span>
-                    </div>
-                    <p className="text-[10px] text-nutri-secondary">
-                      Medium bowl (150g) • 12.8g Protein • Gravy-separated
-                    </p>
+                  {/* Progress Bar */}
+                  <div className="w-full bg-slate-200/80 h-2.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-nutri-green h-full rounded-full transition-all duration-500"
+                      style={{ width: "78%" }}
+                    />
                   </div>
                 </div>
 
-                <Link href="/nutrition" className="block pt-1 text-[11px] font-bold text-nutri-green hover:underline">
-                  Open Interactive Food Diary →
-                </Link>
+                {/* Macro Summary Section with Improved Proportions & Spacing */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+                  <div className="bg-nutri-bg rounded-xl p-2.5 border border-nutri-border-light text-center space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-nutri-muted block">Protein</span>
+                    <span className="text-sm font-extrabold text-nutri-charcoal font-heading block">128g</span>
+                    <div className="w-full bg-slate-200/70 h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-nutri-green h-full rounded-full" style={{ width: "85%" }} />
+                    </div>
+                  </div>
+                  <div className="bg-nutri-bg rounded-xl p-2.5 border border-nutri-border-light text-center space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-nutri-muted block">Carbs</span>
+                    <span className="text-sm font-extrabold text-nutri-charcoal font-heading block">165g</span>
+                    <div className="w-full bg-slate-200/70 h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-nutri-green/70 h-full rounded-full" style={{ width: "70%" }} />
+                    </div>
+                  </div>
+                  <div className="bg-nutri-bg rounded-xl p-2.5 border border-nutri-border-light text-center space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-nutri-muted block">Fats</span>
+                    <span className="text-sm font-extrabold text-nutri-charcoal font-heading block">42g</span>
+                    <div className="w-full bg-slate-200/70 h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-nutri-green/50 h-full rounded-full" style={{ width: "60%" }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Meal Entry Card */}
+                <div className="p-3 rounded-2xl border border-nutri-border-light bg-nutri-bg/70 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-nutri-green shrink-0" />
+                      <span className="font-bold text-nutri-charcoal text-xs sm:text-sm">Chole – Mostly Chickpeas</span>
+                    </div>
+                    <span className="text-xs sm:text-sm font-extrabold text-nutri-green font-heading">218 kcal</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-nutri-secondary pl-4">
+                    <span>Medium bowl (150g)</span>
+                    <span className="font-semibold text-nutri-charcoal">12.8g Protein</span>
+                  </div>
+                </div>
+
+                {/* Small Meal-History Preview */}
+                <div className="p-2.5 rounded-xl border border-dashed border-nutri-border bg-white flex items-center justify-between text-xs text-nutri-secondary">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-nutri-green shrink-0" />
+                    <span>Lunch • 2 items logged</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-nutri-muted">1:30 PM</span>
+                </div>
               </div>
             </div>
           </div>
@@ -529,140 +517,490 @@ export default function MarketingLandingPage() {
       </section>
 
       {/* =========================================================================
-          3. HOW NUTRIFLEXS WORKS (UNIFIED 4-STEP EXPERIENCE)
+          3. HOW NUTRIFLEXS POWERS YOUR HEALTH JOURNEY (UNIFIED EXPERIENCE)
       ========================================================================= */}
       <section id="how-it-works" className="bg-white py-16 sm:py-20 border-y border-nutri-border scroll-mt-24">
         <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 space-y-10 sm:space-y-12">
-          <div className="text-center max-w-xl mx-auto">
+          {/* Section Header */}
+          <div className="text-center max-w-2xl mx-auto">
             <Badge
-              variant="gold"
-              className="bg-nutri-green-light text-nutri-green border-nutri-green-soft text-xs uppercase font-bold tracking-wider mb-2.5 inline-flex items-center"
+              variant="protein"
+              className="text-xs uppercase font-bold tracking-wider mb-2.5 inline-flex items-center gap-1.5"
             >
-              SIMPLE 4-STEP FLOW
+              <Sparkles className="w-3.5 h-3.5" /> TWO POWERFUL EXPERIENCES · ONE PLATFORM
             </Badge>
             <h2 className="text-3xl sm:text-4xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-              How NutriFlexs Works
+              How NutriFlexs Powers Your Health Journey
             </h2>
-            <p className="text-xs sm:text-sm text-nutri-muted mt-2 leading-relaxed">
-              Order fresh food, scan your home meals, and reach your goals in four frictionless steps.
+            <p className="text-xs sm:text-sm text-nutri-muted mt-2.5 max-w-2xl mx-auto leading-relaxed">
+              Whether you need hot, high-protein refuel outside your gym or precise calorie and Indian food tracking at home, NutriFlexs brings both together in one unified ecosystem.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-            {unifiedSteps.map((s, idx) => (
-              <Card
-                key={idx}
-                className="p-5 sm:p-6 space-y-3 border-nutri-border bg-nutri-bg rounded-3xl h-full flex flex-col justify-start hover:shadow-float transition-all"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-2xl font-extrabold font-heading text-nutri-green block shrink-0">{s.num}</span>
-                  <span className="text-[10px] font-extrabold bg-white text-nutri-charcoal px-2 py-0.5 rounded-full border border-nutri-border">
-                    {s.badge}
-                  </span>
+          {/* Two Balanced Primary Experience Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+            {/* EXPERIENCE CARD 1: ORDER FRESH FOOD */}
+            <Card className="p-6 sm:p-8 rounded-3xl border border-nutri-border bg-nutri-bg/40 shadow-xs hover:shadow-float hover:border-nutri-green/40 transition-all flex flex-col justify-between h-full space-y-6">
+              <div className="space-y-5">
+                {/* Header Badge & Title */}
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className="bg-nutri-green text-white font-extrabold text-xs px-3 py-1 rounded-full uppercase tracking-wider inline-flex items-center gap-1.5 shadow-2xs">
+                      <Utensils className="w-3.5 h-3.5" /> 1. ORDER FRESH FOOD
+                    </span>
+                    <span className="text-[11px] font-bold text-nutri-green bg-nutri-green-light px-2.5 py-0.5 rounded-full border border-nutri-green/20">
+                      5-Min Gym Kiosks
+                    </span>
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
+                    Order Fresh Food
+                  </h3>
+                  <p className="text-xs sm:text-sm text-nutri-muted mt-1.5 leading-relaxed">
+                    Freshly cooked, gym-adjacent high-protein meals and organic juices designed for rapid recovery.
+                  </p>
                 </div>
-                <h4 className="font-bold text-nutri-charcoal text-xs uppercase tracking-wider">{s.title}</h4>
-                <p className="text-xs text-nutri-muted leading-relaxed">{s.desc}</p>
-              </Card>
-            ))}
+
+                {/* Appropriate Food Imagery */}
+                <div className="relative w-full h-52 sm:h-60 rounded-2xl overflow-hidden bg-white border border-nutri-border shadow-2xs group">
+                  <Image
+                    src="/images/products/lean-grilled-chicken-breast.webp"
+                    alt="NutriFlexs Fresh High-Protein Grilled Meal"
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    sizes="(max-width: 1024px) 100vw, 550px"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                  <div className="absolute bottom-3 left-3 right-3 text-white flex items-end justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] font-extrabold bg-nutri-green text-white px-2 py-0.5 rounded-full uppercase tracking-wider inline-block mb-1">
+                        Gym-Side Kiosk Express
+                      </span>
+                      <p className="font-bold text-sm sm:text-base leading-snug">
+                        Lean Grilled Chicken Breast · 36g Protein
+                      </p>
+                    </div>
+                    <span className="text-xs font-extrabold bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-lg shrink-0 border border-white/20">
+                      5-Min Ready
+                    </span>
+                  </div>
+                </div>
+
+                {/* 5 Key Offerings List */}
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-start gap-3 p-2.5 rounded-xl bg-white border border-nutri-border-light shadow-2xs">
+                    <div className="w-7 h-7 rounded-lg bg-nutri-green-light text-nutri-green flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                      🍗
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-nutri-charcoal">Freshly Prepared High-Protein Meals</h4>
+                      <p className="text-[11px] text-nutri-muted leading-relaxed mt-0.5">
+                        Cooked fresh daily with lean chicken, grilled paneer, tofu bowls, and slow-burning complex carbs.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-2.5 rounded-xl bg-white border border-nutri-border-light shadow-2xs">
+                    <div className="w-7 h-7 rounded-lg bg-nutri-green-light text-nutri-green flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                      🥤
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-nutri-charcoal">Healthy Juices, Snacks &amp; Nutrition-Focused Food</h4>
+                      <p className="text-[11px] text-nutri-muted leading-relaxed mt-0.5">
+                        Cold-pressed organic juices, high-protein snack pots, and clean shakes with zero refined sugars.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-2.5 rounded-xl bg-white border border-nutri-border-light shadow-2xs">
+                    <div className="w-7 h-7 rounded-lg bg-nutri-green-light text-nutri-green flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                      📍
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-nutri-charcoal">Gym-Adjacent Kiosks</h4>
+                      <p className="text-[11px] text-nutri-muted leading-relaxed mt-0.5">
+                        Physical express kiosks located 50–100m outside premium gyms for seamless grab-and-go convenience.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-2.5 rounded-xl bg-white border border-nutri-border-light shadow-2xs">
+                    <div className="w-7 h-7 rounded-lg bg-nutri-green-light text-nutri-green flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                      ⚡
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-nutri-charcoal">Convenient 5-Minute Express Pickup</h4>
+                      <p className="text-[11px] text-nutri-muted leading-relaxed mt-0.5">
+                        Order right as your workout finishes; your meal is hot, packed, and waiting at the counter.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-2.5 rounded-xl bg-white border border-nutri-border-light shadow-2xs">
+                    <div className="w-7 h-7 rounded-lg bg-nutri-green-light text-nutri-green flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                      📊
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-nutri-charcoal">Transparent Nutritional Information</h4>
+                      <p className="text-[11px] text-nutri-muted leading-relaxed mt-0.5">
+                        Exact calories, protein, carbs, and fats on every item, auto-synced into your personal food diary.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="pt-2">
+                <Link href="/menu" className="block">
+                  <Button
+                    size="lg"
+                    className="w-full bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-3.5 rounded-2xl shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <span>Order Fresh Food Menu</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </div>
+            </Card>
+
+            {/* EXPERIENCE CARD 2: TRACK YOUR NUTRITION */}
+            <Card className="p-6 sm:p-8 rounded-3xl border border-nutri-border bg-nutri-bg/40 shadow-xs hover:shadow-float hover:border-nutri-green/40 transition-all flex flex-col justify-between h-full space-y-6">
+              <div className="space-y-5">
+                {/* Header Badge & Title */}
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className="bg-nutri-green text-white font-extrabold text-xs px-3 py-1 rounded-full uppercase tracking-wider inline-flex items-center gap-1.5 shadow-2xs">
+                      <Flame className="w-3.5 h-3.5" /> 2. TRACK YOUR NUTRITION
+                    </span>
+                    <span className="text-[11px] font-bold text-nutri-green bg-nutri-green-light px-2.5 py-0.5 rounded-full border border-nutri-green/20">
+                      AI &amp; Indian Food
+                    </span>
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
+                    Track Your Nutrition
+                  </h3>
+                  <p className="text-xs sm:text-sm text-nutri-muted mt-1.5 leading-relaxed">
+                    Log home-cooked Indian meals, scan plates with AI, and master your macros with zero guesswork.
+                  </p>
+                </div>
+
+                {/* Appropriate Nutrition & AI Visual Preview */}
+                <div className="relative w-full h-52 sm:h-60 rounded-2xl overflow-hidden bg-gradient-to-br from-[#F3F7EE] via-[#EAF4E3] to-[#F7FAF4] border border-nutri-border p-4 flex flex-col justify-between shadow-2xs">
+                  <div className="space-y-2.5">
+                    {/* Live Tracker Bar */}
+                    <div className="bg-white rounded-xl p-3 border border-nutri-border-light shadow-2xs space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-nutri-charcoal flex items-center gap-1.5">
+                          <Activity className="w-3.5 h-3.5 text-nutri-green" /> Daily Calorie Goal
+                        </span>
+                        <span className="font-extrabold text-nutri-green">1,650 / 2,100 kcal</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div className="bg-nutri-green h-full rounded-full" style={{ width: "78%" }} />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-nutri-secondary">
+                        <span>450 kcal remaining for dinner</span>
+                        <span className="font-bold text-nutri-green">78% Target Met</span>
+                      </div>
+                    </div>
+
+                    {/* Micro Indian Food Intelligence Pill */}
+                    <div className="bg-white rounded-xl p-2.5 border border-nutri-border-light shadow-2xs flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🍛</span>
+                        <div>
+                          <p className="font-bold text-nutri-charcoal text-[11px] leading-tight">Chole / Paneer Gravy Separation</p>
+                          <p className="text-[10px] text-nutri-secondary">Dense chickpeas vs oil-rich gravy macros</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-extrabold bg-nutri-green-light text-nutri-green px-2 py-0.5 rounded-full">
+                        8.5g Protein
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Micro AI Camera Scan Banner */}
+                  <div className="bg-white/95 backdrop-blur-xs rounded-xl p-2.5 border border-nutri-border flex items-center justify-between text-xs">
+                    <span className="text-[11px] font-bold text-nutri-charcoal flex items-center gap-1.5">
+                      <Camera className="w-3.5 h-3.5 text-nutri-green" /> AI Photo Scan: Rajma Chawal
+                    </span>
+                    <span className="text-nutri-green font-extrabold text-[11px]">98% Confidence</span>
+                  </div>
+                </div>
+
+                {/* 5 Key Offerings List */}
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-start gap-3 p-2.5 rounded-xl bg-white border border-nutri-border-light shadow-2xs">
+                    <div className="w-7 h-7 rounded-lg bg-nutri-green-light text-nutri-green flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                      🔥
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-nutri-charcoal">Daily Calorie &amp; Macro Tracking</h4>
+                      <p className="text-[11px] text-nutri-muted leading-relaxed mt-0.5">
+                        Track calories, protein targets, carbs, and healthy fats with live progress bars and deficit guides.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-2.5 rounded-xl bg-white border border-nutri-border-light shadow-2xs">
+                    <div className="w-7 h-7 rounded-lg bg-nutri-green-light text-nutri-green flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                      📸
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-nutri-charcoal">AI-Powered Food Photo Scanning</h4>
+                      <p className="text-[11px] text-nutri-muted leading-relaxed mt-0.5">
+                        Point your camera at any meal to identify dishes, estimate portion gram weights, and log in 2 seconds.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-2.5 rounded-xl bg-white border border-nutri-border-light shadow-2xs">
+                    <div className="w-7 h-7 rounded-lg bg-nutri-green-light text-nutri-green flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                      🥗
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-nutri-charcoal">Homemade Meal Logging</h4>
+                      <p className="text-[11px] text-nutri-muted leading-relaxed mt-0.5">
+                        Effortlessly log authentic home dishes, rotis, sabzis, snacks, and save favorite family recipes.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-2.5 rounded-xl bg-white border border-nutri-border-light shadow-2xs">
+                    <div className="w-7 h-7 rounded-lg bg-nutri-green-light text-nutri-green flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                      🍲
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-nutri-charcoal">Indian Food Recognition &amp; Portion Tracking</h4>
+                      <p className="text-[11px] text-nutri-muted leading-relaxed mt-0.5">
+                        Unique gravy vs main ingredient separation with smart small/medium/large bowl-to-gram weights.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-2.5 rounded-xl bg-white border border-nutri-border-light shadow-2xs">
+                    <div className="w-7 h-7 rounded-lg bg-nutri-green-light text-nutri-green flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                      📈
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-nutri-charcoal">Nutrition Goals &amp; Progress Insights</h4>
+                      <p className="text-[11px] text-nutri-muted leading-relaxed mt-0.5">
+                        Science-backed BMR/TDEE goal calculators, macro streak tracking, and daily compliance insights.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="pt-2">
+                <Link href="/nutrition" className="block">
+                  <Button
+                    size="lg"
+                    className="w-full bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-3.5 rounded-2xl shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <span>Start Tracking Nutrition</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </div>
+            </Card>
           </div>
         </div>
       </section>
 
       {/* =========================================================================
-          4. NUTRITION TRACKER SHOWCASE — INDIAN FOOD VARIANTS & GRAVY DISTINCTION
+          4. FITNESS JOURNEY — PRE-WORKOUT, POST-WORKOUT & SMART TRACKING
       ========================================================================= */}
-      <section id="indian-nutrition-innovation" className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 scroll-mt-24">
-        <div className="bg-[#F7FAF4] rounded-3xl p-6 sm:p-10 lg:p-12 border border-[#E5E7E2] shadow-2xs space-y-8">
-          <div className="max-w-2xl space-y-3">
-            <span className="bg-[#EAF4E3] text-[#2F7D16] font-extrabold text-xs px-3 py-1 rounded-full uppercase tracking-wider inline-flex items-center gap-1.5 border border-[#E5E7E2]">
-              <Scale className="w-3.5 h-3.5 text-[#2F7D16]" /> NUTRITION INTELLIGENCE
+      <section id="fitness-journey" className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 scroll-mt-24">
+        <div className="bg-[#F7FAF4] rounded-3xl p-6 sm:p-10 lg:p-12 border border-[#E5E7E2] shadow-2xs space-y-8 sm:space-y-10">
+          {/* Section Header */}
+          <div className="max-w-3xl space-y-3">
+            <span className="bg-[#EAF4E3] text-[#2F7D16] font-extrabold text-xs px-3.5 py-1 rounded-full uppercase tracking-wider inline-flex items-center gap-1.5 border border-[#E5E7E2]">
+              <Dumbbell className="w-3.5 h-3.5 text-[#2F7D16]" /> BUILT AROUND YOUR FITNESS JOURNEY
             </span>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold font-heading text-[#111111] tracking-tight leading-tight">
-              Not All Curries Are the Same.
+            <h2 className="text-3xl sm:text-4xl lg:text-[42px] font-extrabold font-heading text-[#111111] tracking-tight leading-tight">
+              Train Hard. Fuel Smart. Get Stronger.
             </h2>
-            <p className="text-xs sm:text-sm text-[#4B5563] leading-relaxed">
-              Standard trackers assume all Indian curries are uniform. But eating mostly chickpeas or paneer provides dense protein and fiber, while gravy carries higher oil and calorie density. NutriFlexs lets you log dishes accurately with separated main vs gravy ratios.
+            <p className="text-xs sm:text-sm text-[#4B5563] leading-relaxed max-w-2xl">
+              Your workout doesn&apos;t end when you leave the gym. What you eat matters too. NutriFlexs helps you fuel your training, track your nutrition and stay consistent with your fitness goals.
             </p>
           </div>
 
-          {/* Dish Switcher Tabs */}
-          <div className="flex flex-wrap gap-2.5">
-            {(["chole", "dal", "paneer"] as const).map((dishKey) => {
-              const dish = indianDishes[dishKey];
-              const isActive = activeIndianDish === dishKey;
-              return (
-                <button
-                  key={dishKey}
-                  type="button"
-                  onClick={() => setActiveIndianDish(dishKey)}
-                  className={cn(
-                    "px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer border",
-                    isActive
-                      ? "bg-[#2F7D16] text-white border-[#2F7D16] shadow-2xs"
-                      : "bg-white text-[#4B5563] hover:text-[#111111] hover:bg-[#F3F7EE] border-[#E5E7E2]"
-                  )}
-                >
-                  <span className="text-base">{dish.icon}</span>
-                  <span>{dish.name}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Active Dish Variants Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
-            {indianDishes[activeIndianDish].variants.map((v, idx) => (
-              <article
-                key={idx}
-                className="bg-white rounded-2xl p-5 sm:p-6 border border-[#E5E7E2] hover:border-[#2F7D16]/40 hover:shadow-xs transition-all flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <h4 className="font-heading font-bold text-sm sm:text-base text-[#111111] leading-snug">
-                      {v.name}
-                    </h4>
-                    <div className="text-right shrink-0">
-                      <span className="text-sm sm:text-base font-heading font-extrabold text-[#2F7D16]">
-                        {v.calories} kcal
-                      </span>
-                      <span className="text-[10px] text-[#6B7280] block font-normal">/100g</span>
-                    </div>
+          {/* Three Content Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+            {/* CARD 1: PRE-WORKOUT FUEL */}
+            <Card className="bg-white rounded-3xl p-6 border border-[#E5E7E2] shadow-xs hover:shadow-float hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full group">
+              <div className="space-y-4">
+                {/* Visual */}
+                <div className="relative w-full h-48 sm:h-52 rounded-2xl overflow-hidden bg-nutri-bg border border-nutri-border-light shadow-2xs">
+                  <Image
+                    src="/images/products/abc-stamina-rebuilder.webp"
+                    alt="Pre-workout nutrition, healthy smoothies and natural fuel"
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    sizes="(max-width: 768px) 100vw, 380px"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <div className="absolute bottom-3 left-3 right-3 text-white">
+                    <span className="text-[10px] font-extrabold bg-[#2F7D16] text-white px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block">
+                      Pre-Workout
+                    </span>
+                    <p className="font-bold text-xs sm:text-sm mt-1">Natural Stamina &amp; Electrolytes</p>
                   </div>
-                  <p className="text-xs text-[#4B5563] mt-2.5 leading-relaxed">
-                    {v.desc}
+                </div>
+
+                {/* Content */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#2F7D16]">
+                    <Zap className="w-3.5 h-3.5" /> 1. PRE-WORKOUT FUEL
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-extrabold font-heading text-[#111111] tracking-tight">
+                    Pre-Workout Fuel
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[#4B5563] leading-relaxed">
+                    Get the energy you need before training with convenient, nutrition-focused food and drink options.
                   </p>
                 </div>
 
-                <div className="pt-4 mt-4 border-t border-[#E5E7E2] flex items-center justify-between text-xs">
-                  <span className="text-[#2F7D16] font-bold">Protein: {v.protein}</span>
-                  <span className="text-[#111111] font-semibold">Carbs: {v.carbs}</span>
-                  <span className="text-[#4B5563] font-semibold">Fat: {v.fat}</span>
+                {/* Quick Highlights */}
+                <div className="flex flex-wrap gap-1.5 pt-1 text-[11px] font-semibold text-[#2F7D16]">
+                  <span className="bg-[#EAF4E3] px-2.5 py-1 rounded-lg">🍌 Clean Carbs</span>
+                  <span className="bg-[#EAF4E3] px-2.5 py-1 rounded-lg">🥤 Cold-Pressed Juices</span>
+                  <span className="bg-[#EAF4E3] px-2.5 py-1 rounded-lg">⚡ Zero Refined Sugar</span>
                 </div>
-              </article>
-            ))}
+              </div>
+            </Card>
+
+            {/* CARD 2: POST-WORKOUT RECOVERY */}
+            <Card className="bg-white rounded-3xl p-6 border border-[#E5E7E2] shadow-xs hover:shadow-float hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full group">
+              <div className="space-y-4">
+                {/* Visual */}
+                <div className="relative w-full h-48 sm:h-52 rounded-2xl overflow-hidden bg-nutri-bg border border-nutri-border-light shadow-2xs">
+                  <Image
+                    src="/images/products/grilled-chicken-quinoa-bowl.webp"
+                    alt="Post-workout recovery meals with lean protein and quinoa"
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    sizes="(max-width: 768px) 100vw, 380px"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <div className="absolute bottom-3 left-3 right-3 text-white">
+                    <span className="text-[10px] font-extrabold bg-[#2F7D16] text-white px-2.5 py-0.5 rounded-full uppercase tracking-wider inline-block">
+                      Post-Workout
+                    </span>
+                    <p className="font-bold text-xs sm:text-sm mt-1">High-Protein Recovery Bowls · 32g+ Protein</p>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#2F7D16]">
+                    <Utensils className="w-3.5 h-3.5" /> 2. POST-WORKOUT RECOVERY
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-extrabold font-heading text-[#111111] tracking-tight">
+                    Post-Workout Recovery
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[#4B5563] leading-relaxed">
+                    Make post-workout nutrition easier with protein-rich meals, fresh juices and convenient gym-side pickup.
+                  </p>
+                </div>
+
+                {/* Quick Highlights */}
+                <div className="flex flex-wrap gap-1.5 pt-1 text-[11px] font-semibold text-[#2F7D16]">
+                  <span className="bg-[#EAF4E3] px-2.5 py-1 rounded-lg">🍗 Grilled Chicken &amp; Paneer</span>
+                  <span className="bg-[#EAF4E3] px-2.5 py-1 rounded-lg">⏱️ 5-Min Pickup</span>
+                  <span className="bg-[#EAF4E3] px-2.5 py-1 rounded-lg">💪 Muscle Repair</span>
+                </div>
+              </div>
+            </Card>
+
+            {/* CARD 3: SMART NUTRITION TRACKING */}
+            <Card className="bg-white rounded-3xl p-6 border border-[#E5E7E2] shadow-xs hover:shadow-float hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-full group">
+              <div className="space-y-4">
+                {/* Visual: Modern Smartphone Nutrition Tracker UI */}
+                <div className="relative w-full h-48 sm:h-52 rounded-2xl overflow-hidden bg-gradient-to-br from-[#F3F7EE] via-[#EAF4E3] to-[#F7FAF4] border border-nutri-border-light p-3.5 flex flex-col justify-between shadow-2xs">
+                  {/* Phone Mockup Top Bar */}
+                  <div className="flex items-center justify-between text-[11px] font-bold text-[#111111]">
+                    <span className="flex items-center gap-1.5">
+                      <Activity className="w-3.5 h-3.5 text-[#2F7D16]" /> Live Calorie Diary
+                    </span>
+                    <span className="text-[10px] font-extrabold bg-[#2F7D16] text-white px-2 py-0.5 rounded-full">
+                      84% Target
+                    </span>
+                  </div>
+
+                  {/* Progress Bar & Calorie Numbers */}
+                  <div className="bg-white rounded-xl p-2.5 border border-nutri-border-light shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-bold text-[#111111]">Daily Calorie Goal</span>
+                      <span className="font-extrabold text-[#2F7D16]">1,850 / 2,200 kcal</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div className="bg-[#2F7D16] h-full rounded-full transition-all" style={{ width: "84%" }} />
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 pt-1 text-[10px] text-center font-semibold">
+                      <span className="bg-[#EAF4E3] text-[#2F7D16] py-0.5 rounded">145g Protein</span>
+                      <span className="bg-slate-50 text-slate-700 py-0.5 rounded">180g Carbs</span>
+                      <span className="bg-slate-50 text-slate-700 py-0.5 rounded">48g Fat</span>
+                    </div>
+                  </div>
+
+                  {/* Meal Log Pill */}
+                  <div className="bg-white/95 backdrop-blur-xs rounded-xl p-2 border border-nutri-border-light flex items-center justify-between text-[10px]">
+                    <span className="font-bold text-[#111111] flex items-center gap-1">
+                      <Camera className="w-3 h-3 text-[#2F7D16]" /> AI Plate Logged
+                    </span>
+                    <span className="text-[#2F7D16] font-extrabold">Instant Sync</span>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#2F7D16]">
+                    <Flame className="w-3.5 h-3.5" /> 3. SMART NUTRITION TRACKING
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-extrabold font-heading text-[#111111] tracking-tight">
+                    Smart Nutrition Tracking
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[#4B5563] leading-relaxed">
+                    Track calories, protein, carbohydrates and fats. Scan your meals or log homemade food to understand what you eat.
+                  </p>
+                </div>
+
+                {/* Quick Highlights */}
+                <div className="flex flex-wrap gap-1.5 pt-1 text-[11px] font-semibold text-[#2F7D16]">
+                  <span className="bg-[#EAF4E3] px-2.5 py-1 rounded-lg">📸 AI Food Scanner</span>
+                  <span className="bg-[#EAF4E3] px-2.5 py-1 rounded-lg">🍛 Homemade Meals</span>
+                  <span className="bg-[#EAF4E3] px-2.5 py-1 rounded-lg">📊 Macro Goals</span>
+                </div>
+              </div>
+            </Card>
           </div>
 
-          {/* Portion Conversion Preview */}
-          <div className="bg-[#F3F7EE] rounded-2xl p-4 sm:p-5 border border-[#E5E7E2] flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-xs space-y-1.5 text-center sm:text-left">
-              <p className="font-bold text-[#111111]">
-                Smart Bowl-to-Gram Weights for {indianDishes[activeIndianDish].name}:
-              </p>
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] justify-center sm:justify-start">
-                {indianDishes[activeIndianDish].portions.map((p, idx) => (
-                  <span key={idx} className="bg-white border border-[#E5E7E2] px-3 py-1.5 rounded-xl text-[#4B5563]">
-                    {p.label}: <strong className="text-[#111111] font-bold">{p.weight}</strong> (~{p.cal} kcal)
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <Link href="/nutrition" className="shrink-0 w-full sm:w-auto">
+          {/* Two Clear Calls to Action Footer */}
+          <div className="pt-2 sm:pt-4 border-t border-[#E5E7E2] flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link href="/menu" className="w-full sm:w-auto">
               <Button
-                size="sm"
-                className="w-full sm:w-auto bg-[#2F7D16] hover:bg-[#24630F] text-white font-extrabold text-xs sm:text-sm px-6 py-2.5 rounded-full shadow-xs cursor-pointer min-h-[44px] transition-colors"
+                size="lg"
+                className="w-full sm:w-auto bg-[#2F7D16] hover:bg-[#24630F] text-white font-extrabold text-xs sm:text-sm px-8 py-3.5 rounded-full shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors min-h-[46px]"
               >
-                Try Nutrition Tracker →
+                <span>Explore Food Menu</span>
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+
+            <Link href="/nutrition" className="w-full sm:w-auto">
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto bg-white hover:bg-[#EAF4E3] text-[#2F7D16] border-[#2F7D16]/40 hover:border-[#2F7D16] font-extrabold text-xs sm:text-sm px-8 py-3.5 rounded-full shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-colors min-h-[46px]"
+              >
+                <span>Start Tracking Nutrition</span>
+                <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
           </div>
@@ -831,58 +1169,6 @@ export default function MarketingLandingPage() {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* =========================================================================
-          7. NUTRITION TRACKING BENEFITS
-      ========================================================================= */}
-      <section id="why-nutriflexs" className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 scroll-mt-24">
-        <div className="text-center max-w-xl mx-auto mb-10 sm:mb-12">
-          <Badge
-            variant="protein"
-            className="text-xs uppercase font-bold tracking-wider mb-2.5 inline-flex items-center"
-          >
-            CORE BENEFITS
-          </Badge>
-          <h2 className="text-3xl sm:text-4xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-            Why NutriFlexs Works
-          </h2>
-          <p className="text-xs sm:text-sm text-nutri-muted mt-2 leading-relaxed">
-            Combining gym-adjacent fast fuel with precision Indian nutrition tracking under one roof.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="p-6 sm:p-7 space-y-4 border-nutri-border rounded-3xl bg-white shadow-xs hover:shadow-float transition-all h-full flex flex-col justify-start">
-            <div className="w-12 h-12 rounded-2xl bg-nutri-green-light text-nutri-green flex items-center justify-center font-bold text-xl shrink-0">
-              ⚡
-            </div>
-            <h3 className="text-lg font-bold font-heading text-nutri-charcoal">1. 5-Min Kiosk Pickup</h3>
-            <p className="text-xs sm:text-sm text-nutri-muted leading-relaxed">
-              Order after your workout. Freshly cooked high-protein fuel is ready at the counter in 5 minutes as you walk out of your gym.
-            </p>
-          </Card>
-
-          <Card className="p-6 sm:p-7 space-y-4 border-nutri-border rounded-3xl bg-white shadow-xs hover:shadow-float transition-all h-full flex flex-col justify-start">
-            <div className="w-12 h-12 rounded-2xl bg-nutri-green-light text-nutri-green flex items-center justify-center font-bold text-xl shrink-0">
-              🍛
-            </div>
-            <h3 className="text-lg font-bold font-heading text-nutri-charcoal">2. Gravy vs Main Intelligence</h3>
-            <p className="text-xs sm:text-sm text-nutri-muted leading-relaxed">
-              Log Indian curries with scientific accuracy. Choose thick gravy, regular, or mostly chickpeas/paneer to get exact macro values.
-            </p>
-          </Card>
-
-          <Card className="p-6 sm:p-7 space-y-4 border-nutri-border rounded-3xl bg-white shadow-xs hover:shadow-float transition-all h-full flex flex-col justify-start">
-            <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xl shrink-0">
-              🔄
-            </div>
-            <h3 className="text-lg font-bold font-heading text-nutri-charcoal">3. One Account, Auto-Synced</h3>
-            <p className="text-xs sm:text-sm text-nutri-muted leading-relaxed">
-              Meals ordered through NutriFlexs automatically populate your food diary. Zero duplicate logging, zero manual calculations.
-            </p>
-          </Card>
         </div>
       </section>
 

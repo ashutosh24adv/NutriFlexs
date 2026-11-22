@@ -55,7 +55,7 @@ export async function GET() {
         },
       }),
       prisma.product.findMany({
-        include: { category: true },
+        include: { category: true, dietGoals: true },
         orderBy: { createdAt: "asc" },
       }),
       prisma.coupon.findMany({
@@ -86,6 +86,11 @@ export async function GET() {
       sales,
     }));
 
+    const formattedProducts = products.map((p) => ({
+      ...p,
+      dietGoals: Array.isArray(p.dietGoals) ? p.dietGoals.map((dg: any) => dg.goal || dg) : [],
+    }));
+
     return NextResponse.json(
       stripSensitiveFields({
         success: true,
@@ -99,7 +104,7 @@ export async function GET() {
         },
         categoryData,
         recentOrders: allOrders,
-        products,
+        products: formattedProducts,
         coupons,
         inventoryItems,
       })

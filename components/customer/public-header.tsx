@@ -24,10 +24,10 @@ import {
   Heart,
   Flame,
   BookOpen,
-  Home,
   Info,
   HelpCircle,
   Mail,
+  HeartPulse,
 } from "lucide-react";
 import { useGym } from "@/components/customer/gym-context";
 import { useCart } from "@/components/customer/cart-context";
@@ -155,23 +155,12 @@ export function PublicHeader() {
         <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* 1. LEFT — Brand: NutriFlexs logo and wordmark anchored to the left */}
           <div className="flex items-center shrink-0">
-            <NutriFlexsLogo size="md" showTagline={true} href={isAuthenticated ? "/home" : "/"} />
+            <NutriFlexsLogo size="md" showTagline={true} href="/" />
           </div>
 
-          {/* 2. CENTER — Navigation: Home, Order Food, NutriFlexs Pass, Nearby Gyms, Blog, and About */}
+          {/* 2. CENTER — Navigation: Order Food, NutriFlexs Pass, Nearby Gyms, Blog, and About */}
           <nav className="hidden lg:flex items-center justify-center min-w-0 flex-1 px-2">
-            <div className="flex items-center justify-center gap-1 xl:gap-2 text-xs xl:text-[13px] font-semibold text-nutri-secondary whitespace-nowrap">
-              <Link
-                href={isAuthenticated ? "/home" : "/"}
-                className={cn(
-                  "px-3.5 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap",
-                  (pathname === "/" || pathname === "/home")
-                    ? "text-[#2F7D16] font-bold bg-[#EAF4E3]"
-                    : "text-nutri-secondary hover:text-[#2F7D16] hover:bg-[#EAF4E3]/60"
-                )}
-              >
-                Home
-              </Link>
+            <div className="flex items-center justify-center gap-1.5 xl:gap-2.5 text-xs xl:text-[13px] font-semibold text-nutri-secondary whitespace-nowrap">
               <Link
                 href="/menu"
                 className={cn(
@@ -182,6 +171,17 @@ export function PublicHeader() {
                 )}
               >
                 Order Food
+              </Link>
+              <Link
+                href="/dietitians"
+                className={cn(
+                  "px-3.5 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap",
+                  pathname.startsWith("/dietitians")
+                    ? "text-[#2F7D16] font-bold bg-[#EAF4E3]"
+                    : "text-nutri-secondary hover:text-[#2F7D16] hover:bg-[#EAF4E3]/60"
+                )}
+              >
+                Consult a Dietitian
               </Link>
               <Link
                 href="/pass"
@@ -543,6 +543,22 @@ export function PublicHeader() {
                         <Apple className="w-4 h-4 text-nutri-green" /> My Nutrition
                       </Link>
                       <Link
+                        href="/consultations"
+                        onClick={() => setShowProfileMenu(false)}
+                        className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-nutri-bg text-nutri-charcoal font-semibold transition-colors"
+                      >
+                        <HeartPulse className="w-4 h-4 text-nutri-green" /> My Consultations
+                      </Link>
+                      {userRole === "DIETITIAN" && (
+                        <Link
+                          href="/dietitian"
+                          onClick={() => setShowProfileMenu(false)}
+                          className="flex items-center gap-2.5 p-2 rounded-xl bg-emerald-50 text-emerald-800 font-bold hover:bg-emerald-100 transition-colors"
+                        >
+                          <HeartPulse className="w-4 h-4 text-emerald-600" /> Dietitian Portal
+                        </Link>
+                      )}
+                      <Link
                         href="/profile"
                         onClick={() => setShowProfileMenu(false)}
                         className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-nutri-bg text-nutri-charcoal font-semibold transition-colors"
@@ -571,23 +587,22 @@ export function PublicHeader() {
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
                 <Link
                   href="/login"
                   className={cn(
-                    "hidden sm:inline-block text-xs font-bold text-[#111111] hover:text-[#2F7D16] px-3 py-1.5 rounded-full hover:bg-[#EAF4E3]/60 transition-colors whitespace-nowrap shrink-0 min-h-[36px] flex items-center",
-                    pathname === "/login" && "text-[#2F7D16] bg-[#EAF4E3]"
+                    "hidden sm:inline-flex items-center justify-center h-[38px] px-3.5 sm:px-4 text-xs font-bold rounded-full bg-white text-[#2F7D16] border border-[#2F7D16]/30 hover:bg-[#EAF4E3] hover:border-[#2F7D16]/50 hover:text-[#24630F] transition-all duration-200 shadow-2xs whitespace-nowrap shrink-0 cursor-pointer",
+                    pathname === "/login" && "bg-[#EAF4E3] border-[#2F7D16]/50 text-[#24630F]"
                   )}
                 >
                   Sign In
                 </Link>
-                <Link href="/signup">
-                  <Button
-                    size="sm"
-                    className="bg-[#2F7D16] text-white hover:bg-[#24630F] font-extrabold text-xs px-3 sm:px-4 py-1.5 sm:py-2 rounded-full cursor-pointer shadow-xs whitespace-nowrap shrink-0 min-h-[38px]"
-                  >
-                    Get Started →
-                  </Button>
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center justify-center h-[38px] px-3.5 sm:px-4 text-xs font-bold rounded-full bg-[#2F7D16] hover:bg-[#24630F] text-white border border-transparent transition-all duration-200 shadow-xs hover:shadow-sm whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  <span>Get Started</span>
+                  <span className="ml-1 font-semibold">→</span>
                 </Link>
               </div>
             )}
@@ -608,7 +623,7 @@ export function PublicHeader() {
           <div>
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-4 border-b border-nutri-border mb-4">
-              <NutriFlexsLogo size="sm" showTagline={false} href={isAuthenticated ? "/home" : "/"} />
+              <NutriFlexsLogo size="sm" showTagline={false} href="/" />
               <button
                 type="button"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -644,20 +659,8 @@ export function PublicHeader() {
               </div>
             )}
 
-            {/* Main Links: Home, Order Food, Track Nutrition, NutriFlexs Pass, Nearby Gyms, Blog, About Us */}
+            {/* Main Links: Order Food, Track Nutrition, NutriFlexs Pass, Nearby Gyms, Blog, About Us */}
             <nav className="space-y-1">
-              <Link
-                href={isAuthenticated ? "/home" : "/"}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold transition-colors",
-                  (pathname === "/" || pathname === "/home")
-                    ? "bg-nutri-green-light text-nutri-green"
-                    : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
-                )}
-              >
-                <Home className="w-4 h-4 text-nutri-green" /> Home
-              </Link>
               <Link
                 href="/menu"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -669,6 +672,18 @@ export function PublicHeader() {
                 )}
               >
                 <Utensils className="w-4 h-4 text-nutri-green" /> Order Food
+              </Link>
+              <Link
+                href="/dietitians"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold transition-colors",
+                  pathname.startsWith("/dietitians")
+                    ? "bg-nutri-green-light text-nutri-green"
+                    : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
+                )}
+              >
+                <HeartPulse className="w-4 h-4 text-nutri-green" /> Consult a Dietitian
               </Link>
               {isAuthenticated && (
                 <Link
@@ -908,18 +923,22 @@ export function PublicHeader() {
                 <LogOut className="w-4 h-4" /> Sign Out ({userName})
               </button>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <Link
                   href="/signup"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="w-full flex items-center justify-center p-2.5 rounded-xl bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs shadow-xs transition-colors"
+                  className="w-full flex items-center justify-center h-[42px] px-4 rounded-full bg-[#2F7D16] hover:bg-[#24630F] text-white font-bold text-xs shadow-xs transition-all duration-200 cursor-pointer"
                 >
-                  Get Started →
+                  <span>Get Started</span>
+                  <span className="ml-1 font-semibold">→</span>
                 </Link>
                 <Link
                   href="/login"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="w-full flex items-center justify-center p-2.5 rounded-xl bg-nutri-bg hover:bg-nutri-green-soft text-nutri-charcoal hover:text-nutri-green border border-nutri-border font-bold text-xs transition-colors"
+                  className={cn(
+                    "w-full flex items-center justify-center h-[42px] px-4 rounded-full bg-white hover:bg-[#EAF4E3] text-[#2F7D16] hover:text-[#24630F] border border-[#2F7D16]/30 hover:border-[#2F7D16]/50 font-bold text-xs shadow-2xs transition-all duration-200 cursor-pointer",
+                    pathname === "/login" && "bg-[#EAF4E3] border-[#2F7D16]/50 text-[#24630F]"
+                  )}
                 >
                   Sign In
                 </Link>

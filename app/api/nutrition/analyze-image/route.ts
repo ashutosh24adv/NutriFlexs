@@ -90,9 +90,23 @@ async function matchFoodItemWithDatabase(
 ): Promise<ConfirmedFoodAnalysisItem> {
   const cleanName = item.foodName.trim();
   const searchKeywords = cleanName.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(Boolean);
-  const ADJECTIVES = new Set(["whole", "wheat", "steamed", "fresh", "boiled", "cooked", "fried", "dry", "spicy", "hot", "plain", "mixed", "homemade"]);
+  const ADJECTIVES = new Set([
+    "whole", "wheat", "steamed", "fresh", "boiled", "cooked", "fried", "panfried", "pan-fried",
+    "grilled", "roasted", "dry", "spicy", "hot", "plain", "mixed", "homemade", "sweet", "diced",
+    "sliced", "chopped", "shredded", "garnish", "seasoned", "crispy", "salted", "portion", "pieces", "cubes"
+  ]);
   const significantKeywords = searchKeywords.filter((w) => !ADJECTIVES.has(w));
-  const mainKeyword = significantKeywords[0] || searchKeywords[searchKeywords.length - 1] || cleanName;
+  // Pick primary noun (prefer last significant keyword, or first if single)
+  const mainKeyword = significantKeywords[significantKeywords.length - 1] || significantKeywords[0] || cleanName.toLowerCase();
+
+  const isGenuineWordMatch = (targetName: string, queryWord: string): boolean => {
+    if (!targetName || !queryWord) return false;
+    const lowerTarget = targetName.toLowerCase();
+    const lowerQuery = queryWord.toLowerCase();
+    if (lowerTarget === lowerQuery) return true;
+    const regex = new RegExp(`\\b${lowerQuery}\\b`, "i");
+    return regex.test(lowerTarget);
+  };
 
   // 1. Try matching with FoodVariant (dish-specific variations such as Dal Makhani, Paneer, Rice, etc.)
   try {
@@ -107,14 +121,22 @@ async function matchFoodItemWithDatabase(
         ],
       },
       include: { foodItem: true },
-      take: 5,
+      take: 8,
     });
 
-    if (matchedVariants.length > 0) {
+    // Filter to only candidates with genuine word match
+    const validVariants = matchedVariants.filter(
+      (v) =>
+        isGenuineWordMatch(v.name, cleanName) ||
+        isGenuineWordMatch(v.name, mainKeyword) ||
+        (v.foodItem && (isGenuineWordMatch(v.foodItem.name, cleanName) || isGenuineWordMatch(v.foodItem.name, mainKeyword)))
+    );
+
+    if (validVariants.length > 0) {
       // Prioritize variant matching gravy flag if item is gravy
-      let bestVariant = matchedVariants[0];
+      let bestVariant = validVariants[0];
       if (item.isGravy) {
-        const gravyVariant = matchedVariants.find(
+        const gravyVariant = validVariants.find(
           (v) => v.variantType === "GRAVY_ONLY" || v.variantType === "BALANCED" || v.name.toLowerCase().includes("gravy")
         );
         if (gravyVariant) bestVariant = gravyVariant;
@@ -170,11 +192,15 @@ async function matchFoodItemWithDatabase(
           { name: { contains: mainKeyword, mode: "insensitive" } },
         ],
       },
-      take: 4,
+      take: 8,
     });
 
-    if (matchedFoods.length > 0) {
-      const bestFood = matchedFoods[0];
+    const validFoods = matchedFoods.filter(
+      (f) => isGenuineWordMatch(f.name, cleanName) || isGenuineWordMatch(f.name, mainKeyword)
+    );
+
+    if (validFoods.length > 0) {
+      const bestFood = validFoods[0];
       const computed = calculateItemNutrition(
         bestFood,
         item.quantity || 1,
@@ -324,7 +350,7 @@ export async function POST(req: NextRequest) {
 
       if (!file || !(file instanceof Blob)) {
         return NextResponse.json(
-          { success: false, error: "An image file is required" },
+          { success: false, code: "INVALID_PAYLOAD", error: "An image file is required" },
           { status: 400 }
         );
       }
@@ -338,7 +364,7 @@ export async function POST(req: NextRequest) {
       }
       if (!body.imageBase64 || typeof body.imageBase64 !== "string") {
         return NextResponse.json(
-          { success: false, error: "Missing or invalid imageBase64 payload" },
+          { success: false, code: "INVALID_PAYLOAD", error: "Missing or invalid imageBase64 payload" },
           { status: 400 }
         );
       }
@@ -347,14 +373,14 @@ export async function POST(req: NextRequest) {
       imageBuffer = Buffer.from(cleanBase64, "base64");
     } else {
       return NextResponse.json(
-        { success: false, error: "Unsupported content type. Send multipart/form-data or application/json." },
+        { success: false, code: "INVALID_PAYLOAD", error: "Unsupported content type. Send multipart/form-data or application/json." },
         { status: 415 }
       );
     }
 
     if (!imageBuffer || imageBuffer.length === 0) {
       return NextResponse.json(
-        { success: false, error: "Image file data is empty" },
+        { success: false, code: "INVALID_PAYLOAD", error: "Image file data is empty" },
         { status: 400 }
       );
     }
@@ -362,24 +388,30 @@ export async function POST(req: NextRequest) {
     // Magic-byte file validation (JPEG, PNG, WebP up to 8MB)
     const validation = validateImageBuffer(imageBuffer);
     if (!validation.valid) {
+      const isSizeLimit = validation.error?.includes("exceeds");
       return NextResponse.json(
-        { success: false, error: validation.error || "Invalid image file format" },
+        {
+          success: false,
+          code: isSizeLimit ? "INVALID_PAYLOAD" : "UNSUPPORTED_IMAGE_FORMAT",
+          error: validation.error || "Unsupported image format. Please upload a clear JPEG, PNG, or WebP photo.",
+        },
         { status: 400 }
       );
     }
 
     // 4. Server-side GEMINI_API_KEY Check (Never hardcode, never silently mock!)
-    const geminiApiKey = process.env.GEMINI_API_KEY;
+    const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
     const isMockHeader = req.headers.get("x-mock-meal-analysis") === "true";
 
     // If key is missing and no explicit test simulation header is provided, return required 503 error
     if (!geminiApiKey && !simulateSample && !isMockHeader) {
+      console.error("[AI Scan] Missing GEMINI_API_KEY in environment");
       return NextResponse.json(
         {
           success: false,
+          code: "MISSING_GEMINI_API_KEY",
           error:
             "Gemini API key is not configured on the server. Please set the GEMINI_API_KEY environment variable to enable AI meal scanning.",
-          code: "MISSING_GEMINI_API_KEY",
         },
         { status: 503 }
       );
@@ -388,89 +420,7 @@ export async function POST(req: NextRequest) {
     // 5. AI Inference or Test Simulation
     let rawGeminiResponse: any = null;
 
-    if (geminiApiKey) {
-      try {
-        const geminiPrompt = `You are an expert Indian clinical nutritionist and computer vision system for the NutriFlexs Health platform.
-Carefully examine the meal in this image.
-
-Key instructions:
-1. Identify all visible separate food items on the plate or table (e.g. Dal Makhani, Steamed Basmati Rice, Phulka / Roti, Paneer Butter Masala, Mixed Vegetable Sabzi, Chole, Salad, Dosa, Idli, Sambhar, Chicken Curry, Boiled Eggs, etc.).
-2. Break down mixed meals into individual distinct components rather than treating the plate as a single generic item.
-3. Distinguish between gravy and solid ingredients where visually possible (flag isGravy: true for gravies/curries/soups, and specify whether it is mostly gravy or includes solid paneer/chicken/veggies).
-4. Estimate portion size in grams or millilitres, along with a natural serving unit (e.g. "medium_bowl", "small_bowl", "piece", "cup", "plate", "g", "ml").
-5. Provide a realistic confidence score (0.0 to 1.0) and describe any uncertainty or assumptions.
-6. Provide reasonable baseline nutritional estimates per 100g and for the estimated portion (calories, protein, carbohydrates, fat).
-
-Return ONLY a valid JSON object without markdown fences, conforming to this exact structure:
-{
-  "mealTitle": "North Indian Thali",
-  "items": [
-    {
-      "foodName": "Dal Makhani",
-      "category": "Indian Curries & Dal",
-      "estimatedWeightGrams": 180,
-      "servingUnit": "medium_bowl",
-      "quantity": 1,
-      "confidence": 0.94,
-      "isGravy": true,
-      "description": "Slow cooked black lentil curry with rich gravy",
-      "estimatedCalories": 234,
-      "estimatedProtein": 8.5,
-      "estimatedCarbs": 26.2,
-      "estimatedFat": 10.4,
-      "caloriesPer100g": 130,
-      "proteinPer100g": 4.7,
-      "carbsPer100g": 14.6,
-      "fatPer100g": 5.8
-    }
-  ]
-}`;
-
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [
-                    { text: geminiPrompt },
-                    {
-                      inlineData: {
-                        mimeType: validation.mimeType,
-                        data: imageBuffer.toString("base64"),
-                      },
-                    },
-                  ],
-                },
-              ],
-            }),
-            signal: AbortSignal.timeout(15000), // 15s timeout
-          }
-        );
-
-        if (!response.ok) {
-          const errBody = await response.text();
-          console.error("[AI Scan] Gemini API error:", response.status, errBody);
-          return NextResponse.json(
-            { success: false, error: "AI meal recognition service temporarily unavailable. Please try again." },
-            { status: 502 }
-          );
-        }
-
-        const aiData = await response.json();
-        const candidateText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        const cleanJson = candidateText.replace(/```json/g, "").replace(/```/g, "").trim();
-        rawGeminiResponse = JSON.parse(cleanJson);
-      } catch (geminiErr: any) {
-        console.error("[AI Scan] Gemini processing exception:", geminiErr);
-        return NextResponse.json(
-          { success: false, error: "Failed to communicate with AI recognition service. Please try again." },
-          { status: 502 }
-        );
-      }
-    } else if (simulateSample || isMockHeader) {
+    if (simulateSample || isMockHeader) {
       // Test simulation mode for automated testing / sample preview
       rawGeminiResponse = {
         mealTitle: "North Indian High-Protein Thali",
@@ -549,14 +499,219 @@ Return ONLY a valid JSON object without markdown fences, conforming to this exac
           },
         ],
       };
+    } else if (geminiApiKey) {
+      const geminiPrompt = `You are an expert Indian clinical nutritionist and computer vision system for the NutriFlexs Health platform.
+Carefully examine the meal in this image.
+
+Key instructions:
+1. Identify all visible separate food items on the plate or table (e.g. Dal Makhani, Steamed Basmati Rice, Phulka / Roti, Paneer Butter Masala, Mixed Vegetable Sabzi, Chole, Salad, Dosa, Idli, Sambhar, Chicken Curry, Grilled Chicken, Boiled Eggs, Burgers, Sandwiches, etc.).
+2. Break down mixed meals into individual distinct components rather than treating the plate as a single generic item.
+3. Distinguish between gravy and solid ingredients where visually possible (flag isGravy: true for gravies/curries/soups, and specify whether it is mostly gravy or includes solid paneer/chicken/veggies).
+4. Estimate portion size in grams or millilitres, along with a natural serving unit (e.g. "medium_bowl", "small_bowl", "piece", "cup", "plate", "g", "ml").
+5. Provide a realistic confidence score (0.0 to 1.0) and describe any uncertainty or assumptions.
+6. Provide reasonable baseline nutritional estimates per 100g and for the estimated portion (calories, protein, carbohydrates, fat).
+
+Return ONLY a valid JSON object without markdown fences, conforming to this exact structure:
+{
+  "mealTitle": "North Indian Thali",
+  "items": [
+    {
+      "foodName": "Dal Makhani",
+      "category": "Indian Curries & Dal",
+      "estimatedWeightGrams": 180,
+      "servingUnit": "medium_bowl",
+      "quantity": 1,
+      "confidence": 0.94,
+      "isGravy": true,
+      "description": "Slow cooked black lentil curry with rich gravy",
+      "estimatedCalories": 234,
+      "estimatedProtein": 8.5,
+      "estimatedCarbs": 26.2,
+      "estimatedFat": 10.4,
+      "caloriesPer100g": 130,
+      "proteinPer100g": 4.7,
+      "carbsPer100g": 14.6,
+      "fatPer100g": 5.8
+    }
+  ]
+}`;
+
+      // Cascade across active Google Gemini models to handle deprecations or quota fails
+      const candidateModels = [
+        process.env.GEMINI_MODEL,
+        "gemini-2.5-flash",
+        "gemini-3.5-flash",
+        "gemini-flash-latest",
+        "gemini-2.5-pro",
+      ].filter(Boolean) as string[];
+
+      const uniqueModels = Array.from(new Set(candidateModels));
+      let lastErrorStatus = 502;
+      let lastErrorCode = "SERVICE_UNAVAILABLE";
+      let lastErrorMessage = "AI meal recognition service temporarily unavailable. Please try again.";
+
+      for (let i = 0; i < uniqueModels.length; i++) {
+        const modelName = uniqueModels[i];
+        try {
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiApiKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    parts: [
+                      { text: geminiPrompt },
+                      {
+                        inlineData: {
+                          mimeType: validation.mimeType,
+                          data: imageBuffer.toString("base64"),
+                        },
+                      },
+                    ],
+                  },
+                ],
+                generationConfig: {
+                  responseMimeType: "application/json",
+                  temperature: 0.2,
+                  thinkingConfig: {
+                    thinkingBudget: 0,
+                  },
+                },
+              }),
+              signal: AbortSignal.timeout(50000), // 50s timeout for vision models with multiple components
+            }
+          );
+
+          if (!response.ok) {
+            const errBody = await response.text();
+            let parsedErr: any = null;
+            try {
+              parsedErr = JSON.parse(errBody);
+            } catch {}
+
+            const errCode = parsedErr?.error?.code || response.status;
+            const errStatus = parsedErr?.error?.status || "";
+            const errDetail = parsedErr?.error?.message || errBody;
+
+            console.error(`[AI Scan] Gemini API error with model ${modelName}:`, response.status, errStatus, errDetail);
+
+            // 1. Invalid or unauthorized API key (fatal, do not retry other models)
+            if (
+              errCode === 400 &&
+              (errDetail.includes("API_KEY_INVALID") || errDetail.includes("API key not valid") || errDetail.includes("key"))
+            ) {
+              return NextResponse.json(
+                {
+                  success: false,
+                  code: "INVALID_API_KEY",
+                  error: "AI service authentication failed. Please verify the server's Gemini API configuration.",
+                },
+                { status: 403 }
+              );
+            }
+
+            if (errCode === 403 || errStatus === "PERMISSION_DENIED") {
+              return NextResponse.json(
+                {
+                  success: false,
+                  code: "INVALID_API_KEY",
+                  error: "AI service permission denied. Please verify your Gemini API key access permissions.",
+                },
+                { status: 403 }
+              );
+            }
+
+            // 2. Quota or rate limit exceeded on this model -> attempt next model
+            if (errCode === 429 || errStatus === "RESOURCE_EXHAUSTED") {
+              console.warn(`[AI Scan] Model ${modelName} hit rate limit / quota (429). Attempting fallback model...`);
+              lastErrorStatus = 429;
+              lastErrorCode = "QUOTA_EXCEEDED";
+              lastErrorMessage = "AI meal scanning quota exceeded. Please wait a moment before trying again.";
+              continue;
+            }
+
+            // 3. Model not found (404) -> Fallback to next candidate model
+            if (errCode === 404 || errStatus === "NOT_FOUND") {
+              console.warn(`[AI Scan] Model ${modelName} returned 404. Attempting fallback model...`);
+              lastErrorStatus = 503;
+              lastErrorCode = "SERVICE_UNAVAILABLE";
+              lastErrorMessage = "AI recognition model is temporarily unavailable. Please try again shortly.";
+              continue;
+            }
+
+            // 4. Server error (500/503) -> Try next model if available
+            lastErrorStatus = response.status >= 500 ? 503 : 502;
+            lastErrorCode = "SERVICE_UNAVAILABLE";
+            lastErrorMessage = "AI meal recognition service is temporarily unavailable. Please try again in a few moments.";
+            continue;
+          }
+
+          const aiData = await response.json();
+          const candidateText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (!candidateText) {
+            console.warn(`[AI Scan] Model ${modelName} returned empty candidate text. Trying next model...`);
+            lastErrorStatus = 502;
+            lastErrorCode = "INVALID_AI_RESPONSE";
+            lastErrorMessage = "AI could not clearly identify foods in this photo. Please ensure good lighting and try again.";
+            continue;
+          }
+
+          const cleanJson = candidateText.replace(/```json/gi, "").replace(/```/g, "").trim();
+          try {
+            rawGeminiResponse = JSON.parse(cleanJson);
+            // Succeeded! Break model loop
+            break;
+          } catch (jsonErr) {
+            console.error(`[AI Scan] Model ${modelName} produced unparseable JSON:`, jsonErr, candidateText);
+            lastErrorStatus = 502;
+            lastErrorCode = "INVALID_AI_RESPONSE";
+            lastErrorMessage = "AI produced invalid response formatting. Please try scanning again.";
+            continue;
+          }
+        } catch (geminiErr: any) {
+          if (geminiErr.name === "TimeoutError" || geminiErr.message?.includes("timeout") || geminiErr.name === "AbortError") {
+            console.error(`[AI Scan] Gemini API request timed out on model ${modelName}`);
+            return NextResponse.json(
+              {
+                success: false,
+                code: "REQUEST_TIMEOUT",
+                error: "AI meal analysis timed out. The image may be too large or connection is slow. Please try again with a clear photo.",
+              },
+              { status: 504 }
+            );
+          }
+
+          console.error(`[AI Scan] Gemini processing exception on model ${modelName}:`, geminiErr);
+          lastErrorStatus = 502;
+          lastErrorCode = "SERVICE_UNAVAILABLE";
+          lastErrorMessage = "Failed to communicate with AI recognition service. Please check your connection and try again.";
+        }
+      }
+
+      if (!rawGeminiResponse) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: lastErrorCode,
+            error: lastErrorMessage,
+          },
+          { status: lastErrorStatus }
+        );
+      }
     }
 
     // 6. Strict validation of AI output with Zod
     const parsedGemini = geminiAnalysisOutputSchema.safeParse(rawGeminiResponse);
     if (!parsedGemini.success) {
-      console.error("[AI Scan] Zod validation failed:", parsedGemini.error);
+      console.error("[AI Scan] Zod validation failed on AI output:", parsedGemini.error);
       return NextResponse.json(
-        { success: false, error: "AI meal analysis produced invalid output structure. Please try again." },
+        {
+          success: false,
+          code: "INVALID_AI_RESPONSE",
+          error: "AI meal analysis produced invalid output structure. Please try again with a clearer photo.",
+        },
         { status: 502 }
       );
     }

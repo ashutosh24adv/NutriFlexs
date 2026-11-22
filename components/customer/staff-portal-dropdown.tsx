@@ -2,11 +2,11 @@
 
 import React from "react";
 import Link from "next/link";
-import { ChefHat, Dumbbell, Shield, Lock, ArrowUpRight } from "lucide-react";
+import { ChefHat, Dumbbell, Shield, Lock, ArrowUpRight, HeartPulse } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface StaffPortalItem {
-  id: "kitchen" | "trainer" | "admin";
+  id: "kitchen" | "trainer" | "admin" | "dietitian";
   name: string;
   tagline: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -53,6 +53,22 @@ export const STAFF_PORTALS: StaffPortalItem[] = [
     loginBtnClass:
       "bg-white hover:bg-indigo-100/90 text-indigo-900 border border-indigo-200/80",
     signupBtnClass: "bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs",
+  },
+  {
+    id: "dietitian",
+    name: "Dietitian Clinical Portal",
+    tagline: "Consultations & diet plan manager",
+    icon: HeartPulse,
+    loginHref: "/login?portal=dietitian&callbackUrl=%2Fdietitian&staff=true",
+    signupHref: "/signup?portal=dietitian&callbackUrl=%2Fdietitian&staff=true",
+    borderColor: "border-emerald-200/80 hover:border-emerald-300",
+    bgTint: "bg-emerald-50/70",
+    iconBg: "bg-emerald-100",
+    iconColor: "text-emerald-700",
+    textColor: "text-emerald-950",
+    loginBtnClass:
+      "bg-white hover:bg-emerald-100/90 text-emerald-900 border border-emerald-200/80",
+    signupBtnClass: "bg-[#2F7D16] hover:bg-[#24630F] text-white shadow-2xs",
   },
   {
     id: "admin",

@@ -15,6 +15,10 @@ export async function GET() {
       }
     );
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error("[API /api/categories] Error fetching categories:", error);
+    return NextResponse.json(
+      { success: false, error: "Categories are temporarily unavailable. Please retry in a moment." },
+      { status: 503 }
+    );
   }
 }

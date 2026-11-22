@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma, withDbRetry } from "@/lib/prisma";
 
 // High-performance in-memory cache for static/read-heavy catalog data (60s TTL)
 interface CacheEntry<T> {
@@ -51,18 +51,21 @@ export async function getProducts(options?: DietaryFilterOptions) {
 
   const where = buildProductDietaryWhere(options);
 
-  const products = await prisma.product.findMany({
-    where,
-    include: {
-      category: true,
-      ingredients: {
-        include: {
-          ingredient: true,
+  const products = await withDbRetry(() =>
+    prisma.product.findMany({
+      where,
+      include: {
+        category: true,
+        ingredients: {
+          include: {
+            ingredient: true,
+          },
         },
+        dietGoals: true,
       },
-    },
-    orderBy: { createdAt: "asc" },
-  });
+      orderBy: { createdAt: "asc" },
+    })
+  );
 
   setInCache(cacheKey, products);
   return products;
@@ -75,17 +78,20 @@ export async function getProductBySlug(slug: string) {
     return cached;
   }
 
-  const product = await prisma.product.findUnique({
-    where: { slug },
-    include: {
-      category: true,
-      ingredients: {
-        include: {
-          ingredient: true,
+  const product = await withDbRetry(() =>
+    prisma.product.findUnique({
+      where: { slug },
+      include: {
+        category: true,
+        ingredients: {
+          include: {
+            ingredient: true,
+          },
         },
+        dietGoals: true,
       },
-    },
-  });
+    })
+  );
 
   if (product) {
     setInCache(cacheKey, product);
@@ -100,9 +106,11 @@ export async function getCategories() {
     return cached;
   }
 
-  const categories = await prisma.category.findMany({
-    orderBy: { displayOrder: "asc" },
-  });
+  const categories = await withDbRetry(() =>
+    prisma.category.findMany({
+      orderBy: { displayOrder: "asc" },
+    })
+  );
 
   setInCache(cacheKey, categories);
   return categories;

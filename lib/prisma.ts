@@ -18,8 +18,8 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
  */
 export async function withDbRetry<T>(
   operation: () => Promise<T>,
-  maxRetries = 2,
-  delayMs = 500
+  maxRetries = 3,
+  delayMs = 1000
 ): Promise<T> {
   let lastError: any;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -27,19 +27,30 @@ export async function withDbRetry<T>(
       return await operation();
     } catch (err: any) {
       lastError = err;
+      const errMsg = (err?.message || "").toLowerCase();
+      const errCode = err?.code || "";
       const isConnectionError =
-        err?.message?.includes("Can't reach database server") ||
-        err?.message?.includes("Connection refused") ||
-        err?.message?.includes("Connection closed") ||
-        err?.message?.includes("timed out") ||
+        errMsg.includes("can't reach database server") ||
+        errMsg.includes("connection refused") ||
+        errMsg.includes("connection closed") ||
+        errMsg.includes("timed out") ||
+        errMsg.includes("closed") ||
+        errMsg.includes("econnreset") ||
+        errMsg.includes("etimedout") ||
         err?.name === "PrismaClientInitializationError" ||
-        err?.code === "P1001"; // Prisma connection error code
+        errCode === "P1000" ||
+        errCode === "P1001" ||
+        errCode === "P1002" ||
+        errCode === "P1008" ||
+        errCode === "P1017" ||
+        errCode === "P2024";
 
       if (isConnectionError && attempt < maxRetries) {
+        const backoffMs = delayMs * (attempt + 1);
         console.warn(
-          `[Prisma/Neon] Transient connection issue on attempt ${attempt + 1}. Retrying in ${delayMs}ms...`
+          `[Prisma/Neon] Transient compute wake-up / connection pause (attempt ${attempt + 1}/${maxRetries}). Retrying in ${backoffMs}ms...`
         );
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
         continue;
       }
       throw err;

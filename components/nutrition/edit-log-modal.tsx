@@ -193,7 +193,7 @@ export function EditLogModal({
               </label>
               <input
                 type="number"
-                step="0.5"
+                step="any"
                 min="0.1"
                 required
                 value={quantity}

@@ -25,6 +25,7 @@ export async function middleware(req: NextRequest) {
   const isAdminPath = pathname.startsWith("/admin");
   const isKitchenPath = pathname.startsWith("/kitchen");
   const isTrainerPath = pathname.startsWith("/trainer");
+  const isDietitianPath = pathname.startsWith("/dietitian");
 
   // 1. Defense-in-depth API route protections
   if (isApiAdminPath) {
@@ -52,7 +53,7 @@ export async function middleware(req: NextRequest) {
   }
 
   // 2. Dashboard UI route protections
-  if (isAdminPath || isKitchenPath || isTrainerPath) {
+  if (isAdminPath || isKitchenPath || isTrainerPath || isDietitianPath) {
     const token = await getToken({
       req,
       secret: authSecret,
@@ -99,11 +100,21 @@ export async function middleware(req: NextRequest) {
       loginUrl.searchParams.set("callbackUrl", safeDestination);
       return NextResponse.redirect(loginUrl);
     }
+
+    // Dietitian Partner: DIETITIAN or ADMIN or SUPER_ADMIN
+    if (isDietitianPath && userRole !== "DIETITIAN" && userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("staff", "true");
+      loginUrl.searchParams.set("error", "unauthorized_role");
+      loginUrl.searchParams.set("portal", "dietitian");
+      loginUrl.searchParams.set("callbackUrl", safeDestination);
+      return NextResponse.redirect(loginUrl);
+    }
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/kitchen/:path*", "/trainer/:path*", "/api/admin/:path*"],
+  matcher: ["/admin/:path*", "/kitchen/:path*", "/trainer/:path*", "/dietitian/:path*", "/api/admin/:path*"],
 };

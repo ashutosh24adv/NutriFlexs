@@ -148,6 +148,7 @@ export function FoodSearchModal({
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [categories, setCategories] = useState<string[]>([
     "All",
+    "Miscellaneous Snacks",
     "NutriFlexs Menu",
     "Popular",
     "Dal and Legumes",
@@ -218,7 +219,11 @@ export function FoodSearchModal({
         const res = await fetch("/api/nutrition/categories");
         const data = await res.json();
         if (data.success && Array.isArray(data.categories) && data.categories.length > 0) {
-          setCategories(data.categories);
+          const cats = [...data.categories];
+          if (!cats.includes("Miscellaneous Snacks")) {
+            cats.splice(1, 0, "Miscellaneous Snacks");
+          }
+          setCategories(cats);
         }
       } catch (err) {
         console.error("Failed to load food categories", err);
@@ -585,7 +590,7 @@ export function FoodSearchModal({
     set.add("g");
     set.add("serving");
 
-    if (["bowl", "cup", "glass", "plate", "piece", "slice", "tbsp", "scoop"].includes(def.toLowerCase())) {
+    if (["bowl", "cup", "glass", "plate", "piece", "slice", "tbsp", "scoop", "packet", "pack"].includes(def.toLowerCase())) {
       set.add(def.toLowerCase());
     }
 
@@ -600,6 +605,11 @@ export function FoodSearchModal({
     if (selectedFood.category?.includes("Egg") || selectedFood.category?.includes("Roti")) {
       set.add("piece");
     }
+    if (selectedFood.category?.toLowerCase().includes("snack")) {
+      set.add("piece");
+      set.add("packet");
+      set.add("bowl");
+    }
 
     return Array.from(set);
   }, [selectedFood, selectedVariant]);
@@ -608,9 +618,10 @@ export function FoodSearchModal({
     if (!selectedVariant) {
       if (u === "g") return "Grams (g)";
       if (u === "ml") return "Milliliters (ml)";
-      if (u === "serving") return "Standard Serving";
-      if (u === "piece") return "Piece";
-      if (u === "bowl") return "Bowl (~180g)";
+      if (u === "serving") return `Standard Serving (${selectedFood?.servingWeightGrams || 100}g)`;
+      if (u === "packet" || u === "pack") return `Packet / Pack (${selectedFood?.servingWeightGrams || 35}g)`;
+      if (u === "piece") return `Piece (${selectedFood?.servingWeightGrams || 50}g)`;
+      if (u === "bowl") return `Bowl (${selectedFood?.servingWeightGrams || 150}g)`;
       if (u === "cup") return "Cup (~200g)";
       if (u === "glass") return "Glass (~250ml)";
       if (u === "plate") return "Plate";
@@ -1026,14 +1037,28 @@ export function FoodSearchModal({
                 {/* Food Results List */}
                 <div className="flex-1 overflow-y-auto divide-y divide-[#E5E7E2]/70 border border-[#E5E7E2] rounded-2xl bg-white pr-1">
                   {loading ? (
-                    <div className="py-16 flex flex-col items-center justify-center text-[#4B5563] text-xs space-y-2">
-                      <Loader2 className="w-6 h-6 animate-spin text-[#2F7D16]" />
-                      <span className="font-medium">Searching foods...</span>
+                    <div className="divide-y divide-[#E5E7E2]/60">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div key={i} className="p-3.5 space-y-2 animate-pulse bg-white">
+                          <div className="flex items-center justify-between">
+                            <div className="h-4 bg-slate-200/90 rounded-md w-2/5"></div>
+                            <div className="h-4 bg-[#EAF4E3] rounded-md w-16"></div>
+                          </div>
+                          <div className="h-3 bg-slate-100 rounded-md w-4/5"></div>
+                          <div className="flex items-center gap-3 pt-1">
+                            <div className="h-3 bg-emerald-100/60 rounded-md w-24"></div>
+                            <div className="h-3 bg-slate-100 rounded-md w-32"></div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : error ? (
-                    <div className="p-6 text-center bg-rose-50/40 rounded-xl m-3 space-y-2.5">
+                    <div className="p-6 text-center bg-rose-50/40 rounded-xl m-3 space-y-2.5 border border-rose-200">
                       <AlertCircle className="w-6 h-6 text-rose-500 mx-auto" />
                       <p className="font-bold text-xs text-[#111111]">{error}</p>
+                      <p className="text-[11px] text-[#4B5563]">
+                        Unable to reach the food library right now. Please check your connection and try again.
+                      </p>
                       <Button
                         size="sm"
                         variant="outline"
@@ -1044,12 +1069,16 @@ export function FoodSearchModal({
                       </Button>
                     </div>
                   ) : foods.length === 0 ? (
-                    <div className="p-8 text-center bg-[#F7FAF4] rounded-xl m-3 space-y-3">
-                      <Utensils className="w-8 h-8 text-[#4B5563]/50 mx-auto" />
+                    <div className="p-8 text-center bg-[#F7FAF4] rounded-2xl m-3 space-y-3 border border-[#E5E7E2]">
+                      <div className="w-12 h-12 rounded-full bg-[#EAF4E3] text-[#2F7D16] flex items-center justify-center mx-auto">
+                        <Utensils className="w-6 h-6" />
+                      </div>
                       <div>
-                        <p className="font-bold text-sm text-[#111111]">No foods found</p>
-                        <p className="text-xs text-[#4B5563] mt-0.5 max-w-xs mx-auto">
-                          Can&apos;t find what you ate? You can create a custom food item with your verified macros.
+                        <p className="font-bold text-sm text-[#111111]">No matching foods found</p>
+                        <p className="text-xs text-[#4B5563] mt-1 max-w-xs mx-auto">
+                          {searchQuery
+                            ? `We couldn't find any foods matching "${searchQuery}". You can create a custom food item with your verified nutrition facts.`
+                            : "No foods found in this category. You can add a custom food item."}
                         </p>
                       </div>
                       <Button
@@ -1061,88 +1090,117 @@ export function FoodSearchModal({
                         }}
                         className="text-xs font-bold border-[#2F7D16] text-[#2F7D16] hover:bg-[#EAF4E3] rounded-full"
                       >
-                        <Plus className="w-3.5 h-3.5 mr-1" /> Create Custom Food
+                        <Plus className="w-3.5 h-3.5 mr-1" /> + Add Custom Food
                       </Button>
                     </div>
                   ) : (
-                    foods.map((food) => {
-                      const isSelected = selectedFood?.id === food.id;
-                      const isFav = favoriteNames.has(food.name.trim().toLowerCase());
-                      return (
-                        <div
-                          key={food.id}
-                          data-food-row="true"
-                          data-food-id={food.id}
-                          onClick={() => handleSelectFood(food)}
-                          className={cn(
-                            "p-3 flex items-center justify-between gap-3 transition-colors cursor-pointer text-left relative",
-                            isSelected
-                              ? "bg-[#EAF4E3] border-l-4 border-l-[#2F7D16]"
-                              : "hover:bg-[#F3F7EE]"
-                          )}
-                        >
-                          {/* Favorite Star Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => handleToggleFavorite(e, food)}
-                            className="p-1 text-slate-300 hover:text-amber-500 transition-colors shrink-0 cursor-pointer"
-                            title={isFav ? "Remove from Favorites" : "Add to Favorites"}
+                    <>
+                      {!searchQuery.trim() && (
+                        <div className="px-3.5 py-2 bg-[#F7FAF4] border-b border-[#E5E7E2] flex items-center justify-between text-xs text-[#4B5563]">
+                          <span className="font-bold text-[#111111] flex items-center gap-1.5 text-[11px]">
+                            <Sparkles className="w-3 h-3 text-[#2F7D16]" /> Popular Indian Foods & Staples
+                          </span>
+                          <span className="text-[10px] text-[#4B5563]">Scroll or search above</span>
+                        </div>
+                      )}
+                      {foods.map((food) => {
+                        const isSelected = selectedFood?.id === food.id;
+                        const isFav = favoriteNames.has(food.name.trim().toLowerCase());
+                        return (
+                          <div
+                            key={food.id}
+                            data-food-row="true"
+                            data-food-id={food.id}
+                            onClick={() => handleSelectFood(food)}
+                            className={cn(
+                              "p-3.5 sm:p-4 flex items-start justify-between gap-3 transition-colors cursor-pointer text-left border-b border-[#E5E7E2]/70",
+                              isSelected
+                                ? "bg-[#EAF4E3] border-l-4 border-l-[#2F7D16]"
+                                : "hover:bg-[#F9FAF7] bg-white"
+                            )}
                           >
-                            <Star
-                              className={cn(
-                                "w-4 h-4",
-                                isFav ? "fill-amber-400 text-amber-500" : "stroke-[1.8]"
-                              )}
-                            />
-                          </button>
+                            {/* Favorite Star Button */}
+                            <button
+                              type="button"
+                              onClick={(e) => handleToggleFavorite(e, food)}
+                              className="p-1 mt-0.5 text-slate-300 hover:text-amber-500 transition-colors shrink-0 cursor-pointer"
+                              title={isFav ? "Remove from Favorites" : "Add to Favorites"}
+                            >
+                              <Star
+                                className={cn(
+                                  "w-4 h-4",
+                                  isFav ? "fill-amber-400 text-amber-500" : "stroke-[1.8]"
+                                )}
+                              />
+                            </button>
 
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-xs sm:text-sm text-[#111111] truncate">
-                                {food.name}
-                              </span>
-                              {food.isNutriFlexsProduct && (
-                                <span className="text-[9px] font-extrabold bg-[#2F7D16] text-white px-1.5 py-0.2 rounded-full">
-                                  Kiosk
+                            <div className="min-w-0 flex-1 space-y-1">
+                              {/* 1. Food Name & Badges */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-heading font-extrabold text-xs sm:text-sm text-[#111111] leading-tight">
+                                  {food.name}
                                 </span>
+                                {food.isNutriFlexsProduct && (
+                                  <span className="text-[9px] font-extrabold bg-[#2F7D16] text-white px-1.5 py-0.2 rounded-full">
+                                    Kiosk
+                                  </span>
+                                )}
+                                {food.isCustom && (
+                                  <span className="text-[9px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-full">
+                                    Custom
+                                  </span>
+                                )}
+                                {food.hasVariants && food.variants && food.variants.length > 0 && (
+                                  <span className="text-[9px] font-bold bg-[#EAF4E3] text-[#2F7D16] px-1.5 py-0.2 rounded-full border border-[#2F7D16]/20 flex items-center gap-0.5">
+                                    <Sparkles className="w-2.5 h-2.5" /> {food.variants.length} Variants
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* 2. Short Description */}
+                              {food.description && (
+                                <p className="text-xs text-[#4B5563] line-clamp-1 leading-relaxed">
+                                  {food.description}
+                                </p>
                               )}
-                              {food.hasVariants && food.variants && food.variants.length > 0 && (
-                                <span className="text-[9px] font-bold bg-[#EAF4E3] text-[#2F7D16] px-1.5 py-0.2 rounded-full border border-[#E5E7E2] flex items-center gap-0.5">
-                                  <Sparkles className="w-2.5 h-2.5" /> {food.variants.length} Variants
+
+                              {/* 3. Calories per 100g and Serving */}
+                              <div className="flex items-center gap-2 flex-wrap text-xs pt-0.5">
+                                <span className="font-bold text-[#2F7D16]">
+                                  {food.hasVariants && food.variants?.length ? "~" : ""}
+                                  {food.caloriesPer100g} kcal / 100g
                                 </span>
+                                <span className="text-[#4B5563]/40">·</span>
+                                <span className="text-[#4B5563] font-medium text-[11px]">
+                                  Serving: {food.defaultServingSize} {food.defaultServingUnit}
+                                  {food.servingWeightGrams ? ` (${Math.round(food.servingWeightGrams * food.defaultServingSize)}g)` : ""}
+                                </span>
+                              </div>
+
+                              {/* 4. Key Macronutrients */}
+                              <div className="text-[11px] font-medium text-[#4B5563] flex items-center gap-1.5 pt-0.5">
+                                <span className="text-[#111111] font-semibold">Protein {food.protein}g</span>
+                                <span>·</span>
+                                <span>Carbs {food.carbohydrates}g</span>
+                                <span>·</span>
+                                <span>Fat {food.fat}g</span>
+                              </div>
+                            </div>
+
+                            {/* Selection / Action Indicator */}
+                            <div className="shrink-0 flex items-center self-center pl-1">
+                              {isSelected ? (
+                                <div className="w-6 h-6 rounded-full bg-[#2F7D16] text-white flex items-center justify-center shadow-xs">
+                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                </div>
+                              ) : (
+                                <ChevronRight className="w-4 h-4 text-[#4B5563]/50" />
                               )}
                             </div>
-                            <p className="text-[11px] text-[#4B5563] mt-0.5 truncate">
-                              {food.hasVariants && food.variants && food.variants.length > 0
-                                ? `${Math.min(...food.variants.map((v) => v.caloriesPer100g))}–${Math.max(...food.variants.map((v) => v.caloriesPer100g))} kcal / 100g`
-                                : `${food.caloriesPer100g} kcal / 100g`}
-                            </p>
-                            <p className="text-[10px] text-[#4B5563]/80">
-                              P: {food.protein}g · C: {food.carbohydrates}g · F: {food.fat}g
-                            </p>
                           </div>
-
-                          <div className="text-right shrink-0">
-                            <span className="font-heading font-extrabold text-xs sm:text-sm text-[#2F7D16] block">
-                              {food.hasVariants && food.variants?.length ? "~" : ""}{food.caloriesPer100g} kcal
-                            </span>
-                            <span className="text-[10px] text-[#4B5563] block">
-                              {food.defaultServingSize} {food.defaultServingUnit}
-                            </span>
-                          </div>
-
-                          <div className="shrink-0 text-[#4B5563] pl-1">
-                            {isSelected ? (
-                              <div className="w-5 h-5 rounded-full bg-[#2F7D16] text-white flex items-center justify-center">
-                                <Check className="w-3 h-3 stroke-[3]" />
-                              </div>
-                            ) : (
-                              <ChevronRight className="w-4 h-4 text-[#4B5563]/60" />
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
+                        );
+                      })}
+                    </>
                   )}
                 </div>
               </div>
@@ -1804,7 +1862,7 @@ export function FoodSearchModal({
                         </div>
                         <input
                           type="number"
-                          step="0.5"
+                          step="any"
                           min="0.1"
                           value={mealItemQuantity}
                           onChange={(e) => setMealItemQuantity(parseFloat(e.target.value) || 0)}

@@ -234,7 +234,7 @@ export function CustomFoodModal({
                 type="text"
                 value={servingUnit}
                 onChange={(e) => setServingUnit(e.target.value)}
-                placeholder="e.g. bowl, piece, serving, g"
+                placeholder="e.g. bowl, piece, packet, serving, g"
                 className="w-full bg-nutri-bg border border-nutri-border rounded-xl px-3 py-2 text-sm font-bold text-nutri-charcoal focus:outline-none focus:border-nutri-green"
               />
             </div>

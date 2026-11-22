@@ -10,9 +10,14 @@ export async function GET(request: Request) {
   const search = searchParams.get("search") || undefined;
   const isVeg = searchParams.get("isVeg") === "true" ? true : searchParams.get("isVeg") === "false" ? false : undefined;
   const isPopular = searchParams.get("isPopular") === "true" ? true : undefined;
+  const dietGoal = searchParams.get("dietGoal") || undefined;
 
   try {
-    const products = await getProducts({ categoryId, categorySlug, search, isVeg, isPopular });
+    const rawProducts = await getProducts({ categoryId, categorySlug, search, isVeg, isPopular, dietGoal });
+    const products = rawProducts.map((p: any) => ({
+      ...p,
+      dietGoals: Array.isArray(p.dietGoals) ? p.dietGoals.map((dg: any) => dg.goal || dg) : [],
+    }));
     return NextResponse.json(
       { success: true, products },
       {
@@ -22,6 +27,10 @@ export async function GET(request: Request) {
       }
     );
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error("[API /api/products] Error fetching products:", error);
+    return NextResponse.json(
+      { success: false, error: "Our nutrition menu is temporarily unavailable. Please retry in a moment." },
+      { status: 503 }
+    );
   }
 }

@@ -17,7 +17,7 @@ import {
   MapPin,
   Bookmark,
 } from "lucide-react";
-import { prisma } from "@/lib/prisma";
+import { prisma, withDbRetry } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 
@@ -28,9 +28,11 @@ interface ArticlePageProps {
 }
 
 export async function generateMetadata({ params }: ArticlePageProps): Promise<Metadata> {
-  const article = await prisma.blogPost.findUnique({
-    where: { slug: params.slug },
-  });
+  const article = await withDbRetry(() =>
+    prisma.blogPost.findUnique({
+      where: { slug: params.slug },
+    })
+  ).catch(() => null);
 
   if (!article) {
     return {
@@ -55,36 +57,71 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
 export default async function ArticleDetailPage({ params }: ArticlePageProps) {
   const { slug } = params;
 
-  const article = await prisma.blogPost.findUnique({
-    where: { slug },
-  });
+  let article: any = null;
+  let relatedArticles: any[] = [];
+  let recommendedProducts: any[] = [];
+  let dbError = false;
+
+  try {
+    const data = await withDbRetry(() =>
+      Promise.all([
+        prisma.blogPost.findUnique({
+          where: { slug },
+        }),
+        prisma.blogPost.findMany({
+          where: {
+            isPublished: true,
+            slug: { not: slug },
+          },
+          take: 2,
+          orderBy: { publishedAt: "desc" },
+        }),
+        prisma.product.findMany({
+          where: {
+            isAvailable: true,
+            isFeatured: true,
+          },
+          take: 3,
+          include: {
+            category: true,
+          },
+          orderBy: { price: "asc" },
+        }),
+      ])
+    );
+
+    article = data[0];
+    relatedArticles = data[1];
+    recommendedProducts = data[2];
+  } catch (err: any) {
+    console.error("[ArticleDetailPage] Error loading article from Neon database:", err);
+    dbError = true;
+  }
+
+  if (dbError) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center px-4 py-16 bg-nutri-bg">
+        <div className="max-w-md w-full bg-white border border-nutri-border rounded-3xl p-8 text-center shadow-xs space-y-4 my-8">
+          <h2 className="text-lg font-bold font-heading text-nutri-charcoal">
+            Article Temporarily Unavailable
+          </h2>
+          <p className="text-xs text-nutri-secondary leading-relaxed">
+            We were unable to load this article from our database. Please try refreshing in a few moments.
+          </p>
+          <Link
+            href={`/blog/${slug}`}
+            className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-nutri-green text-white hover:bg-nutri-green-dark text-xs font-bold transition-all shadow-xs cursor-pointer"
+          >
+            Refresh Article
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (!article || !article.isPublished) {
     notFound();
   }
-
-  // Related articles (same category or recent, excluding current)
-  const relatedArticles = await prisma.blogPost.findMany({
-    where: {
-      isPublished: true,
-      slug: { not: slug },
-    },
-    take: 2,
-    orderBy: { publishedAt: "desc" },
-  });
-
-  // Featured NutriFlexs products
-  const recommendedProducts = await prisma.product.findMany({
-    where: {
-      isAvailable: true,
-      isFeatured: true,
-    },
-    take: 3,
-    include: {
-      category: true,
-    },
-    orderBy: { price: "asc" },
-  });
 
   function formatDate(date: Date) {
     return new Intl.DateTimeFormat("en-US", {

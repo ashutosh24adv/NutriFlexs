@@ -15,7 +15,7 @@ import {
   BookOpen,
   CheckCircle2,
 } from "lucide-react";
-import { prisma } from "@/lib/prisma";
+import { prisma, withDbRetry } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 
@@ -54,49 +54,93 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
     whereClause.category = selectedCategory;
   }
 
-  // Fetch articles, total count, recent articles, categories, and featured products from Neon PostgreSQL
-  const [articles, totalCount, recentArticles, categoriesRaw, featuredProducts] =
-    await Promise.all([
-      prisma.blogPost.findMany({
-        where: whereClause,
-        orderBy: { publishedAt: "desc" },
-        skip,
-        take: limit,
-      }),
-      prisma.blogPost.count({
-        where: whereClause,
-      }),
-      prisma.blogPost.findMany({
-        where: { isPublished: true },
-        orderBy: { publishedAt: "desc" },
-        take: 4,
-        select: {
-          id: true,
-          title: true,
-          slug: true,
-          coverImage: true,
-          publishedAt: true,
-          category: true,
-          readTimeMinutes: true,
-        },
-      }),
-      prisma.blogPost.groupBy({
-        by: ["category"],
-        where: { isPublished: true },
-        _count: { id: true },
-      }),
-      prisma.product.findMany({
-        where: {
-          isAvailable: true,
-          isFeatured: true,
-        },
-        take: 3,
-        include: {
-          category: true,
-        },
-        orderBy: { price: "asc" },
-      }),
-    ]);
+  let articles: any[] = [];
+  let totalCount = 0;
+  let recentArticles: any[] = [];
+  let categoriesRaw: any[] = [];
+  let featuredProducts: any[] = [];
+  let dbError = false;
+
+  try {
+    const data = await withDbRetry(() =>
+      Promise.all([
+        prisma.blogPost.findMany({
+          where: whereClause,
+          orderBy: { publishedAt: "desc" },
+          skip,
+          take: limit,
+        }),
+        prisma.blogPost.count({
+          where: whereClause,
+        }),
+        prisma.blogPost.findMany({
+          where: { isPublished: true },
+          orderBy: { publishedAt: "desc" },
+          take: 4,
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            coverImage: true,
+            publishedAt: true,
+            category: true,
+            readTimeMinutes: true,
+          },
+        }),
+        prisma.blogPost.groupBy({
+          by: ["category"],
+          where: { isPublished: true },
+          _count: { id: true },
+        }),
+        prisma.product.findMany({
+          where: {
+            isAvailable: true,
+            isFeatured: true,
+          },
+          take: 3,
+          include: {
+            category: true,
+          },
+          orderBy: { price: "asc" },
+        }),
+      ])
+    );
+
+    articles = data[0];
+    totalCount = data[1];
+    recentArticles = data[2];
+    categoriesRaw = data[3];
+    featuredProducts = data[4];
+  } catch (err: any) {
+    console.error("[BlogPage] Error fetching blog posts from Neon database:", err);
+    dbError = true;
+  }
+
+  if (dbError) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center px-4 py-16 bg-nutri-bg">
+        <div className="max-w-md w-full bg-white border border-nutri-border rounded-3xl p-8 text-center shadow-xs space-y-4 my-8">
+          <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 text-amber-700 mx-auto flex items-center justify-center">
+            <BookOpen className="w-6 h-6" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-lg font-bold font-heading text-nutri-charcoal">
+              Journal Insights Momentarily Unavailable
+            </h2>
+            <p className="text-xs text-nutri-secondary leading-relaxed">
+              We were unable to load nutrition insights from our database. This usually resolves in a few moments.
+            </p>
+          </div>
+          <Link
+            href="/blog"
+            className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-nutri-green text-white hover:bg-nutri-green-dark text-xs font-bold transition-all shadow-xs cursor-pointer"
+          >
+            Refresh Articles
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const totalPages = Math.ceil(totalCount / limit);
   const categories = categoriesRaw.map((c) => ({

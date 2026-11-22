@@ -190,7 +190,7 @@ export function AIMealScannerModal({
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        if (data.code === "MISSING_GEMINI_API_KEY" || res.status === 503) {
+        if (data.code === "MISSING_GEMINI_API_KEY" || data.code === "INVALID_API_KEY" || res.status === 503) {
           setErrorBanner({
             message:
               data.error ||
@@ -733,6 +733,14 @@ export function AIMealScannerModal({
                     Date
                   </span>
                   <span className="text-xs font-bold text-nutri-charcoal">{dateKey}</span>
+                </div>
+              </div>
+
+              {/* AI Estimation & Accuracy Notice */}
+              <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/70 text-xs text-amber-900 flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="leading-relaxed">
+                  <strong className="font-semibold text-amber-950">AI Estimation Notice:</strong> Food identification and portions are AI-assisted estimates. Verified items are cross-matched with NutriFlexs food nutrition data. Please verify and adjust serving quantities before confirming to your diary.
                 </div>
               </div>
 

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { NutriFlexsLogo } from "@/components/ui/logo";
 import {
   Flame,
   CheckCircle2,
@@ -59,21 +60,24 @@ export function NutritionOnboarding({
   // Current Step: 1-14 are questions, 15 is Summary, 16 is Hold, 17 is Notification, 18 is Rollover, 19 is Benefits
   const [currentStep, setCurrentStep] = useState<number>(initialStep || 1);
   const [savingProgress, setSavingProgress] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [stepError, setStepError] = useState<string | null>(null);
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = useState<OnboardingData>({
-    sex: initialData?.sex || null,
+    gender: initialData?.gender || initialData?.sex || null,
+    sex: initialData?.gender || initialData?.sex || null,
     birthDate: initialData?.birthDate || "1998-05-15",
     heightCm: initialData?.heightCm || 172,
     heightUnit: initialData?.heightUnit || "cm",
     weightKg: initialData?.weightKg || 68,
     weightUnit: initialData?.weightUnit || "kg",
-    workoutFrequency: initialData?.workoutFrequency || "4_6_days",
+    workoutFrequency: initialData?.workoutFrequency || "3_4_sessions",
     dietitianConsultation: initialData?.dietitianConsultation || "no",
     primaryGoal: initialData?.primaryGoal || "improve_fitness",
-    desiredGoalTarget: initialData?.desiredGoalTarget || { targetWeightKg: 65 },
+    desiredGoalTarget: initialData?.desiredGoalTarget || { targetWeightKg: 65, habitsTarget: "Hit daily protein goal consistently" },
     desiredTimelineWeeks: initialData?.desiredTimelineWeeks || 12,
     preferredPace: initialData?.preferredPace || "moderate",
     challenges: initialData?.challenges || ["Difficulty tracking calories"],
@@ -112,6 +116,7 @@ export function NutritionOnboarding({
   const [holdProgress, setHoldProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const holdIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isNavigatingRef = useRef(false);
 
   // Keep targets synchronized with answers
   useEffect(() => {
@@ -119,10 +124,9 @@ export function NutritionOnboarding({
     setCalculatedTargets(updated);
   }, [formData]);
 
-  // Save partial progress to server when advancing
+  // Save partial progress to server
   const persistProgress = async (stepToSave: number, updatedData: OnboardingData) => {
     try {
-      setSavingProgress(true);
       await fetch("/api/nutrition/onboarding/progress", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -133,29 +137,232 @@ export function NutritionOnboarding({
       });
     } catch (err) {
       console.warn("Failed to persist onboarding progress:", err);
-    } finally {
-      setSavingProgress(false);
     }
   };
 
+  const getStepValidationError = (step: number): string | null => {
+    switch (step) {
+      case 1:
+        if (!formData.gender && !formData.sex) {
+          return "Please select your gender or choose 'Prefer not to say' to continue.";
+        }
+        return null;
+      case 2:
+        if (!formData.birthDate) {
+          return "Please enter your date of birth.";
+        }
+        const age = calculateAge(formData.birthDate);
+        if (age < 14 || age > 100) {
+          return "Please enter a valid birth date (age between 14 and 100 years).";
+        }
+        return null;
+      case 3:
+        if (!formData.heightCm || isNaN(formData.heightCm) || formData.heightCm < 60 || formData.heightCm > 260) {
+          return "Please enter a valid height between 60 cm and 260 cm.";
+        }
+        return null;
+      case 4:
+        if (!formData.weightKg || isNaN(formData.weightKg) || formData.weightKg < 25 || formData.weightKg > 350) {
+          return "Please enter a valid weight between 25 kg and 350 kg.";
+        }
+        return null;
+      case 5:
+        if (!formData.workoutFrequency) {
+          return "Please select your weekly workout frequency.";
+        }
+        return null;
+      case 6:
+        if (!formData.dietitianConsultation) {
+          return "Please select an option or click Skip.";
+        }
+        return null;
+      case 7:
+        if (!formData.primaryGoal) {
+          return "Please select your primary nutrition goal.";
+        }
+        return null;
+      case 8:
+        if (
+          formData.primaryGoal === "lose_weight" ||
+          formData.primaryGoal === "build_muscle" ||
+          (formData.primaryGoal as string) === "gain_weight_build_muscle"
+        ) {
+          const tw = formData.desiredGoalTarget?.targetWeightKg;
+          if (tw === undefined || tw === null || isNaN(tw) || tw < 25 || tw > 350) {
+            return "Please enter a valid target weight between 25 kg and 350 kg.";
+          }
+          return null;
+        }
+        if (formData.primaryGoal === "improve_fitness" || formData.primaryGoal === "healthier_habits") {
+          if (!formData.desiredGoalTarget?.habitsTarget && !formData.desiredGoalTarget?.fitnessTarget) {
+            return "Please select your primary daily focus habit.";
+          }
+          return null;
+        }
+        return null;
+      case 9:
+        return null; // Feasibility review step
+      case 10:
+        if (!formData.desiredTimelineWeeks) {
+          return "Please select your target timeline.";
+        }
+        return null;
+      case 11:
+        if (!formData.preferredPace) {
+          return "Please select your preferred progression pace.";
+        }
+        return null;
+      case 12:
+        if ((!formData.challenges || formData.challenges.length === 0) && !formData.challengesOther) {
+          return "Please select at least one challenge or click Skip.";
+        }
+        return null;
+      case 13:
+        if (!formData.dietPreference) {
+          return "Please select your dietary preference.";
+        }
+        return null;
+      case 14:
+        if (!formData.desiredOutcomes || formData.desiredOutcomes.length === 0) {
+          return "Please select at least one outcome you'd like to achieve.";
+        }
+        return null;
+      default:
+        return null;
+    }
+  };
+
+  const isStepValid = (step: number): boolean => {
+    return getStepValidationError(step) === null;
+  };
+
   const handleNext = () => {
+    if (isNavigatingRef.current) return;
+
+    const error = getStepValidationError(currentStep);
+    if (error) {
+      setStepError(error);
+      return;
+    }
+
+    setStepError(null);
+    isNavigatingRef.current = true;
+    setIsNavigating(true);
+
     const nextStep = currentStep + 1;
     setCurrentStep(nextStep);
+
+    // Save in background
     persistProgress(nextStep, formData);
+
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+      setIsNavigating(false);
+    }, 250);
+  };
+
+  const handleSkip = () => {
+    if (isNavigatingRef.current) return;
+    setStepError(null);
+    isNavigatingRef.current = true;
+    setIsNavigating(true);
+
+    const nextStep = currentStep + 1;
+    setCurrentStep(nextStep);
+
+    persistProgress(nextStep, formData);
+
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+      setIsNavigating(false);
+    }, 250);
   };
 
   const handleBack = () => {
+    if (isNavigatingRef.current) return;
+    setStepError(null);
+
     if (currentStep > 1) {
+      isNavigatingRef.current = true;
+      setIsNavigating(true);
+
       const prevStep = currentStep - 1;
       setCurrentStep(prevStep);
+
       persistProgress(prevStep, formData);
+
+      setTimeout(() => {
+        isNavigatingRef.current = false;
+        setIsNavigating(false);
+      }, 250);
     } else if (onExit) {
       onExit();
     }
   };
 
+  const handleSaveAndExit = async () => {
+    try {
+      setSavingProgress(true);
+      await fetch("/api/nutrition/onboarding/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          step: currentStep,
+          data: formData,
+        }),
+      });
+    } catch (err) {
+      console.warn("Failed to persist onboarding on save & exit:", err);
+    } finally {
+      setSavingProgress(false);
+      if (onExit) {
+        onExit();
+      } else {
+        router.push("/nutrition");
+      }
+    }
+  };
+
   const updateField = <K extends keyof OnboardingData>(field: K, value: OnboardingData[K]) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setStepError(null);
+    setFormData((prev) => {
+      const updated = { ...prev, [field]: value };
+      if (field === "gender") {
+        (updated as any).sex = value;
+      } else if (field === "sex") {
+        (updated as any).gender = value;
+      }
+      return updated;
+    });
+  };
+
+  const handlePrimaryGoalChange = (newGoal: any) => {
+    setStepError(null);
+    setFormData((prev) => {
+      const currentWeight = prev.weightKg || 68;
+      let newTarget = { ...(prev.desiredGoalTarget || {}) };
+
+      if (newGoal === "lose_weight") {
+        if (!newTarget.targetWeightKg || newTarget.targetWeightKg >= currentWeight) {
+          newTarget.targetWeightKg = Math.max(25, Math.round(currentWeight - 4));
+        }
+      } else if (newGoal === "build_muscle" || newGoal === "gain_weight_build_muscle") {
+        if (!newTarget.targetWeightKg || newTarget.targetWeightKg <= currentWeight) {
+          newTarget.targetWeightKg = Math.min(350, Math.round(currentWeight + 3));
+        }
+        newTarget.muscleTarget = newTarget.muscleTarget || "Build lean muscle & increase strength";
+      } else if (newGoal === "maintain") {
+        newTarget.targetWeightKg = currentWeight;
+      } else {
+        newTarget.habitsTarget = newTarget.habitsTarget || "Hit daily protein goal consistently";
+      }
+
+      return {
+        ...prev,
+        primaryGoal: newGoal,
+        desiredGoalTarget: newTarget,
+      };
+    });
   };
 
   // Unit converters
@@ -181,51 +388,6 @@ export function NutritionOnboarding({
       updateField("weightKg", kg);
     }
     updateField("weightUnit", newUnit);
-  };
-
-  // Step Validation to prevent advancing without selection
-  const isStepValid = (step: number): boolean => {
-    switch (step) {
-      case 1:
-        return Boolean(formData.sex);
-      case 2:
-        return Boolean(formData.birthDate);
-      case 3:
-        return Boolean(formData.heightCm && formData.heightCm >= 60 && formData.heightCm <= 260);
-      case 4:
-        return Boolean(formData.weightKg && formData.weightKg >= 25 && formData.weightKg <= 350);
-      case 5:
-        return Boolean(formData.workoutFrequency);
-      case 6:
-        return Boolean(formData.dietitianConsultation);
-      case 7:
-        return Boolean(formData.primaryGoal);
-      case 8:
-        if (formData.primaryGoal === "lose_weight" || formData.primaryGoal === "build_muscle") {
-          return Boolean(
-            formData.desiredGoalTarget?.targetWeightKg &&
-              formData.desiredGoalTarget.targetWeightKg >= 25 &&
-              formData.desiredGoalTarget.targetWeightKg <= 350
-          );
-        }
-        return true;
-      case 9:
-        return true; // Feasibility review step
-      case 10:
-        return Boolean(formData.desiredTimelineWeeks);
-      case 11:
-        return Boolean(formData.preferredPace);
-      case 12:
-        return Boolean(
-          (formData.challenges && formData.challenges.length > 0) || formData.challengesOther
-        );
-      case 13:
-        return Boolean(formData.dietPreference);
-      case 14:
-        return Boolean(formData.desiredOutcomes && formData.desiredOutcomes.length > 0);
-      default:
-        return true;
-    }
   };
 
   // Hold-to-continue handler
@@ -318,18 +480,8 @@ export function NutritionOnboarding({
       {/* 1. TOP BRAND HEADER & PROGRESS BAR (Compact: ~52px) */}
       <header className="shrink-0 bg-white border-b border-nutri-border z-20">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 h-12 sm:h-13 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-nutri-green flex items-center justify-center text-white font-extrabold text-xs shadow-2xs">
-              NF
-            </div>
-            <div>
-              <span className="font-extrabold font-heading text-xs text-nutri-charcoal tracking-tight block">
-                NUTRIFLEXS
-              </span>
-              <span className="text-[9px] font-semibold text-nutri-muted tracking-tight block -mt-0.5">
-                Eat Smart. Track Better.
-              </span>
-            </div>
+          <div className="flex items-center">
+            <NutriFlexsLogo size="sm" showTagline={true} />
           </div>
 
           <div className="flex items-center gap-2.5">
@@ -341,10 +493,18 @@ export function NutritionOnboarding({
 
             <button
               type="button"
-              onClick={onExit || (() => router.push("/home"))}
-              className="text-xs font-bold text-nutri-secondary hover:text-nutri-charcoal px-2 py-1 rounded-lg hover:bg-nutri-bg transition-colors cursor-pointer"
+              disabled={savingProgress || isNavigating}
+              onClick={handleSaveAndExit}
+              className="text-xs font-bold text-nutri-secondary hover:text-nutri-charcoal px-2.5 py-1 rounded-lg hover:bg-nutri-bg transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
             >
-              Save &amp; Exit
+              {savingProgress ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin text-nutri-green" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <span>Save &amp; Exit</span>
+              )}
             </button>
           </div>
         </div>
@@ -363,19 +523,19 @@ export function NutritionOnboarding({
       {/* 2. MAIN ONBOARDING QUESTION CONTENT (Scrolls only if viewport is tiny, otherwise fits fully) */}
       <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-3.5 sm:py-5 flex flex-col justify-center max-w-2xl w-full mx-auto">
         {/* =========================================================================
-            STEP 1: SEX (3 Options -> 3 Column Grid on sm+)
+            STEP 1: GENDER (3 Options -> 3 Column Grid on sm+)
         ========================================================================= */}
         {currentStep === 1 && (
           <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
             <div className="space-y-1 sm:space-y-1.5">
               <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 1 · PHYSIOLOGY
+                STEP 1 · GENDER
               </Badge>
               <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                What&apos;s your sex?
+                What is your gender?
               </h1>
               <p className="text-xs text-nutri-secondary leading-normal">
-                Biological sex influences resting metabolic rate and hormonal baseline formulas. You can skip this question if you prefer.
+                Gender influences resting metabolic rate and baseline caloric expenditure formulas. You can skip this question if you prefer.
               </p>
             </div>
 
@@ -385,12 +545,12 @@ export function NutritionOnboarding({
                 { value: "female", label: "Female", desc: "Standard female resting energy baseline", icon: "👩" },
                 { value: "prefer_not_to_say", label: "Prefer not to say", desc: "Balanced gender-neutral energy baseline", icon: "✨" },
               ].map((opt) => {
-                const isSelected = formData.sex === opt.value;
+                const isSelected = formData.gender === opt.value || formData.sex === opt.value;
                 return (
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => updateField("sex", opt.value as any)}
+                    onClick={() => updateField("gender", opt.value as any)}
                     className={cn(
                       "w-full p-3 sm:p-3.5 rounded-2xl border text-left transition-all flex sm:flex-col sm:justify-between items-center sm:items-start justify-between cursor-pointer gap-2",
                       isSelected
@@ -667,7 +827,7 @@ export function NutritionOnboarding({
         )}
 
         {/* =========================================================================
-            STEP 5: WORKOUT FREQUENCY (4 Options -> 2 Column Grid)
+            STEP 5: WORKOUT FREQUENCY (5 Options -> Session-based wording)
         ========================================================================= */}
         {currentStep === 5 && (
           <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
@@ -676,21 +836,54 @@ export function NutritionOnboarding({
                 STEP 5 · ACTIVITY
               </Badge>
               <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                How often do you work out?
+                How many times do you work out?
               </h1>
               <p className="text-xs text-nutri-secondary leading-normal">
-                Choose the workout days per week that best match your typical routine. This scales your Total Daily Energy Expenditure (TDEE).
+                Choose the workout sessions per week that best match your routine. This scales your Total Daily Energy Expenditure (TDEE).
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
               {[
-                { value: "0_4_days", label: "0–4 days per week", desc: "Light exercise or active walks", icon: "🚶" },
-                { value: "4_6_days", label: "4–6 days per week", desc: "Consistent training or gym workouts", icon: "🏋️" },
-                { value: "7_plus_days", label: "7+ days per week", desc: "High volume daily training", icon: "⚡" },
-                { value: "none", label: "I don't currently work out", desc: "Sedentary or starting fresh", icon: "🛋️" },
-              ].map((opt) => {
-                const isSelected = formData.workoutFrequency === opt.value;
+                {
+                  value: "0_sessions",
+                  legacyValue: "none",
+                  label: "0 sessions per week",
+                  desc: "Sedentary routine or starting fresh",
+                  icon: "🛋️",
+                },
+                {
+                  value: "1_2_sessions",
+                  legacyValue: "1_2_sessions",
+                  label: "1–2 sessions per week",
+                  desc: "Light exercise or active walks",
+                  icon: "🚶",
+                },
+                {
+                  value: "3_4_sessions",
+                  legacyValue: "0_4_days",
+                  label: "3–4 sessions per week",
+                  desc: "Consistent moderate training sessions",
+                  icon: "🏃",
+                },
+                {
+                  value: "5_6_sessions",
+                  legacyValue: "4_6_days",
+                  label: "5–6 sessions per week",
+                  desc: "Regular gym workouts or sports training",
+                  icon: "🏋️",
+                },
+                {
+                  value: "7_plus_sessions",
+                  legacyValue: "7_plus_days",
+                  label: "7+ sessions per week",
+                  desc: "High volume or multi-session weekly training",
+                  icon: "⚡",
+                },
+              ].map((opt, idx) => {
+                const isSelected =
+                  formData.workoutFrequency === opt.value ||
+                  formData.workoutFrequency === opt.legacyValue;
                 return (
                   <button
                     key={opt.value}
@@ -698,6 +891,7 @@ export function NutritionOnboarding({
                     onClick={() => updateField("workoutFrequency", opt.value as any)}
                     className={cn(
                       "w-full p-2.5 sm:p-3 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer gap-2.5",
+                      idx === 4 ? "sm:col-span-2" : "",
                       isSelected
                         ? "bg-nutri-green-light border-nutri-green shadow-2xs ring-1 ring-nutri-green"
                         : "bg-white border-nutri-border hover:border-nutri-green/50 hover:bg-nutri-bg/50"
@@ -785,7 +979,7 @@ export function NutritionOnboarding({
         )}
 
         {/* =========================================================================
-            STEP 7: PRIMARY GOAL (5 Options -> 2 Column Grid with 5th spanning 2 cols)
+            STEP 7: PRIMARY GOAL (Target)
         ========================================================================= */}
         {currentStep === 7 && (
           <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
@@ -794,7 +988,7 @@ export function NutritionOnboarding({
                 STEP 7 · PRIMARY FOCUS
               </Badge>
               <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                What would you like to achieve?
+                What is your target?
               </h1>
               <p className="text-xs text-nutri-secondary leading-normal">
                 Select your main nutrition goal. NutriFlexs will calculate an appropriate daily energy and macro profile.
@@ -803,18 +997,45 @@ export function NutritionOnboarding({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
               {[
-                { value: "lose_weight", label: "Lose weight", desc: "Safe fat loss while keeping muscle", icon: "🔥" },
-                { value: "maintain", label: "Maintain weight", desc: "Optimal daily balance without changes", icon: "⚖️" },
-                { value: "improve_fitness", label: "Improve fitness & tone", desc: "Build endurance and feel energetic", icon: "⚡" },
-                { value: "build_muscle", label: "Build muscle", desc: "Higher protein with slight surplus", icon: "💪" },
-                { value: "healthier_habits", label: "Develop healthy habits", desc: "Balance macros and track Indian home meals cleanly", icon: "🥗" },
+                {
+                  value: "lose_weight",
+                  label: "Lose Weight",
+                  desc: "Safe fat loss while keeping muscle",
+                  icon: "🔥",
+                },
+                {
+                  value: "maintain",
+                  label: "Maintain Current Weight",
+                  desc: "Optimal daily balance without changes",
+                  icon: "⚖️",
+                },
+                {
+                  value: "improve_fitness",
+                  label: "Improve Fitness & Body Composition",
+                  desc: "Build endurance, tone, and feel energetic",
+                  icon: "⚡",
+                },
+                {
+                  value: "build_muscle",
+                  label: "Gain Weight & Build Muscle",
+                  desc: "Increase muscle mass with a controlled calorie surplus and adequate protein intake.",
+                  icon: "💪",
+                },
+                {
+                  value: "healthier_habits",
+                  label: "Develop Healthy Habits",
+                  desc: "Balance macros and track Indian home meals cleanly",
+                  icon: "🥗",
+                },
               ].map((opt, idx) => {
-                const isSelected = formData.primaryGoal === opt.value;
+                const isSelected =
+                  formData.primaryGoal === opt.value ||
+                  (opt.value === "build_muscle" && (formData.primaryGoal as string) === "gain_weight_build_muscle");
                 return (
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => updateField("primaryGoal", opt.value as any)}
+                    onClick={() => handlePrimaryGoalChange(opt.value as any)}
                     className={cn(
                       "w-full p-2.5 sm:p-3 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer gap-2.5",
                       idx === 4 ? "sm:col-span-2" : "",
@@ -852,43 +1073,63 @@ export function NutritionOnboarding({
           <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
             <div className="space-y-1 sm:space-y-1.5">
               <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 8 · SPECIFIC TARGET
+                {formData.primaryGoal === "lose_weight"
+                  ? "STEP 8 · WEIGHT LOSS TARGET"
+                  : formData.primaryGoal === "build_muscle" || (formData.primaryGoal as string) === "gain_weight_build_muscle"
+                  ? "STEP 8 · MUSCLE BUILDING TARGET"
+                  : formData.primaryGoal === "maintain"
+                  ? "STEP 8 · WEIGHT MAINTENANCE"
+                  : "STEP 8 · FOCUS HABIT"}
               </Badge>
               <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
                 {formData.primaryGoal === "lose_weight"
                   ? "What is your target weight?"
-                  : formData.primaryGoal === "build_muscle"
-                  ? "What muscle milestone are you targeting?"
+                  : formData.primaryGoal === "build_muscle" || (formData.primaryGoal as string) === "gain_weight_build_muscle"
+                  ? "What is your target weight for muscle gain?"
                   : formData.primaryGoal === "maintain"
                   ? "Confirm your maintenance target"
                   : "What habit milestone matters most?"}
               </h1>
               <p className="text-xs text-nutri-secondary leading-normal">
-                Specific milestones keep your daily tracking meaningful. You can skip or adjust this anytime.
+                {formData.primaryGoal === "build_muscle" || (formData.primaryGoal as string) === "gain_weight_build_muscle"
+                  ? "Building lean muscle requires a controlled calorie surplus and sufficient protein. Set your target weight."
+                  : formData.primaryGoal === "lose_weight"
+                  ? "Specific milestones keep your daily tracking meaningful. We will calculate a safe, sustainable calorie deficit."
+                  : formData.primaryGoal === "maintain"
+                  ? "Keep your weight stable while improving energy, stamina, and workout recovery."
+                  : "Specific milestones keep your daily tracking meaningful. You can adjust this anytime."}
               </p>
             </div>
 
             <Card className="p-4 sm:p-5 rounded-2xl border border-nutri-border bg-white shadow-2xs space-y-3">
-              {formData.primaryGoal === "lose_weight" || formData.primaryGoal === "build_muscle" ? (
+              {formData.primaryGoal === "lose_weight" ||
+              formData.primaryGoal === "build_muscle" ||
+              (formData.primaryGoal as string) === "gain_weight_build_muscle" ? (
                 <div className="space-y-2.5">
                   <label htmlFor="target-weight" className="block text-[11px] font-bold text-nutri-charcoal uppercase tracking-wider">
-                    Target Weight (kg)
+                    {formData.primaryGoal === "lose_weight" ? "Target Weight (kg)" : "Target Weight for Muscle Gain (kg)"}
                   </label>
                   <div className="relative">
                     <input
                       id="target-weight"
                       type="number"
-                      step="0.5"
-                      min="35"
-                      max="200"
-                      value={formData.desiredGoalTarget?.targetWeightKg || ""}
-                      onChange={(e) =>
+                      step="any"
+                      min="25"
+                      max="350"
+                      value={formData.desiredGoalTarget?.targetWeightKg ?? ""}
+                      onChange={(e) => {
+                        setStepError(null);
+                        const val = e.target.value === "" ? null : Number(e.target.value);
                         updateField("desiredGoalTarget", {
                           ...formData.desiredGoalTarget,
-                          targetWeightKg: Number(e.target.value),
-                        })
+                          targetWeightKg: val,
+                        });
+                      }}
+                      placeholder={
+                        formData.primaryGoal === "lose_weight"
+                          ? `${Math.max(30, (formData.weightKg || 68) - 4)}`
+                          : `${(formData.weightKg || 68) + 3}`
                       }
-                      placeholder={formData.primaryGoal === "lose_weight" ? "64" : "72"}
                       className="w-full h-11 bg-nutri-bg border border-nutri-border focus:border-nutri-green focus:bg-white rounded-xl px-3.5 text-base font-extrabold text-nutri-charcoal outline-hidden transition-all pr-12"
                     />
                     <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-nutri-muted">
@@ -904,7 +1145,11 @@ export function NutritionOnboarding({
                         <strong>
                           {Math.abs(formData.weightKg - formData.desiredGoalTarget.targetWeightKg).toFixed(1)} kg
                         </strong>{" "}
-                        {formData.primaryGoal === "lose_weight" ? "to lose" : "to gain"}
+                        {formData.desiredGoalTarget.targetWeightKg < formData.weightKg
+                          ? "to lose"
+                          : formData.desiredGoalTarget.targetWeightKg > formData.weightKg
+                          ? "to gain"
+                          : "maintenance"}
                       </span>
                     </div>
                   )}
@@ -925,19 +1170,21 @@ export function NutritionOnboarding({
                     {[
                       "Hit daily protein goal consistently",
                       "Log lunch & dinner Indian curries accurately",
-                      "Avoid afternoon energy crashes",
+                      "Avoid afternoon energy crashes & sugar spikes",
+                      "Tone up and build functional strength",
                     ].map((habit) => (
                       <button
                         key={habit}
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          setStepError(null);
                           updateField("desiredGoalTarget", {
                             ...formData.desiredGoalTarget,
                             habitsTarget: habit,
-                          })
-                        }
+                          });
+                        }}
                         className={cn(
-                          "p-2.5 rounded-xl border text-xs font-bold text-left transition-all",
+                          "p-2.5 rounded-xl border text-xs font-bold text-left transition-all cursor-pointer",
                           formData.desiredGoalTarget?.habitsTarget === habit
                             ? "bg-nutri-green-light border-nutri-green text-nutri-green"
                             : "bg-nutri-bg border-nutri-border text-nutri-charcoal hover:bg-white"
@@ -1107,11 +1354,24 @@ export function NutritionOnboarding({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-              {[
-                { value: "slow", label: "Slow & steady", desc: "Gentle ~250 kcal adjustment. Minimal hunger, maximum consistency." },
-                { value: "moderate", label: "Moderate (Recommended)", desc: "Standard ~400 kcal deficit. Balanced and effective." },
-                { value: "fast", label: "Fast & focused", desc: "Safe ~550 kcal deficit with strict safe calorie floors." },
-              ].map((opt) => {
+              {(formData.primaryGoal === "build_muscle" || (formData.primaryGoal as string) === "gain_weight_build_muscle"
+                ? [
+                    { value: "slow", label: "Slow & steady", desc: "Lean surplus (~200 kcal). Minimizes fat gain while building muscle." },
+                    { value: "moderate", label: "Moderate (Recommended)", desc: "Optimal hypertrophy surplus (~350 kcal) with high protein." },
+                    { value: "fast", label: "Fast & focused", desc: "High calorie surplus (~500 kcal) for aggressive muscle gain." },
+                  ]
+                : formData.primaryGoal === "maintain" || formData.primaryGoal === "improve_fitness" || formData.primaryGoal === "healthier_habits"
+                ? [
+                    { value: "slow", label: "Gentle rhythm", desc: "Small sustainable adjustments with zero disruption to your lifestyle." },
+                    { value: "moderate", label: "Steady (Recommended)", desc: "Balanced daily energy targets with optimal recovery and tone." },
+                    { value: "fast", label: "Active focus", desc: "Targeted macro tracking with consistent protein milestones." },
+                  ]
+                : [
+                    { value: "slow", label: "Slow & steady", desc: "Gentle ~250 kcal adjustment. Minimal hunger, maximum consistency." },
+                    { value: "moderate", label: "Moderate (Recommended)", desc: "Standard ~400 kcal deficit. Balanced and effective." },
+                    { value: "fast", label: "Fast & focused", desc: "Safe ~550 kcal deficit with strict safe calorie floors." },
+                  ]
+              ).map((opt) => {
                 const isSelected = formData.preferredPace === opt.value;
                 return (
                   <button
@@ -1418,13 +1678,24 @@ export function NutritionOnboarding({
                 </p>
               </div>
 
-              <Button
-                size="md"
-                onClick={() => setCurrentStep(16)}
-                className="w-full bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-3 rounded-xl shadow-xs cursor-pointer"
-              >
-                Build My Nutrition Dashboard →
-              </Button>
+              <div className="pt-2 flex items-center justify-between gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCurrentStep(14)}
+                  className="w-1/3 py-2.5 text-xs font-bold border-nutri-border text-nutri-secondary hover:text-nutri-charcoal cursor-pointer rounded-xl"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back
+                </Button>
+                <Button
+                  size="md"
+                  onClick={() => setCurrentStep(16)}
+                  className="flex-1 bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-3 rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span>Build My Nutrition Dashboard</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
             </Card>
           </div>
         )}
@@ -1522,14 +1793,36 @@ export function NutritionOnboarding({
                 </div>
               )}
 
-              {/* Accessible Tap Alternative */}
-              <button
-                type="button"
-                onClick={finalizeOnboarding}
-                className="mt-3 text-xs font-bold text-nutri-green hover:underline cursor-pointer"
-              >
-                Or tap here to continue immediately without holding
-              </button>
+              {/* Prominent Tap Alternative & Back Button */}
+              <div className="pt-3 flex flex-col gap-2 w-full max-w-xs mx-auto">
+                <Button
+                  type="button"
+                  disabled={completing}
+                  onClick={finalizeOnboarding}
+                  className="w-full bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-2.5 rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {completing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saving Profile...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Continue &amp; Save Plan</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={completing}
+                  onClick={() => setCurrentStep(15)}
+                  className="w-full text-xs font-bold border-nutri-border text-nutri-secondary hover:text-nutri-charcoal py-2 rounded-xl cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back to Summary
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -1576,13 +1869,22 @@ export function NutritionOnboarding({
                 Enable Notifications
               </Button>
 
-              <button
-                type="button"
-                onClick={handleNext}
-                className="text-xs font-bold text-nutri-muted hover:text-nutri-charcoal block mx-auto cursor-pointer"
-              >
-                Maybe Later
-              </button>
+              <div className="flex items-center justify-between pt-1 px-1">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(16)}
+                  className="text-xs font-bold text-nutri-secondary hover:text-nutri-charcoal cursor-pointer flex items-center gap-1"
+                >
+                  <ArrowLeft className="w-3 h-3" /> Back
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="text-xs font-bold text-nutri-muted hover:text-nutri-charcoal cursor-pointer"
+                >
+                  Maybe Later →
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1640,13 +1942,23 @@ export function NutritionOnboarding({
               </div>
             </Card>
 
-            <Button
-              size="md"
-              onClick={handleNext}
-              className="w-full bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-2.5 rounded-xl shadow-xs cursor-pointer"
-            >
-              Continue to Overview →
-            </Button>
+            <div className="pt-2 flex items-center justify-between gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCurrentStep(17)}
+                className="w-1/3 py-2 text-xs font-bold border-nutri-border text-nutri-secondary hover:text-nutri-charcoal cursor-pointer rounded-xl"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back
+              </Button>
+              <Button
+                size="md"
+                onClick={handleNext}
+                className="flex-1 bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-2.5 rounded-xl shadow-xs cursor-pointer"
+              >
+                Continue to Overview →
+              </Button>
+            </div>
           </div>
         )}
 
@@ -1693,15 +2005,33 @@ export function NutritionOnboarding({
             </div>
 
             <div className="text-center pt-1 space-y-2">
-              <Button
-                size="md"
-                onClick={finishAllAndEnterTracker}
-                className="w-full bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-3 rounded-xl shadow-float cursor-pointer flex items-center justify-center gap-2"
-              >
-                <span>Enter NutriFlexs Tracker</span>
-                <ArrowRight className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center justify-between gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCurrentStep(18)}
+                  className="w-1/3 py-3 text-xs font-bold border-nutri-border text-nutri-secondary hover:text-nutri-charcoal cursor-pointer rounded-xl"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back
+                </Button>
+                <Button
+                  size="md"
+                  onClick={finishAllAndEnterTracker}
+                  className="flex-1 bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-3 rounded-xl shadow-float cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <span>Enter NutriFlexs Tracker</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
+          </div>
+        )}
+
+        {/* Dynamic Validation Error Alert */}
+        {stepError && (
+          <div className="mt-3.5 p-3 bg-red-50 border border-red-200/90 rounded-xl text-red-800 text-xs flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-200 shadow-2xs">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+            <span className="font-bold">{stepError}</span>
           </div>
         )}
       </main>
@@ -1713,10 +2043,10 @@ export function NutritionOnboarding({
             <button
               type="button"
               onClick={handleBack}
-              disabled={currentStep === 1}
+              disabled={currentStep === 1 || isNavigating}
               className={cn(
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-colors cursor-pointer",
-                currentStep === 1
+                currentStep === 1 || isNavigating
                   ? "text-nutri-border cursor-not-allowed opacity-50"
                   : "text-nutri-secondary hover:text-nutri-charcoal hover:bg-nutri-bg"
               )}
@@ -1730,8 +2060,9 @@ export function NutritionOnboarding({
               {(currentStep === 1 || currentStep === 6 || currentStep === 8 || currentStep === 12) && (
                 <button
                   type="button"
-                  onClick={handleNext}
-                  className="text-xs font-bold text-nutri-muted hover:text-nutri-charcoal px-2.5 py-1.5 cursor-pointer"
+                  onClick={handleSkip}
+                  disabled={isNavigating}
+                  className="text-xs font-bold text-nutri-muted hover:text-nutri-charcoal px-2.5 py-1.5 cursor-pointer disabled:opacity-50"
                 >
                   Skip
                 </button>
@@ -1740,16 +2071,24 @@ export function NutritionOnboarding({
               <Button
                 size="sm"
                 onClick={handleNext}
-                disabled={!isStepValid(currentStep) || savingProgress}
+                disabled={isNavigating}
                 className={cn(
-                  "font-extrabold text-xs px-5 py-2 rounded-xl shadow-xs flex items-center gap-1.5 transition-all",
-                  isStepValid(currentStep) && !savingProgress
-                    ? "bg-nutri-green hover:bg-nutri-green-dark text-white cursor-pointer"
-                    : "bg-nutri-border text-nutri-muted cursor-not-allowed opacity-70"
+                  "font-extrabold text-xs px-5 py-2 rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer",
+                  "bg-nutri-green hover:bg-nutri-green-dark text-white",
+                  isNavigating && "opacity-75 cursor-wait"
                 )}
               >
-                <span>Continue</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                {isNavigating ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Continue</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </>
+                )}
               </Button>
             </div>
           </div>

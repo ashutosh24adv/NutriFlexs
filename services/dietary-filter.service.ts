@@ -13,6 +13,7 @@ export interface DietaryFilterOptions {
   isPopular?: boolean;
   isFeatured?: boolean;
   availableOnly?: boolean;
+  dietGoal?: string;
 }
 
 /**
@@ -42,6 +43,16 @@ export function buildProductDietaryWhere(options?: DietaryFilterOptions): Prisma
 
   if (options?.isFeatured) {
     where.isFeatured = true;
+  }
+
+  // Diet Goal Classification Filtering
+  if (options?.dietGoal && options.dietGoal !== "all" && options.dietGoal !== "ALL") {
+    const normalizedGoal = options.dietGoal.toUpperCase().replace(/[-\s]+/g, "_");
+    where.dietGoals = {
+      some: {
+        goal: normalizedGoal as any,
+      },
+    };
   }
 
   if (options?.search) {

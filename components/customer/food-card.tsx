@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPrice, formatMacro } from "@/lib/utils";
 import { Clock, Plus, Zap, Leaf } from "lucide-react";
+import { DietGoalBadge, RecommendedGoalBadge } from "./diet-goal-badge";
 
 interface FoodCardProps {
   product: {
@@ -21,19 +22,22 @@ interface FoodCardProps {
     imageUrl: string;
     isVeg: boolean;
     isPopular?: boolean;
+    dietGoals?: string[];
   };
+  isRecommended?: boolean;
   onAddToCart?: (product: any) => void;
   onOpenDetails?: (product: any) => void;
   onQuickView?: (product: any) => void;
 }
 
-export function FoodCard({ product, onAddToCart, onOpenDetails, onQuickView }: FoodCardProps) {
+export function FoodCard({ product, isRecommended, onAddToCart, onOpenDetails, onQuickView }: FoodCardProps) {
   const handleOpen = () => {
     if (onQuickView) onQuickView(product);
     else if (onOpenDetails) onOpenDetails(product);
   };
   return (
     <div
+      data-testid="food-card"
       onClick={handleOpen}
       className="group bg-white rounded-3xl p-4 border border-nutri-border shadow-card hover:shadow-float hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between cursor-pointer relative"
     >
@@ -84,7 +88,7 @@ export function FoodCard({ product, onAddToCart, onOpenDetails, onQuickView }: F
         </p>
 
         {/* Macro Pill Highlights */}
-        <div className="flex items-center gap-2 mt-3 mb-4">
+        <div className="flex items-center gap-2 mt-3 mb-2">
           <Badge variant="protein" className="text-xs font-bold px-3 py-1">
             <Zap className="w-3 h-3 text-nutri-green fill-nutri-green" />
             {formatMacro(product.protein)} Protein
@@ -93,6 +97,16 @@ export function FoodCard({ product, onAddToCart, onOpenDetails, onQuickView }: F
             {product.calories} kcal
           </Badge>
         </div>
+
+        {/* Diet Goal Badges & Recommendation */}
+        {((product.dietGoals && product.dietGoals.length > 0) || isRecommended) && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+            {isRecommended && <RecommendedGoalBadge />}
+            {product.dietGoals?.map((goal) => (
+              <DietGoalBadge key={goal} goal={goal} size="xs" />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Footer Price & Add CTA */}

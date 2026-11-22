@@ -1,15 +1,33 @@
 import { prisma, withDbRetry } from "@/lib/prisma";
 
 export interface OnboardingData {
+  gender?: "male" | "female" | "prefer_not_to_say" | null;
   sex?: "male" | "female" | "prefer_not_to_say" | null;
   birthDate?: string | null;
   heightCm?: number | null;
   heightUnit?: "cm" | "ft";
   weightKg?: number | null;
   weightUnit?: "kg" | "lbs";
-  workoutFrequency?: "0_4_days" | "4_6_days" | "7_plus_days" | "none" | null;
+  workoutFrequency?:
+    | "0_sessions"
+    | "1_2_sessions"
+    | "3_4_sessions"
+    | "5_6_sessions"
+    | "7_plus_sessions"
+    | "0_4_days"
+    | "4_6_days"
+    | "7_plus_days"
+    | "none"
+    | null;
   dietitianConsultation?: "yes" | "no" | "currently" | "prefer_not_to_say" | null;
-  primaryGoal?: "lose_weight" | "maintain" | "improve_fitness" | "build_muscle" | "healthier_habits" | null;
+  primaryGoal?:
+    | "lose_weight"
+    | "maintain"
+    | "improve_fitness"
+    | "build_muscle"
+    | "gain_weight_build_muscle"
+    | "healthier_habits"
+    | null;
   desiredGoalTarget?: {
     targetWeightKg?: number | null;
     muscleTarget?: string | null;
@@ -67,7 +85,7 @@ export function calculateNutritionTargets(data: OnboardingData): CalculatedNutri
   const weightKg = data.weightKg || 68;
   const heightCm = data.heightCm || 172;
   const age = calculateAge(data.birthDate);
-  const sex = data.sex || "prefer_not_to_say";
+  const gender = data.gender || data.sex || "prefer_not_to_say";
 
   // 1. BMI calculation: weight (kg) / [height (m)]^2
   let bmi: number | null = null;
@@ -83,9 +101,9 @@ export function calculateNutritionTargets(data: OnboardingData): CalculatedNutri
 
   // 2. Basal Metabolic Rate (Mifflin-St Jeor)
   let bmr: number;
-  if (sex === "male") {
+  if (gender === "male") {
     bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
-  } else if (sex === "female") {
+  } else if (gender === "female") {
     bmr = 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
   } else {
     // Gender-neutral balanced estimate
@@ -94,13 +112,17 @@ export function calculateNutritionTargets(data: OnboardingData): CalculatedNutri
   bmr = Math.round(bmr);
 
   // 3. Activity multiplier
-  let activityMultiplier = 1.375; // default 0–4 days
-  if (data.workoutFrequency === "4_6_days") {
-    activityMultiplier = 1.55;
-  } else if (data.workoutFrequency === "7_plus_days") {
-    activityMultiplier = 1.725;
-  } else if (data.workoutFrequency === "none") {
+  let activityMultiplier = 1.375; // default 1–2 sessions or 3–4 sessions baseline
+  if (data.workoutFrequency === "0_sessions" || data.workoutFrequency === "none") {
     activityMultiplier = 1.2;
+  } else if (data.workoutFrequency === "1_2_sessions") {
+    activityMultiplier = 1.375;
+  } else if (data.workoutFrequency === "3_4_sessions" || data.workoutFrequency === "0_4_days") {
+    activityMultiplier = 1.45;
+  } else if (data.workoutFrequency === "5_6_sessions" || data.workoutFrequency === "4_6_days") {
+    activityMultiplier = 1.55;
+  } else if (data.workoutFrequency === "7_plus_sessions" || data.workoutFrequency === "7_plus_days") {
+    activityMultiplier = 1.725;
   }
   const tdee = Math.round(bmr * activityMultiplier);
 
@@ -113,12 +135,16 @@ export function calculateNutritionTargets(data: OnboardingData): CalculatedNutri
   else if (pace === "moderate") deficit = 400;
   else if (pace === "fast") deficit = 550; // Capped for safety
 
+  const isMuscleGoal =
+    data.primaryGoal === "build_muscle" ||
+    data.primaryGoal === "gain_weight_build_muscle";
+
   if (data.primaryGoal === "lose_weight") {
     dailyCalories = tdee - deficit;
     // Enforce safe physiological floor
-    const minCalories = sex === "female" ? 1200 : 1450;
+    const minCalories = gender === "female" ? 1200 : 1450;
     dailyCalories = Math.max(minCalories, dailyCalories);
-  } else if (data.primaryGoal === "build_muscle") {
+  } else if (isMuscleGoal) {
     const surplus = pace === "slow" ? 200 : 350;
     dailyCalories = tdee + surplus;
   } else if (data.primaryGoal === "improve_fitness") {
@@ -132,7 +158,7 @@ export function calculateNutritionTargets(data: OnboardingData): CalculatedNutri
   // 5. Protein Target (g)
   // Higher protein for fitness/muscle/weight loss (1.6 - 2.2 g/kg), baseline 1.5g/kg
   let proteinMultiplier = 1.8;
-  if (data.primaryGoal === "build_muscle" || data.primaryGoal === "improve_fitness") {
+  if (isMuscleGoal || data.primaryGoal === "improve_fitness") {
     proteinMultiplier = 2.0;
   } else if (data.primaryGoal === "lose_weight") {
     proteinMultiplier = 1.9; // Preserves lean mass in deficit
@@ -153,7 +179,7 @@ export function calculateNutritionTargets(data: OnboardingData): CalculatedNutri
   let targetDeltaKg = 0;
   if (data.primaryGoal === "lose_weight" && data.desiredGoalTarget?.targetWeightKg) {
     targetDeltaKg = Math.max(0, weightKg - data.desiredGoalTarget.targetWeightKg);
-  } else if (data.primaryGoal === "build_muscle" && data.desiredGoalTarget?.targetWeightKg) {
+  } else if (isMuscleGoal && data.desiredGoalTarget?.targetWeightKg) {
     targetDeltaKg = Math.max(0, data.desiredGoalTarget.targetWeightKg - weightKg);
   }
 
@@ -219,13 +245,13 @@ export function deriveOnboardingStatus(user: {
 export function validateOnboardingData(data: OnboardingData): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   if (data.weightKg !== undefined && data.weightKg !== null) {
-    if (typeof data.weightKg !== "number" || isNaN(data.weightKg) || data.weightKg < 30 || data.weightKg > 300) {
-      errors.push("Weight must be between 30 kg and 300 kg");
+    if (typeof data.weightKg !== "number" || isNaN(data.weightKg) || data.weightKg < 25 || data.weightKg > 350) {
+      errors.push("Weight must be between 25 kg and 350 kg");
     }
   }
   if (data.heightCm !== undefined && data.heightCm !== null) {
-    if (typeof data.heightCm !== "number" || isNaN(data.heightCm) || data.heightCm < 100 || data.heightCm > 250) {
-      errors.push("Height must be between 100 cm and 250 cm");
+    if (typeof data.heightCm !== "number" || isNaN(data.heightCm) || data.heightCm < 60 || data.heightCm > 260) {
+      errors.push("Height must be between 60 cm and 260 cm");
     }
   }
   if (data.desiredTimelineWeeks !== undefined && data.desiredTimelineWeeks !== null) {
@@ -322,6 +348,9 @@ export async function saveOnboardingProgress(
     nutritionOnboardingData: mergedData,
   };
 
+  if (partialData.gender || partialData.sex) {
+    userUpdateData.gender = partialData.gender || partialData.sex;
+  }
   if (partialData.weightKg && partialData.weightKg > 0) {
     userUpdateData.weightKg = partialData.weightKg;
   }
@@ -378,13 +407,16 @@ export async function completeOnboarding(userId: string, finalData: OnboardingDa
           weightKg: finalData.weightKg || undefined,
           heightCm: finalData.heightCm || undefined,
           birthDate: finalData.birthDate ? new Date(finalData.birthDate) : undefined,
-          gender: finalData.sex || undefined,
+          gender: finalData.gender || finalData.sex || undefined,
           isVegetarian,
           calorieRolloverEnabled: Boolean(finalData.calorieRolloverEnabled),
           notificationsEnabled: Boolean(finalData.notificationsEnabled),
           proteinGoalGrams: targets.proteinGrams,
           customDailyProteinGoal: targets.proteinGrams,
-          primaryNutritionGoal: finalData.primaryGoal || "maintain",
+          primaryNutritionGoal:
+            finalData.primaryGoal === "gain_weight_build_muscle"
+              ? "build_muscle"
+              : finalData.primaryGoal || "maintain",
         },
       });
 

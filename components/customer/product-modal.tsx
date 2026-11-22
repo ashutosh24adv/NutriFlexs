@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPrice, formatMacro } from "@/lib/utils";
 import { useDietary } from "@/components/customer/dietary-context";
+import { DietGoalBadge } from "./diet-goal-badge";
 
 interface ProductModalProps {
   product: any | null;
@@ -114,6 +115,20 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
               </div>
             </div>
           </div>
+
+          {/* Supported Fitness Goals */}
+          {product.dietGoals && product.dietGoals.length > 0 && (
+            <div>
+              <h4 className="text-xs font-bold text-nutri-muted uppercase tracking-wider mb-2">
+                Fitness Goals Supported
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {product.dietGoals.map((g: string) => (
+                  <DietGoalBadge key={g} goal={g} size="sm" />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Clean Ingredients Chips */}
           <div>

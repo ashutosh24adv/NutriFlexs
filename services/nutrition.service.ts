@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma, withDbRetry } from "@/lib/prisma";
 import { MealType } from "@prisma/client";
 import {
   AddFoodLogInput,
@@ -25,6 +25,7 @@ export interface MealDiarySection {
     productId?: string | null;
     orderItemId?: string | null;
     name: string;
+    category?: string | null;
     quantity: number;
     unit: string;
     grams?: number | null;
@@ -98,6 +99,8 @@ export function calculateItemNutrition(
     grams = quantity * (defUnit.includes("plate") ? servingWeight : 200);
   } else if (normUnit === "piece" || normUnit === "pieces" || normUnit === "slice" || normUnit === "slices") {
     grams = quantity * (defUnit.includes("piece") || defUnit.includes("slice") ? servingWeight : 50);
+  } else if (normUnit === "packet" || normUnit === "packets" || normUnit === "pack" || normUnit === "packs" || normUnit === "pkt" || normUnit === "pkts") {
+    grams = quantity * (defUnit.includes("packet") || defUnit.includes("pack") || defUnit.includes("pkt") ? servingWeight : 35);
   } else if (normUnit === "tbsp" || normUnit === "tablespoon" || normUnit === "tablespoons") {
     grams = quantity * (defUnit.includes("tbsp") ? servingWeight : 15);
   } else if (normUnit === "tsp" || normUnit === "teaspoon" || normUnit === "teaspoons") {
@@ -218,6 +221,157 @@ export async function getFoodCategories() {
   return distinctCategories.map((c) => c.category);
 }
 
+// Common Indian food synonyms, transliterations & related terms
+const FOOD_ALIASES_MAP: Record<string, string[]> = {
+  dal: ["dal", "dhal", "daal", "lentil", "pulse", "sambhar", "sambar"],
+  daal: ["dal", "dhal", "lentil"],
+  dhal: ["dal", "daal", "lentil"],
+  lentil: ["dal", "daal", "lentil"],
+  lentils: ["dal", "daal", "lentil"],
+  rice: ["rice", "chawal", "pulao", "biryani", "khichdi"],
+  chawal: ["rice", "chawal", "khichdi"],
+  chicken: ["chicken", "murgh"],
+  murgh: ["chicken"],
+  paneer: ["paneer", "cottage cheese"],
+  chai: ["chai", "tea", "chaye"],
+  tea: ["tea", "chai"],
+  coffee: ["coffee", "kaapi"],
+  roti: ["roti", "phulka", "chapati", "chapatti", "paratha", "flatbread", "bread"],
+  chapati: ["chapati", "roti", "phulka"],
+  phulka: ["phulka", "roti", "chapati"],
+  paratha: ["paratha", "roti", "chapati"],
+  bread: ["bread", "roti", "toast", "sandwich"],
+  egg: ["egg", "anda", "ande", "omelette", "bhurji"],
+  anda: ["egg", "anda", "ande"],
+  ande: ["egg", "anda", "ande"],
+  curd: ["curd", "dahi", "yogurt", "yoghurt"],
+  dahi: ["dahi", "curd", "yogurt"],
+  yogurt: ["yogurt", "curd", "dahi"],
+  chickpeas: ["chana", "chole", "chickpeas", "hummus"],
+  chana: ["chana", "chole", "chickpeas"],
+  chole: ["chole", "chana", "chickpeas"],
+  makhana: ["makhana", "foxnut", "foxnuts", "lotus seed", "roasted makhana"],
+  buttermilk: ["buttermilk", "chaas", "chhas", "mattha"],
+  chaas: ["chaas", "buttermilk"],
+  fish: ["fish", "machhli", "machli", "seafood"],
+  oats: ["oats", "oatmeal", "porridge"],
+  milk: ["milk", "doodh"],
+  poha: ["poha", "flattened rice"],
+  upma: ["upma", "semolina", "rava"],
+  idli: ["idli"],
+  dosa: ["dosa", "dosai"],
+  palak: ["palak", "spinach"],
+  spinach: ["spinach", "palak"],
+  aloo: ["aloo", "potato"],
+  potato: ["potato", "aloo"],
+  gobi: ["gobi", "cauliflower", "gobhi"],
+  cauliflower: ["cauliflower", "gobi"],
+  bhindi: ["bhindi", "okra", "ladyfinger"],
+  okra: ["okra", "bhindi"],
+  apple: ["apple", "seb"],
+  banana: ["banana", "kela"],
+  mango: ["mango", "aam"],
+  guava: ["guava", "amrood"],
+  papaya: ["papaya", "papita"],
+  watermelon: ["watermelon", "tarbooj"],
+  orange: ["orange", "santara"],
+  rajma: ["rajma", "kidney bean", "kidney beans"],
+  tofu: ["tofu", "soy", "soya"],
+  soya: ["soya", "soy", "tofu"],
+  salad: ["salad", "caesar"],
+  biscuit: ["biscuit", "biscuits", "cookie", "cookies", "marie", "parle", "bourbon", "digestive"],
+  biscuits: ["biscuit", "biscuits", "cookie", "cookies", "marie", "parle", "bourbon", "digestive"],
+  cookie: ["cookie", "cookies", "biscuit", "biscuits"],
+  cookies: ["cookie", "cookies", "biscuit", "biscuits"],
+  namkeen: ["namkeen", "mixture", "bhujia", "sev", "chivda", "farsan", "chakli", "murukku", "snack"],
+  mixture: ["mixture", "namkeen", "chivda", "khatta meetha"],
+  bhujia: ["bhujia", "namkeen", "sev", "aloo bhujia"],
+  sev: ["sev", "bhujia", "namkeen"],
+  chips: ["chips", "wafers", "wafer", "crisps", "potato chips", "banana chips"],
+  wafers: ["wafers", "wafer", "chips", "crisps"],
+  wafer: ["wafer", "wafers", "chips"],
+  samosa: ["samosa", "samosas", "snack"],
+  kachori: ["kachori", "kachoris", "khasta kachori", "pyaaz kachori"],
+  sandwich: ["sandwich", "sandwiches", "toast", "grilled sandwich"],
+  popcorn: ["popcorn", "corn"],
+  peanut: ["peanut", "peanuts", "moongfali", "mungfali", "singdana", "roasted peanuts"],
+  peanuts: ["peanuts", "peanut", "moongfali", "mungfali", "singdana", "roasted peanuts"],
+  snack: ["snack", "snacks", "miscellaneous", "namkeen", "biscuit", "chips", "makhana"],
+  snacks: ["snacks", "snack", "miscellaneous", "namkeen", "biscuit", "chips", "makhana"],
+  dhokla: ["dhokla", "khamang"],
+  pakora: ["pakora", "pakoda", "bread pakora", "bhajiya"],
+  mathri: ["mathri", "crackers"],
+};
+
+function scoreFoodRelevance(
+  name: string,
+  desc: string | null | undefined,
+  isCustom: boolean,
+  variants: { name: string }[] | undefined,
+  queryLower: string,
+  tokens: string[],
+  aliases: string[]
+): number {
+  const nLower = name.toLowerCase().trim();
+  const dLower = (desc || "").toLowerCase().trim();
+
+  // 1. Exact match on full name
+  if (nLower === queryLower) {
+    return 1000 + (isCustom ? 10 : 0);
+  }
+
+  // 2. Starts with full query
+  if (nLower.startsWith(queryLower)) {
+    return 800 - nLower.length;
+  }
+
+  // 3. Word in name starts with query
+  const words = nLower.split(/[\s\/\(\),\-\.]+/).filter(Boolean);
+  if (words.some((w) => w.startsWith(queryLower))) {
+    return 650 - nLower.length;
+  }
+
+  // 4. Substring in name
+  if (nLower.includes(queryLower)) {
+    return 500 - nLower.length;
+  }
+
+  // 5. All query tokens present in name
+  if (tokens.length > 1 && tokens.every((t) => nLower.includes(t))) {
+    return 450 - nLower.length;
+  }
+
+  // 6. Name matches any alias exactly or word starts with alias
+  for (const a of aliases) {
+    if (nLower === a) return 400;
+    if (words.some((w) => w.startsWith(a))) return 350;
+    if (nLower.includes(a)) return 300;
+  }
+
+  // 7. Token overlap in name
+  const matchedTokens = tokens.filter((t) => nLower.includes(t)).length;
+  if (matchedTokens > 0) {
+    return 200 + matchedTokens * 25;
+  }
+
+  // 8. Variant name contains query
+  if (variants && variants.some((v) => v.name.toLowerCase().includes(queryLower))) {
+    return 150;
+  }
+
+  // 9. Description contains full query
+  if (dLower.includes(queryLower)) {
+    return 100;
+  }
+
+  // 10. Description contains alias
+  for (const a of aliases) {
+    if (dLower.includes(a)) return 70;
+  }
+
+  return 10;
+}
+
 /**
  * Searches food library and user's custom foods, plus NutriFlexs menu products.
  */
@@ -229,9 +383,21 @@ export async function searchFoodLibrary(params: {
   page?: number;
   includeNutriFlexsProducts?: boolean;
 }) {
-  const { query = "", category, userId, limit = 20, page = 1, includeNutriFlexsProducts = true } = params;
-  const skip = (page - 1) * limit;
-  const trimmed = query.trim();
+  const { query = "", category, userId, limit = 50, page = 1, includeNutriFlexsProducts = true } = params;
+  const normalized = query.trim().replace(/\s+/g, " ");
+  const queryLower = normalized.toLowerCase();
+  const tokens = queryLower.split(/[\s,]+/).filter(Boolean);
+
+  // Collect relevant aliases
+  const aliasSet = new Set<string>();
+  for (const tok of tokens) {
+    if (FOOD_ALIASES_MAP[tok]) {
+      for (const alt of FOOD_ALIASES_MAP[tok]) {
+        aliasSet.add(alt);
+      }
+    }
+  }
+  const expandedAliases = Array.from(aliasSet);
 
   // 1. FoodItem condition (global foods OR user custom foods)
   const whereFoodItem: any = {
@@ -246,24 +412,30 @@ export async function searchFoodLibrary(params: {
     whereFoodItem.category = category;
   }
 
-  if (trimmed) {
+  if (normalized) {
+    const mainAliases = expandedAliases.slice(0, 3);
     whereFoodItem.AND = [
       {
         OR: [
-          { name: { contains: trimmed, mode: "insensitive" } },
-          { description: { contains: trimmed, mode: "insensitive" } },
-          { variants: { some: { name: { contains: trimmed, mode: "insensitive" } } } },
+          { name: { contains: normalized, mode: "insensitive" } },
+          { description: { contains: normalized, mode: "insensitive" } },
+          { variants: { some: { name: { contains: normalized, mode: "insensitive" } } } },
+          ...mainAliases.map((alt) => ({ name: { contains: alt, mode: "insensitive" } })),
         ],
       },
     ];
   }
 
-  const [foods, totalFoods] = await Promise.all([
+  // If there is a query, fetch candidate foods to score and rank intelligently
+  const fetchLimit = normalized ? Math.max(limit * 2, 80) : limit;
+  const skip = normalized ? 0 : (page - 1) * limit;
+
+  const rawFoods = await withDbRetry(() =>
     prisma.foodItem.findMany({
       where: whereFoodItem,
-      orderBy: [{ isCustom: "desc" }, { name: "asc" }],
-      skip,
-      take: limit,
+      orderBy: normalized ? undefined : [{ isCustom: "desc" }, { name: "asc" }],
+      skip: normalized ? 0 : skip,
+      take: fetchLimit,
       select: {
         id: true,
         name: true,
@@ -302,40 +474,72 @@ export async function searchFoodLibrary(params: {
           },
         },
       },
-    }),
-    prisma.foodItem.count({ where: whereFoodItem }),
-  ]);
+    })
+  );
+
+  const totalFoods = rawFoods.length;
+
+  // Rank foods by relevance if query is provided
+  let rankedFoods = rawFoods;
+  if (normalized) {
+    rankedFoods = rawFoods
+      .map((food) => ({
+        food,
+        score: scoreFoodRelevance(
+          food.name,
+          food.description,
+          !!food.isCustom,
+          food.variants,
+          queryLower,
+          tokens,
+          expandedAliases
+        ),
+      }))
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.food.name.localeCompare(b.food.name);
+      })
+      .map((item) => item.food);
+
+    const startIndex = (page - 1) * limit;
+    rankedFoods = rankedFoods.slice(startIndex, startIndex + limit);
+  }
 
   // 2. If searching "NutriFlexs Menu" or if general query matches NutriFlexs products, include them
   let nutriflexsProducts: any[] = [];
   if (includeNutriFlexsProducts && (!category || category === "All" || category === "NutriFlexs Menu")) {
     const whereProduct: any = { isAvailable: true };
-    if (trimmed) {
-      whereProduct.name = { contains: trimmed, mode: "insensitive" };
+    if (normalized) {
+      whereProduct.OR = [
+        { name: { contains: normalized, mode: "insensitive" } },
+        { description: { contains: normalized, mode: "insensitive" } },
+      ];
     }
 
-    const prods = await prisma.product.findMany({
-      where: whereProduct,
-      take: 10,
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        price: true,
-        calories: true,
-        protein: true,
-        carbs: true,
-        fats: true,
-        imageUrl: true,
-        isVeg: true,
-      },
-    });
+    const prods = await withDbRetry(() =>
+      prisma.product.findMany({
+        where: whereProduct,
+        take: 20,
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          price: true,
+          calories: true,
+          protein: true,
+          carbs: true,
+          fats: true,
+          imageUrl: true,
+          isVeg: true,
+        },
+      })
+    );
 
-    nutriflexsProducts = prods.map((p) => ({
+    const mappedProducts = prods.map((p) => ({
       id: p.id,
       productId: p.id,
       name: `NutriFlexs: ${p.name}`,
-      description: `${p.isVeg ? "🟢 Vegetarian" : "🔴 Non-Veg"} · ₹${p.price}`,
+      description: `${p.isVeg ? "🟢 Vegetarian" : "🔴 Non-Veg"} · ₹${p.price}${p.description ? ` · ${p.description}` : ""}`,
       category: "NutriFlexs Menu",
       caloriesPer100g: p.calories, // 1 serving
       protein: p.protein,
@@ -346,11 +550,28 @@ export async function searchFoodLibrary(params: {
       servingWeightGrams: 100,
       isNutriFlexsProduct: true,
       isCustom: false,
+      score: normalized
+        ? scoreFoodRelevance(
+            p.name,
+            p.description,
+            false,
+            undefined,
+            queryLower,
+            tokens,
+            expandedAliases
+          )
+        : 50,
     }));
+
+    if (normalized) {
+      mappedProducts.sort((a, b) => b.score - a.score);
+    }
+
+    nutriflexsProducts = mappedProducts.map(({ score, ...rest }) => rest);
   }
 
   return {
-    foods,
+    foods: rankedFoods,
     nutriflexsProducts,
     total: totalFoods + nutriflexsProducts.length,
     page,
@@ -394,6 +615,7 @@ export async function getDailyNutritionDiary(userId: string, dateKey: string): P
       orderBy: { loggedAt: "asc" },
       include: {
         product: { select: { imageUrl: true, isVeg: true } },
+        foodItem: { select: { category: true } },
       },
     }),
     prisma.nutritionGoal.findUnique({
@@ -438,6 +660,7 @@ export async function getDailyNutritionDiary(userId: string, dateKey: string): P
       orderItemId: log.orderItemId,
       name: log.foodNameSnapshot,
       variantName: log.variantNameSnapshot,
+      category: log.foodItem?.category || null,
       quantity: log.quantity,
       unit: log.unit,
       grams: log.gramsCalculated,

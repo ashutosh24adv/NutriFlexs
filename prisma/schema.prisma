@@ -10,11 +10,45 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum DietGoal {
+  WEIGHT_LOSS
+  WEIGHT_GAIN
+  WEIGHT_MAINTENANCE
+}
+
 enum Role {
   CUSTOMER
   TRAINER
   KITCHEN
   ADMIN
+  DIETITIAN
+}
+
+enum DietitianVerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum ConsultationType {
+  ONLINE
+  IN_PERSON
+}
+
+enum ConsultationStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+enum DietPlanStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
 }
 
 enum OrderStatus {
@@ -132,6 +166,13 @@ model User {
   favoriteFoods    FavoriteFood[]
   savedMeals       SavedMeal[]
   contactSubmissions ContactSubmission[]
+
+  // Consult a Dietitian Relations
+  dietitianProfile              DietitianProfile?
+  consultationsAsCustomer       Consultation[]         @relation("CustomerConsultations")
+  consultationMessagesSent      ConsultationMessage[]
+  dietPlansAsCustomer           DietPlan[]             @relation("CustomerDietPlans")
+  dietitianReviews              DietitianReview[]
 }
 
 model Gym {
@@ -233,10 +274,25 @@ model Product {
   foodLogs               FoodLog[]
   favoriteFoods          FavoriteFood[]
   savedMealItems         SavedMealItem[]
+  dietGoals              ProductDietGoal[]
+  dietPlanMeals          DietPlanMeal[]
 
   @@index([categoryId, isAvailable])
   @@index([isPopular, isAvailable])
   @@index([isFeatured, isAvailable])
+}
+
+model ProductDietGoal {
+  id        String   @id @default(uuid())
+  productId String
+  goal      DietGoal
+  createdAt DateTime @default(now())
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, goal])
+  @@index([goal])
+  @@index([productId])
 }
 
 model Ingredient {
@@ -549,6 +605,7 @@ model FoodItem {
   foodLogs  FoodLog[]
   favoriteFoods FavoriteFood[]
   savedMealItems SavedMealItem[]
+  dietPlanMeals  DietPlanMeal[]
 
   @@index([name])
   @@index([category, isActive])
@@ -812,6 +869,178 @@ model ContactSubmission {
   @@index([status])
   @@index([createdAt])
   @@index([userId])
+}
+
+// ==========================================
+// CONSULT A DIETITIAN SYSTEM MODELS
+// ==========================================
+
+model DietitianProfile {
+  id                  String                      @id @default(uuid())
+  userId              String                      @unique
+  fullName            String
+  bio                 String                      @db.Text
+  qualifications      String                      // e.g. "M.Sc Clinical Nutrition, RD"
+  experienceYears     Int                         @default(3)
+  consultationFee     Int                         @default(599) // in INR
+  rating              Float                       @default(5.0)
+  reviewCount         Int                         @default(0)
+  isVerified          Boolean                     @default(false)
+  verificationStatus  DietitianVerificationStatus @default(PENDING)
+  verifiedAt          DateTime?
+  languages           String[]                    // e.g. ["English", "Hindi", "Kannada"]
+  specializations     String[]                    // e.g. ["Weight Management", "Sports Nutrition", "PCOS / Hormonal Health"]
+  availableFormats    ConsultationType[]          @default([ONLINE])
+  profileImageUrl     String?
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+
+  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilities  DietitianAvailability[]
+  consultations   Consultation[]
+  dietPlans       DietPlan[]
+  reviews         DietitianReview[]
+
+  @@index([isVerified])
+  @@index([verificationStatus])
+  @@index([experienceYears])
+}
+
+model DietitianAvailability {
+  id                  String           @id @default(uuid())
+  dietitianProfileId  String
+  dayOfWeek           Int              // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  startTime           String           // e.g. "09:00"
+  endTime             String           // e.g. "17:00"
+  slotDurationMinutes Int              @default(30)
+  isAvailable         Boolean          @default(true)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  dietitianProfile    DietitianProfile @relation(fields: [dietitianProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([dietitianProfileId, dayOfWeek, startTime])
+  @@index([dietitianProfileId, dayOfWeek])
+}
+
+model Consultation {
+  id               String             @id @default(uuid())
+  customerId       String
+  dietitianId      String
+  scheduledDate    DateTime
+  timeSlot         String             // e.g. "10:00 AM - 10:30 AM"
+  consultationType ConsultationType   @default(ONLINE)
+  status           ConsultationStatus @default(PENDING)
+  paymentStatus    PaymentStatus      @default(PENDING)
+  fee              Int
+  primaryConcern   String             @db.Text
+  healthNotes      String?            @db.Text
+  meetingLink      String?
+  location         String?
+  cancelledReason  String?
+  cancelledAt      DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  customer         User                @relation(name: "CustomerConsultations", fields: [customerId], references: [id], onDelete: Cascade)
+  dietitian        DietitianProfile    @relation(fields: [dietitianId], references: [id], onDelete: Cascade)
+  messages         ConsultationMessage[]
+  dietPlan         DietPlan?
+  review           DietitianReview?
+
+  @@index([customerId])
+  @@index([dietitianId])
+  @@index([status])
+  @@index([scheduledDate, timeSlot])
+}
+
+model ConsultationMessage {
+  id             String       @id @default(uuid())
+  consultationId String
+  senderId       String
+  content        String       @db.Text
+  imageUrl       String?      // for food photo sharing
+  isRead         Boolean      @default(false)
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([consultationId, createdAt])
+  @@index([senderId])
+}
+
+model DietPlan {
+  id                 String         @id @default(uuid())
+  consultationId     String?        @unique
+  customerId         String
+  dietitianId        String
+  title              String
+  status             DietPlanStatus @default(ACTIVE)
+  startDate          DateTime       @default(now())
+  endDate            DateTime?
+  dailyCalorieTarget Int
+  proteinTargetGrams Float
+  carbsTargetGrams   Float
+  fatsTargetGrams    Float
+  notes              String?        @db.Text
+  foodsToLimit       String?        @db.Text
+  weeklyReviewNotes  String?        @db.Text
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  consultation       Consultation?    @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+  customer           User             @relation(name: "CustomerDietPlans", fields: [customerId], references: [id], onDelete: Cascade)
+  dietitian          DietitianProfile @relation(fields: [dietitianId], references: [id], onDelete: Cascade)
+  meals              DietPlanMeal[]
+
+  @@index([customerId, status])
+  @@index([dietitianId])
+}
+
+model DietPlanMeal {
+  id           String    @id @default(uuid())
+  dietPlanId   String
+  mealType     MealType
+  foodName     String
+  foodItemId   String?
+  productId    String?
+  servingSize  String    // e.g. "1 medium bowl (150g)"
+  quantity     Float     @default(1)
+  unit         String    @default("serving")
+  calories     Float
+  protein      Float
+  carbohydrates Float
+  fat          Float
+  dietitianTip String?
+  displayOrder Int       @default(0)
+  createdAt    DateTime  @default(now())
+
+  dietPlan     DietPlan  @relation(fields: [dietPlanId], references: [id], onDelete: Cascade)
+  foodItem     FoodItem? @relation(fields: [foodItemId], references: [id], onDelete: SetNull)
+  product      Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([dietPlanId, mealType])
+}
+
+model DietitianReview {
+  id             String           @id @default(uuid())
+  consultationId String           @unique
+  dietitianId    String
+  customerId     String
+  rating         Int              // 1 to 5
+  comment        String?          @db.Text
+  isApproved     Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+
+  consultation   Consultation     @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  dietitian      DietitianProfile @relation(fields: [dietitianId], references: [id], onDelete: Cascade)
+  customer       User             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([dietitianId])
+  @@index([customerId])
 }
 
 

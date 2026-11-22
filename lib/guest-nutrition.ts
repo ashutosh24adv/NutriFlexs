@@ -17,6 +17,7 @@ export interface GuestFoodLogItem {
   productId?: string | null;
   orderItemId?: string | null;
   name: string;
+  category?: string | null;
   quantity: number;
   unit: string;
   mealType: MealType;
@@ -262,6 +263,7 @@ export function getGuestDailyNutritionSummary(dateKey: string): DailyNutritionSu
       productId: log.productId,
       orderItemId: log.orderItemId,
       name: log.name,
+      category: log.category || null,
       quantity: log.quantity,
       unit: log.unit,
       calories: roundedCals,

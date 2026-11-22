@@ -249,6 +249,53 @@ export async function POST(request: Request) {
       });
     }
 
+    // DIETITIAN REGISTRATION (Registers as unverified DIETITIAN pending Admin approval)
+    if (normalizedPortal === "dietitian") {
+      const result = await prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+          data: {
+            name: name.trim(),
+            email: normalizedEmail,
+            phone: phone ? phone.trim() : null,
+            passwordHash: hashedPassword,
+            role: Role.DIETITIAN,
+            streakDays: 1,
+            proteinGoalGrams: 120,
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        });
+
+        await tx.dietitianProfile.create({
+          data: {
+            userId: newUser.id,
+            fullName: name.trim(),
+            bio: "Registered clinical dietitian pending profile review and credential verification.",
+            qualifications: "Clinical Nutrition Credentials Submitted",
+            experienceYears: 1,
+            consultationFee: 499,
+            isVerified: false,
+            verificationStatus: "PENDING",
+            languages: ["English", "Hindi"],
+            specializations: ["General Wellness", "Weight Management"],
+          },
+        });
+
+        return newUser;
+      });
+
+      return NextResponse.json({
+        success: true,
+        user: result,
+        portal: "dietitian",
+        message: "Dietitian application submitted. Your profile will be reviewed and verified by an administrator before appearing publicly.",
+      });
+    }
+
     // CUSTOMER REGISTRATION (Public, strictly CUSTOMER role only)
     const defaultOutlet = await withDbRetry(() => prisma.outlet.findFirst());
 

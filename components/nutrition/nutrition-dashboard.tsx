@@ -26,6 +26,7 @@ import {
   AlertCircle,
   Apple,
   Camera,
+  Stethoscope,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -134,10 +135,21 @@ export function NutritionDashboard({ onRetakeOnboarding }: NutritionDashboardPro
   const [selectedLogItem, setSelectedLogItem] = useState<any | null>(null);
   const [goalsModalOpen, setGoalsModalOpen] = useState(false);
 
-  // Check for guest data when user is authenticated
+  // Active dietitian plan
+  const [activeDietPlan, setActiveDietPlan] = useState<any | null>(null);
+
+  // Check for guest data and active dietitian plan when user is authenticated
   useEffect(() => {
     if (isAuthenticated) {
       setHasGuestData(hasGuestDataToMigrate());
+      fetch("/api/diet-plans")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.activePlan) {
+            setActiveDietPlan(data.activePlan);
+          }
+        })
+        .catch(() => {});
     }
   }, [isAuthenticated]);
 
@@ -307,6 +319,56 @@ export function NutritionDashboard({ onRetakeOnboarding }: NutritionDashboardPro
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* Active Dietitian Prescribed Plan Banner */}
+      {isAuthenticated && activeDietPlan && (
+        <div className="p-4 sm:p-5 bg-gradient-to-r from-[#EAF4E3] to-[#F3F7EE] border border-[#2F7D16]/30 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-start gap-3.5">
+            <div className="p-2.5 bg-nutri-green text-white rounded-2xl shrink-0 mt-0.5">
+              <Stethoscope className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-[#2F7D16] text-white text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5">
+                  Dietitian Prescribed Targets
+                </Badge>
+                <span className="text-xs text-nutri-secondary font-medium">
+                  Assigned by {activeDietPlan.dietitian?.name || "Your Dietitian"}
+                </span>
+              </div>
+              <h4 className="font-heading font-extrabold text-sm sm:text-base text-nutri-charcoal mt-1">
+                {activeDietPlan.title}
+              </h4>
+              <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs">
+                <span className="font-bold text-nutri-green">
+                  {activeDietPlan.dailyCalorieTarget} kcal
+                </span>
+                <span className="text-neutral-300">•</span>
+                <span className="text-nutri-charcoal font-semibold">
+                  {activeDietPlan.proteinTargetGrams}g Protein
+                </span>
+                <span className="text-neutral-300">•</span>
+                <span className="text-nutri-charcoal font-semibold">
+                  {activeDietPlan.carbsTargetGrams}g Carbs
+                </span>
+                <span className="text-neutral-300">•</span>
+                <span className="text-nutri-charcoal font-semibold">
+                  {activeDietPlan.fatsTargetGrams}g Fat
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+            <Link
+              href="/consultations"
+              className="px-4 py-2 rounded-xl bg-white border border-[#2F7D16]/30 hover:bg-[#EAF4E3] text-[#2F7D16] font-bold text-xs shadow-2xs transition-colors flex items-center gap-1.5"
+            >
+              <span>View Diet Plan &amp; Meals</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
       )}
 
@@ -711,6 +773,16 @@ export function NutritionDashboard({ onRetakeOnboarding }: NutritionDashboardPro
                       <span>·</span>
                       <span>F: <strong>{section.totals.fat}g</strong></span>
                     </div>
+                    {mealType === "SNACKS" && (
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-800 bg-orange-100/80 border border-orange-200/90 px-2 py-0.5 rounded-full">
+                          Miscellaneous Snacks
+                        </span>
+                        <span className="text-[10px] text-nutri-muted font-medium hidden sm:inline">
+                          Biscuits, namkeen, chips, sandwiches, popcorn & makhana
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -742,8 +814,13 @@ export function NutritionDashboard({ onRetakeOnboarding }: NutritionDashboardPro
                     <span>Loading diary...</span>
                   </div>
                 ) : section.items.length === 0 ? (
-                  <div className="py-6 text-center text-xs text-nutri-muted">
-                    No items logged for {section.label.toLowerCase()} yet.
+                  <div className="py-6 text-center text-xs text-nutri-muted space-y-1">
+                    <p>No items logged for {section.label.toLowerCase()} yet.</p>
+                    {mealType === "SNACKS" && (
+                      <p className="text-[11px] text-nutri-secondary">
+                        Log biscuits, namkeen, chips, sandwiches, popcorn, or custom snacks.
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="divide-y divide-nutri-border-light">
@@ -761,6 +838,11 @@ export function NutritionDashboard({ onRetakeOnboarding }: NutritionDashboardPro
                               <Badge className="bg-nutri-green-light text-nutri-green border-none text-[10px] font-bold py-0.5 px-2">
                                 NutriFlexs Kiosk
                               </Badge>
+                            )}
+                            {(mealType === "SNACKS" || item.category === "Miscellaneous Snacks" || item.category?.toLowerCase().includes("snack")) && !item.isAutoLoggedFromOrder && (
+                              <span className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-orange-50 text-orange-700 border border-orange-200/70">
+                                Snack
+                              </span>
                             )}
                           </div>
                           <p className="text-[11px] text-nutri-secondary mt-0.5">

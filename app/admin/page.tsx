@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { Shield, ShoppingBag, Box, BarChart3, Tag, Check, RefreshCw, ChevronLeft, Plus, LogOut, KeyRound, Building2, Sparkles } from "lucide-react";
+import { Shield, ShoppingBag, Box, BarChart3, Tag, Check, RefreshCw, ChevronLeft, Plus, LogOut, KeyRound, Building2, Sparkles, Stethoscope } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
@@ -11,6 +11,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recha
 import { AccessCodesTab } from "@/components/admin/access-codes-tab";
 import { GymsTab } from "@/components/admin/gyms-tab";
 import { SubscriptionsTab } from "@/components/admin/subscriptions-tab";
+import { DietitiansTab } from "@/components/admin/dietitians-tab";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -119,6 +120,7 @@ export default function AdminDashboard() {
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
         {[
           { id: "overview", label: "Overview & Analytics", icon: BarChart3 },
+          { id: "dietitians", label: "Dietitians", icon: Stethoscope },
           { id: "subscriptions", label: "NutriFlexs Passes", icon: Sparkles },
           { id: "gyms", label: "Partner Gyms & Kiosks", icon: Building2 },
           { id: "access-codes", label: "Staff Access Codes", icon: KeyRound },
@@ -246,6 +248,9 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* 2. DIETITIANS MANAGEMENT TAB */}
+      {activeTab === "dietitians" && <DietitiansTab />}
+
       {/* 2. NUTRIFLEXS PASSES MANAGEMENT TAB */}
       {activeTab === "subscriptions" && <SubscriptionsTab />}
 
@@ -345,14 +350,23 @@ function AdminProductsCatalog({
   onProductUpdated: (product: any) => void;
 }) {
   const [dietaryFilter, setDietaryFilter] = useState<"ALL" | "VEG" | "NON_VEG">("ALL");
+  const [goalFilter, setGoalFilter] = useState<string>("ALL");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const vegCount = products.filter((p) => p.isVeg).length;
   const nonVegCount = products.filter((p) => !p.isVeg).length;
 
+  const lossCount = products.filter((p) => p.dietGoals?.includes("WEIGHT_LOSS")).length;
+  const gainCount = products.filter((p) => p.dietGoals?.includes("WEIGHT_GAIN")).length;
+  const maintCount = products.filter((p) => p.dietGoals?.includes("WEIGHT_MAINTENANCE")).length;
+
   const filteredProducts = products.filter((p) => {
-    if (dietaryFilter === "VEG") return p.isVeg;
-    if (dietaryFilter === "NON_VEG") return !p.isVeg;
+    if (dietaryFilter === "VEG" && !p.isVeg) return false;
+    if (dietaryFilter === "NON_VEG" && p.isVeg) return false;
+    if (goalFilter !== "ALL") {
+      const pGoals = Array.isArray(p.dietGoals) ? p.dietGoals : [];
+      if (!pGoals.includes(goalFilter)) return false;
+    }
     return true;
   });
 
@@ -378,53 +392,130 @@ function AdminProductsCatalog({
     }
   };
 
+  const handleToggleGoal = async (product: any, goalToToggle: string) => {
+    const currentGoals: string[] = Array.isArray(product.dietGoals) ? product.dietGoals : [];
+    const updatedGoals = currentGoals.includes(goalToToggle)
+      ? currentGoals.filter((g) => g !== goalToToggle)
+      : [...currentGoals, goalToToggle];
+
+    setUpdatingId(product.id);
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}/dietary`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dietGoals: updatedGoals }),
+      });
+      const data = await res.json();
+      if (data.success && data.product) {
+        onProductUpdated(data.product);
+      } else {
+        alert(data.error || "Failed to update diet goals");
+      }
+    } catch (e: any) {
+      alert("Network error updating diet goals");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   return (
     <Card className="p-6 border-nutri-border bg-white space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-nutri-border-light pb-3">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-nutri-border-light pb-4">
         <div>
           <h3 className="text-base font-extrabold font-heading text-nutri-charcoal">
             Database Product Catalog ({products.length} Products)
           </h3>
           <p className="text-xs text-nutri-secondary mt-0.5">
-            Manage product pricing, macros, availability and dietary classifications in PostgreSQL
+            Manage product pricing, macros, availability and Diet Goal classifications in PostgreSQL
           </p>
         </div>
 
-        {/* Dietary Filters */}
-        <div className="flex items-center gap-1.5 bg-nutri-bg p-1 rounded-full border border-nutri-border">
-          <button
-            type="button"
-            onClick={() => setDietaryFilter("ALL")}
-            className={`text-xs font-bold px-3 py-1 rounded-full transition-all cursor-pointer ${
-              dietaryFilter === "ALL"
-                ? "bg-white text-nutri-charcoal shadow-xs"
-                : "text-nutri-secondary hover:text-nutri-charcoal"
-            }`}
-          >
-            All ({products.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setDietaryFilter("VEG")}
-            className={`text-xs font-bold px-3 py-1 rounded-full transition-all flex items-center gap-1 cursor-pointer ${
-              dietaryFilter === "VEG"
-                ? "bg-nutri-green text-white shadow-xs"
-                : "text-nutri-secondary hover:text-nutri-green"
-            }`}
-          >
-            <span>🥬 Vegetarian ({vegCount})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setDietaryFilter("NON_VEG")}
-            className={`text-xs font-bold px-3 py-1 rounded-full transition-all flex items-center gap-1 cursor-pointer ${
-              dietaryFilter === "NON_VEG"
-                ? "bg-amber-600 text-white shadow-xs"
-                : "text-nutri-secondary hover:text-amber-700"
-            }`}
-          >
-            <span>🥩 Non-Veg ({nonVegCount})</span>
-          </button>
+        {/* Filters Container */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Veg / Non-Veg Filters */}
+          <div className="flex items-center gap-1 bg-nutri-bg p-1 rounded-full border border-nutri-border">
+            <button
+              type="button"
+              onClick={() => setDietaryFilter("ALL")}
+              className={`text-xs font-bold px-3 py-1 rounded-full transition-all cursor-pointer ${
+                dietaryFilter === "ALL"
+                  ? "bg-white text-nutri-charcoal shadow-xs"
+                  : "text-nutri-secondary hover:text-nutri-charcoal"
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setDietaryFilter("VEG")}
+              className={`text-xs font-bold px-3 py-1 rounded-full transition-all flex items-center gap-1 cursor-pointer ${
+                dietaryFilter === "VEG"
+                  ? "bg-nutri-green text-white shadow-xs"
+                  : "text-nutri-secondary hover:text-nutri-green"
+              }`}
+            >
+              <span>🥬 Veg ({vegCount})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDietaryFilter("NON_VEG")}
+              className={`text-xs font-bold px-3 py-1 rounded-full transition-all flex items-center gap-1 cursor-pointer ${
+                dietaryFilter === "NON_VEG"
+                  ? "bg-amber-600 text-white shadow-xs"
+                  : "text-nutri-secondary hover:text-amber-700"
+              }`}
+            >
+              <span>🥩 Non-Veg ({nonVegCount})</span>
+            </button>
+          </div>
+
+          {/* Diet Goal Filters */}
+          <div className="flex items-center gap-1 bg-nutri-bg p-1 rounded-full border border-nutri-border">
+            <button
+              type="button"
+              onClick={() => setGoalFilter("ALL")}
+              className={`text-xs font-bold px-3 py-1 rounded-full transition-all cursor-pointer ${
+                goalFilter === "ALL"
+                  ? "bg-white text-nutri-charcoal shadow-xs"
+                  : "text-nutri-secondary hover:text-nutri-charcoal"
+              }`}
+            >
+              Goals: All
+            </button>
+            <button
+              type="button"
+              onClick={() => setGoalFilter("WEIGHT_LOSS")}
+              className={`text-xs font-bold px-2.5 py-1 rounded-full transition-all cursor-pointer ${
+                goalFilter === "WEIGHT_LOSS"
+                  ? "bg-[#2F7D16] text-white shadow-xs"
+                  : "text-nutri-secondary hover:text-[#2F7D16]"
+              }`}
+            >
+              Loss ({lossCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setGoalFilter("WEIGHT_GAIN")}
+              className={`text-xs font-bold px-2.5 py-1 rounded-full transition-all cursor-pointer ${
+                goalFilter === "WEIGHT_GAIN"
+                  ? "bg-[#C25E00] text-white shadow-xs"
+                  : "text-nutri-secondary hover:text-[#C25E00]"
+              }`}
+            >
+              Gain ({gainCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setGoalFilter("WEIGHT_MAINTENANCE")}
+              className={`text-xs font-bold px-2.5 py-1 rounded-full transition-all cursor-pointer ${
+                goalFilter === "WEIGHT_MAINTENANCE"
+                  ? "bg-slate-700 text-white shadow-xs"
+                  : "text-nutri-secondary hover:text-slate-800"
+              }`}
+            >
+              Maintain ({maintCount})
+            </button>
+          </div>
         </div>
       </div>
 
@@ -434,6 +525,7 @@ function AdminProductsCatalog({
             <tr className="border-b border-nutri-border text-nutri-secondary font-bold uppercase tracking-wider">
               <th className="py-3 px-2">Product Name</th>
               <th className="py-3 px-2">Dietary Type</th>
+              <th className="py-3 px-2">Diet Goal Classifications</th>
               <th className="py-3 px-2">Category</th>
               <th className="py-3 px-2">Price</th>
               <th className="py-3 px-2">Protein</th>
@@ -445,6 +537,7 @@ function AdminProductsCatalog({
           <tbody>
             {filteredProducts.map((p: any) => {
               const isUpdating = updatingId === p.id;
+              const productGoals: string[] = Array.isArray(p.dietGoals) ? p.dietGoals : [];
               return (
                 <tr key={p.id} className="border-b border-nutri-border-light hover:bg-nutri-green-soft transition-colors">
                   <td className="py-3 px-2 font-bold text-nutri-charcoal">{p.name}</td>
@@ -458,6 +551,33 @@ function AdminProductsCatalog({
                     >
                       {p.isVeg ? "🥬 VEGETARIAN" : "🥩 NON-VEG"}
                     </span>
+                  </td>
+                  <td className="py-3 px-2">
+                    <div className="flex flex-wrap items-center gap-1 max-w-[240px]">
+                      {[
+                        { key: "WEIGHT_LOSS", label: "Loss", activeCls: "bg-[#EAF4E3] text-[#2F7D16] border-[#2F7D16]" },
+                        { key: "WEIGHT_GAIN", label: "Gain", activeCls: "bg-[#FFF6ED] text-[#C25E00] border-[#C25E00]" },
+                        { key: "WEIGHT_MAINTENANCE", label: "Maintain", activeCls: "bg-[#F1F5F9] text-[#334155] border-[#64748B]" },
+                      ].map((g) => {
+                        const isActive = productGoals.includes(g.key);
+                        return (
+                          <button
+                            key={g.key}
+                            type="button"
+                            disabled={isUpdating}
+                            onClick={() => handleToggleGoal(p, g.key)}
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              isActive
+                                ? `${g.activeCls} shadow-2xs`
+                                : "bg-white text-neutral-400 border-dashed border-neutral-300 hover:border-neutral-500 hover:text-neutral-700"
+                            }`}
+                            title={`${isActive ? "Remove" : "Assign"} ${g.label} goal`}
+                          >
+                            {isActive ? `✓ ${g.label}` : `+ ${g.label}`}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </td>
                   <td className="py-3 px-2 text-nutri-secondary font-medium">{p.category?.name || "General"}</td>
                   <td className="py-3 px-2 font-extrabold text-nutri-green">{formatPrice(p.price)}</td>
