@@ -144,9 +144,9 @@ export default function ConsultationChatPage({ params }: { params: { id: string 
 
   const otherPersonName = isDietitian
     ? consultation?.customer?.name || "Client"
-    : consultation?.dietitian?.fullName || "Dietitian Specialist";
+    : consultation?.dietitian?.fullName || "Health Coach";
 
-  const otherPersonRole = isDietitian ? "Client" : "Clinical Dietitian";
+  const otherPersonRole = isDietitian ? "Client" : "Health Coach";
 
   const otherPersonAvatar = isDietitian
     ? consultation?.customer?.avatar
@@ -323,7 +323,7 @@ export default function ConsultationChatPage({ params }: { params: { id: string 
             </div>
 
             <p className="text-xs text-nutri-secondary">
-              Enter the image URL of your homemade food or restaurant meal for dietitian review:
+              Enter the image URL of your homemade food or restaurant meal for coach review:
             </p>
 
             <input

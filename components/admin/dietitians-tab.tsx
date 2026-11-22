@@ -151,10 +151,10 @@ export function DietitiansTab() {
         <div>
           <h2 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal flex items-center gap-2">
             <Stethoscope className="w-5 h-5 text-nutri-green" />
-            Dietitians &amp; Nutrition Clinical Staff
+            Health Coaches &amp; Nutrition Staff
           </h2>
           <p className="text-xs sm:text-sm text-nutri-secondary">
-            Verify medical credentials, review applicants, and manage clinical consultation access.
+            Verify credentials, review applicants, and manage consultation access.
           </p>
         </div>
 
@@ -178,7 +178,7 @@ export function DietitiansTab() {
           <div className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal mt-1">
             {totalCount}
           </div>
-          <span className="text-[10px] text-nutri-secondary font-medium mt-0.5 block">Registered Dietitians</span>
+          <span className="text-[10px] text-nutri-secondary font-medium mt-0.5 block">Registered Health Coaches</span>
         </Card>
 
         <Card className="p-4 border-nutri-border bg-white">
@@ -258,14 +258,14 @@ export function DietitiansTab() {
         ) : filteredDietitians.length === 0 ? (
           <div className="p-12 text-center text-nutri-secondary text-sm">
             <Stethoscope className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
-            No dietitians found matching the current search and filter criteria.
+            No health coaches found matching the current search and filter criteria.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-nutri-bg border-b border-nutri-border text-[11px] font-bold uppercase tracking-wider text-nutri-secondary">
                 <tr>
-                  <th className="py-3 px-4">Dietitian Profile</th>
+                  <th className="py-3 px-4">Coach Profile</th>
                   <th className="py-3 px-3">Qualifications &amp; Experience</th>
                   <th className="py-3 px-3">Specializations</th>
                   <th className="py-3 px-3">Consultation &amp; Fee</th>

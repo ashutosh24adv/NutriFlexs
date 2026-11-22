@@ -186,7 +186,7 @@ export default function DietitianProfilePage({ params }: { params: { id: string 
     return (
       <div className="min-h-screen py-24 text-center space-y-3 bg-[#FDFEFC]">
         <Loader2 className="w-8 h-8 text-[#2F7D16] animate-spin mx-auto" />
-        <p className="text-xs font-bold text-nutri-secondary">Loading dietitian profile...</p>
+        <p className="text-xs font-bold text-nutri-secondary">Loading health coach profile...</p>
       </div>
     );
   }
@@ -196,7 +196,7 @@ export default function DietitianProfilePage({ params }: { params: { id: string 
       <div className="min-h-screen py-24 px-4 max-w-md mx-auto text-center space-y-4 bg-[#FDFEFC]">
         <AlertCircle className="w-10 h-10 text-rose-600 mx-auto" />
         <h2 className="text-lg font-bold text-nutri-charcoal">Profile Unavailable</h2>
-        <p className="text-xs text-nutri-secondary">{error || "Dietitian profile not found"}</p>
+        <p className="text-xs text-nutri-secondary">{error || "Health coach profile not found"}</p>
         <Link href="/dietitians">
           <Button variant="outline" className="rounded-full text-xs font-bold">
             ← Back to Directory
@@ -216,10 +216,10 @@ export default function DietitianProfilePage({ params }: { params: { id: string 
             className="flex items-center gap-1.5 text-nutri-charcoal hover:text-[#2F7D16] transition-colors font-bold"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>All Dietitians</span>
+            <span>All Health Coaches</span>
           </Link>
           <div className="flex items-center gap-2">
-            <span>Specialists</span>
+            <span>Health Coaches</span>
             <ChevronRight className="w-3 h-3 text-neutral-400" />
             <span className="text-[#2F7D16] font-bold">{dietitian.fullName}</span>
           </div>
@@ -272,7 +272,7 @@ export default function DietitianProfilePage({ params }: { params: { id: string 
                     </div>
                     <span>•</span>
                     <span className="font-semibold text-nutri-charcoal">
-                      {dietitian.experienceYears}+ Years Clinical Exp
+                      {dietitian.experienceYears}+ Years Experience
                     </span>
                   </div>
                 </div>
@@ -303,11 +303,11 @@ export default function DietitianProfilePage({ params }: { params: { id: string 
               </p>
             </div>
 
-            {/* Clinical Focus Areas & Specializations */}
+            {/* Focus Areas & Specializations */}
             <div className="bg-white border border-[#E5E7E2] rounded-3xl p-6 shadow-2xs space-y-3">
               <h2 className="text-sm font-extrabold font-heading text-nutri-charcoal uppercase tracking-wider flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#2F7D16]" />
-                Clinical Specializations
+                Specializations &amp; Focus Areas
               </h2>
               <div className="flex flex-wrap gap-2">
                 {dietitian.specializations.map((spec, idx) => (
@@ -419,7 +419,7 @@ export default function DietitianProfilePage({ params }: { params: { id: string 
                       className="w-full bg-[#2F7D16] hover:bg-[#24630F] text-white font-bold text-xs py-2.5 rounded-full inline-flex items-center justify-center gap-2 shadow-xs transition-colors"
                     >
                       <MessageCircle className="w-4 h-4" />
-                      <span>Open Private Chat with Specialist</span>
+                      <span>Open Private Chat with Coach</span>
                     </Link>
                     <Link
                       href="/consultations"
@@ -438,7 +438,7 @@ export default function DietitianProfilePage({ params }: { params: { id: string 
                         Book Consultation
                       </h3>
                       <p className="text-[11px] text-nutri-secondary mt-0.5">
-                        30-minute 1-on-1 personalized clinical session
+                        30-minute 1-on-1 personalized coaching session
                       </p>
                     </div>
                     <div className="text-right">

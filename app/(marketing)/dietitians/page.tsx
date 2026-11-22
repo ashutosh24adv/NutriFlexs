@@ -89,7 +89,17 @@ export default function DietitiansPage() {
   return (
     <div className="min-h-screen bg-[#FDFEFC]">
       {/* Main Discovery Section */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-12 space-y-6 sm:space-y-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10 pb-12 space-y-6 sm:space-y-8">
+        {/* Header Section */}
+        <div className="space-y-2">
+          <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
+            Connect with Health Coaches
+          </h1>
+          <p className="text-xs sm:text-sm text-nutri-secondary max-w-2xl leading-relaxed">
+            Connect with experienced health and fitness coaches for personalized nutrition guidance, fitness goals and sustainable lifestyle improvements.
+          </p>
+        </div>
+
         {/* Search & Filter Toolbar */}
         <div className="bg-white border border-[#E5E7E2] rounded-3xl p-4 sm:p-6 shadow-2xs space-y-4 overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -98,7 +108,7 @@ export default function DietitiansPage() {
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-nutri-secondary" />
               <input
                 type="text"
-                placeholder="Search dietitians by name, qualifications, or specialty..."
+                placeholder="Search health coaches by name, qualifications, or specialty..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-[#F3F7EE]/60 border border-[#E5E7E2] rounded-full pl-9 pr-4 py-2 text-xs sm:text-sm font-medium placeholder:text-nutri-muted text-nutri-charcoal focus:outline-none focus:border-[#2F7D16] focus:bg-white transition-all"
@@ -174,7 +184,7 @@ export default function DietitiansPage() {
         {loading ? (
           <div className="py-20 text-center space-y-3">
             <RefreshCw className="w-8 h-8 text-[#2F7D16] animate-spin mx-auto" />
-            <p className="text-xs font-bold text-nutri-secondary">Loading verified dietitians...</p>
+            <p className="text-xs font-bold text-nutri-secondary">Loading verified health coaches...</p>
           </div>
         ) : error ? (
           <div className="py-14 px-6 max-w-md mx-auto text-center bg-white border border-[#E5E7E2] rounded-3xl shadow-sm space-y-3">
@@ -192,11 +202,11 @@ export default function DietitiansPage() {
               <UserCheck className="w-6 h-6" />
             </div>
             <h3 className="text-base font-bold font-heading text-nutri-charcoal">
-              No Dietitians Match Your Selected Criteria
+              No Health Coaches Match Your Selected Criteria
             </h3>
             <p className="text-xs text-nutri-secondary max-w-sm mx-auto leading-relaxed">
-              Try clearing filters or search terms. Only verified, admin-approved clinical
-              professionals appear in the public NutriFlexs directory.
+              Try clearing filters or search terms. Only verified, admin-approved health and wellness
+              coaches appear in the public NutriFlexs directory.
             </p>
             <Button
               variant="outline"
@@ -321,7 +331,7 @@ export default function DietitiansPage() {
                       href={`/dietitians/${d.id}?book=true`}
                       className="text-xs font-bold px-3.5 py-1.5 rounded-full bg-[#2F7D16] text-white hover:bg-[#24630F] shadow-2xs transition-colors flex items-center gap-1"
                     >
-                      <span>Book</span>
+                      <span>Book Coach</span>
                       <ArrowRight className="w-3 h-3" />
                     </Link>
                   </div>
@@ -334,12 +344,13 @@ export default function DietitiansPage() {
         {/* 4. Medical Disclaimer Strip */}
         <div className="bg-[#F3F7EE]/60 border border-[#E5E7E2] rounded-2xl p-4 text-center text-xs text-nutri-secondary space-y-1">
           <p className="font-semibold text-nutri-charcoal">
-            🛡️ Certified Nutrition Practice &amp; Medical Disclaimer
+            🛡️ Health Coaching Practice &amp; Disclaimer
           </p>
           <p className="text-[11px] leading-relaxed max-w-2xl mx-auto text-nutri-muted">
-            Consultations through NutriFlexs provide professional lifestyle, metabolic, and dietary
-            guidance authored by accredited dietitians. They are not intended as substitutes for
-            acute medical diagnosis, hospital emergency treatment, or prescription medicine.
+            Consultations through NutriFlexs provide personalized lifestyle, fitness, and nutrition
+            guidance authored by verified health coaches and nutrition specialists. Individual credentials
+            and qualifications are displayed accurately on each profile. Health coaches do not provide
+            acute medical diagnoses, emergency care, or prescription medicine.
           </p>
         </div>
       </div>

@@ -251,14 +251,14 @@ export default function DietitianPortalPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-2xl font-extrabold font-heading text-nutri-charcoal">
-                    Dietitian Clinical Operations
+                    Health Coach Operations
                   </h1>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300">
-                    Clinical Portal
+                    Coach Portal
                   </span>
                 </div>
                 <p className="text-xs text-nutri-secondary mt-0.5">
-                  Logged in as <strong>{session?.user?.name || "Accredited Specialist"}</strong> • Manage client consultations &amp; custom diet plans
+                  Logged in as <strong>{session?.user?.name || "Health Coach"}</strong> • Manage client consultations &amp; custom nutrition plans
                 </p>
               </div>
             </div>

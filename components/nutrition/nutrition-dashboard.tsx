@@ -332,10 +332,10 @@ export function NutritionDashboard({ onRetakeOnboarding }: NutritionDashboardPro
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge className="bg-[#2F7D16] text-white text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5">
-                  Dietitian Prescribed Targets
+                  Coach Assigned Targets
                 </Badge>
                 <span className="text-xs text-nutri-secondary font-medium">
-                  Assigned by {activeDietPlan.dietitian?.name || "Your Dietitian"}
+                  Assigned by {activeDietPlan.dietitian?.name || "Your Health Coach"}
                 </span>
               </div>
               <h4 className="font-heading font-extrabold text-sm sm:text-base text-nutri-charcoal mt-1">

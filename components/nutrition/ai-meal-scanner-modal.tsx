@@ -190,11 +190,17 @@ export function AIMealScannerModal({
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        if (data.code === "MISSING_GEMINI_API_KEY" || data.code === "INVALID_API_KEY" || res.status === 503) {
+        if (
+          data.code === "MISSING_GEMINI_API_KEY" ||
+          data.code === "INVALID_API_KEY" ||
+          data.code === "QUOTA_EXCEEDED" ||
+          res.status === 429 ||
+          res.status === 503
+        ) {
           setErrorBanner({
             message:
               data.error ||
-              "Gemini API key is not configured on the server. Please set the GEMINI_API_KEY environment variable to enable AI meal scanning.",
+              "AI recognition service configuration or quota issue. Please check your Gemini API plan or try again.",
             isConfigError: true,
           });
           setStep("upload");

@@ -537,12 +537,13 @@ Return ONLY a valid JSON object without markdown fences, conforming to this exac
 }`;
 
       // Cascade across active Google Gemini models to handle deprecations or quota fails
+      // Prioritize high-performance, active-quota models: gemini-3.1-flash-lite, gemini-3-flash-preview, gemini-flash-lite-latest
       const candidateModels = [
         process.env.GEMINI_MODEL,
+        "gemini-3.1-flash-lite",
+        "gemini-3-flash-preview",
+        "gemini-flash-lite-latest",
         "gemini-2.5-flash",
-        "gemini-3.5-flash",
-        "gemini-flash-latest",
-        "gemini-2.5-pro",
       ].filter(Boolean) as string[];
 
       const uniqueModels = Array.from(new Set(candidateModels));
@@ -552,6 +553,7 @@ Return ONLY a valid JSON object without markdown fences, conforming to this exac
 
       for (let i = 0; i < uniqueModels.length; i++) {
         const modelName = uniqueModels[i];
+        const modelStartTime = Date.now();
         try {
           const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiApiKey}`,
@@ -575,14 +577,13 @@ Return ONLY a valid JSON object without markdown fences, conforming to this exac
                 generationConfig: {
                   responseMimeType: "application/json",
                   temperature: 0.2,
-                  thinkingConfig: {
-                    thinkingBudget: 0,
-                  },
                 },
               }),
-              signal: AbortSignal.timeout(50000), // 50s timeout for vision models with multiple components
+              signal: AbortSignal.timeout(18000), // 18s timeout per model to allow smooth cascading without stalling
             }
           );
+
+          const durationMs = Date.now() - modelStartTime;
 
           if (!response.ok) {
             const errBody = await response.text();
@@ -595,7 +596,16 @@ Return ONLY a valid JSON object without markdown fences, conforming to this exac
             const errStatus = parsedErr?.error?.status || "";
             const errDetail = parsedErr?.error?.message || errBody;
 
-            console.error(`[AI Scan] Gemini API error with model ${modelName}:`, response.status, errStatus, errDetail);
+            // Step 3 Safe Server Diagnostic Logging
+            let errorCategory: "INVALID_REQUEST" | "AUTH_OR_PERMISSION_ERROR" | "MODEL_NOT_FOUND" | "QUOTA_EXCEEDED" | "GEMINI_SERVICE_ERROR" = "GEMINI_SERVICE_ERROR";
+            if (errCode === 400) errorCategory = "INVALID_REQUEST";
+            else if (errCode === 401 || errCode === 403 || errStatus === "PERMISSION_DENIED") errorCategory = "AUTH_OR_PERMISSION_ERROR";
+            else if (errCode === 404 || errStatus === "NOT_FOUND") errorCategory = "MODEL_NOT_FOUND";
+            else if (errCode === 429 || errStatus === "RESOURCE_EXHAUSTED") errorCategory = "QUOTA_EXCEEDED";
+
+            console.warn(
+              `[Gemini AI Diagnostic] HTTP=${response.status} | API_Code=${errCode} | Category=${errorCategory} | Model=${modelName} | Duration=${durationMs}ms | Image=${validation.mimeType} (${Math.round(validation.sizeBytes / 1024)}KB) | Status=${errStatus}`
+            );
 
             // 1. Invalid or unauthorized API key (fatal, do not retry other models)
             if (
@@ -606,7 +616,7 @@ Return ONLY a valid JSON object without markdown fences, conforming to this exac
                 {
                   success: false,
                   code: "INVALID_API_KEY",
-                  error: "AI service authentication failed. Please verify the server's Gemini API configuration.",
+                  error: "AI service authentication failed. Please verify the server's Gemini API key.",
                 },
                 { status: 403 }
               );
@@ -625,28 +635,30 @@ Return ONLY a valid JSON object without markdown fences, conforming to this exac
 
             // 2. Quota or rate limit exceeded on this model -> attempt next model
             if (errCode === 429 || errStatus === "RESOURCE_EXHAUSTED") {
-              console.warn(`[AI Scan] Model ${modelName} hit rate limit / quota (429). Attempting fallback model...`);
               lastErrorStatus = 429;
               lastErrorCode = "QUOTA_EXCEEDED";
-              lastErrorMessage = "AI meal scanning quota exceeded. Please wait a moment before trying again.";
+              lastErrorMessage = "Google Gemini API daily free tier quota has been exceeded for image analysis. Please upgrade to a pay-as-you-go Gemini API key in Google AI Studio or retry once the quota resets.";
               continue;
             }
 
             // 3. Model not found (404) -> Fallback to next candidate model
             if (errCode === 404 || errStatus === "NOT_FOUND") {
-              console.warn(`[AI Scan] Model ${modelName} returned 404. Attempting fallback model...`);
               lastErrorStatus = 503;
               lastErrorCode = "SERVICE_UNAVAILABLE";
-              lastErrorMessage = "AI recognition model is temporarily unavailable. Please try again shortly.";
+              lastErrorMessage = "Selected AI recognition model is currently unavailable. Please try again shortly.";
               continue;
             }
 
             // 4. Server error (500/503) -> Try next model if available
             lastErrorStatus = response.status >= 500 ? 503 : 502;
             lastErrorCode = "SERVICE_UNAVAILABLE";
-            lastErrorMessage = "AI meal recognition service is temporarily unavailable. Please try again in a few moments.";
+            lastErrorMessage = "AI meal recognition service is temporarily experiencing high load. Please try again in a few moments.";
             continue;
           }
+
+          console.log(
+            `[Gemini AI Diagnostic] HTTP=200 | Category=SUCCESS | Model=${modelName} | Duration=${durationMs}ms | Image=${validation.mimeType} (${Math.round(validation.sizeBytes / 1024)}KB)`
+          );
 
           const aiData = await response.json();
           const candidateText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -664,29 +676,24 @@ Return ONLY a valid JSON object without markdown fences, conforming to this exac
             // Succeeded! Break model loop
             break;
           } catch (jsonErr) {
-            console.error(`[AI Scan] Model ${modelName} produced unparseable JSON:`, jsonErr, candidateText);
+            console.error(`[AI Scan] Model ${modelName} produced unparseable JSON:`, jsonErr);
             lastErrorStatus = 502;
             lastErrorCode = "INVALID_AI_RESPONSE";
             lastErrorMessage = "AI produced invalid response formatting. Please try scanning again.";
             continue;
           }
         } catch (geminiErr: any) {
-          if (geminiErr.name === "TimeoutError" || geminiErr.message?.includes("timeout") || geminiErr.name === "AbortError") {
-            console.error(`[AI Scan] Gemini API request timed out on model ${modelName}`);
-            return NextResponse.json(
-              {
-                success: false,
-                code: "REQUEST_TIMEOUT",
-                error: "AI meal analysis timed out. The image may be too large or connection is slow. Please try again with a clear photo.",
-              },
-              { status: 504 }
-            );
-          }
+          const durationMs = Date.now() - modelStartTime;
+          const isTimeout = geminiErr.name === "TimeoutError" || geminiErr.message?.includes("timeout") || geminiErr.name === "AbortError";
+          console.warn(
+            `[Gemini AI Diagnostic] HTTP=${isTimeout ? 504 : 502} | Category=${isTimeout ? "REQUEST_TIMEOUT" : "NETWORK_FAILURE"} | Model=${modelName} | Duration=${durationMs}ms | Image=${validation.mimeType} (${Math.round(validation.sizeBytes / 1024)}KB) | Error=${geminiErr.message}`
+          );
 
-          console.error(`[AI Scan] Gemini processing exception on model ${modelName}:`, geminiErr);
-          lastErrorStatus = 502;
-          lastErrorCode = "SERVICE_UNAVAILABLE";
-          lastErrorMessage = "Failed to communicate with AI recognition service. Please check your connection and try again.";
+          lastErrorStatus = isTimeout ? 504 : 502;
+          lastErrorCode = isTimeout ? "REQUEST_TIMEOUT" : "SERVICE_UNAVAILABLE";
+          lastErrorMessage = isTimeout
+            ? "AI meal analysis timed out. The image may be too large or connection is slow. Please try again with a clear photo."
+            : "Failed to communicate with AI recognition service. Please check your connection and try again.";
         }
       }
 

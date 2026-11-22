@@ -120,7 +120,7 @@ export default function AdminDashboard() {
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
         {[
           { id: "overview", label: "Overview & Analytics", icon: BarChart3 },
-          { id: "dietitians", label: "Dietitians", icon: Stethoscope },
+          { id: "dietitians", label: "Health Coaches", icon: Stethoscope },
           { id: "subscriptions", label: "NutriFlexs Passes", icon: Sparkles },
           { id: "gyms", label: "Partner Gyms & Kiosks", icon: Building2 },
           { id: "access-codes", label: "Staff Access Codes", icon: KeyRound },

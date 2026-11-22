@@ -56,8 +56,8 @@ export const STAFF_PORTALS: StaffPortalItem[] = [
   },
   {
     id: "dietitian",
-    name: "Dietitian Clinical Portal",
-    tagline: "Consultations & diet plan manager",
+    name: "Health Coach Portal",
+    tagline: "Consultations & personalized plan manager",
     icon: HeartPulse,
     loginHref: "/login?portal=dietitian&callbackUrl=%2Fdietitian&staff=true",
     signupHref: "/signup?portal=dietitian&callbackUrl=%2Fdietitian&staff=true",

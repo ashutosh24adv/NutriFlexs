@@ -181,7 +181,7 @@ export function PublicHeader() {
                     : "text-nutri-secondary hover:text-[#2F7D16] hover:bg-[#EAF4E3]/60"
                 )}
               >
-                Consult a Dietitian
+                Health Coaches
               </Link>
               <Link
                 href="/pass"
@@ -555,7 +555,7 @@ export function PublicHeader() {
                           onClick={() => setShowProfileMenu(false)}
                           className="flex items-center gap-2.5 p-2 rounded-xl bg-emerald-50 text-emerald-800 font-bold hover:bg-emerald-100 transition-colors"
                         >
-                          <HeartPulse className="w-4 h-4 text-emerald-600" /> Dietitian Portal
+                          <HeartPulse className="w-4 h-4 text-emerald-600" /> Health Coach Portal
                         </Link>
                       )}
                       <Link
@@ -683,7 +683,7 @@ export function PublicHeader() {
                     : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
                 )}
               >
-                <HeartPulse className="w-4 h-4 text-nutri-green" /> Consult a Dietitian
+                <HeartPulse className="w-4 h-4 text-nutri-green" /> Health Coaches
               </Link>
               {isAuthenticated && (
                 <Link

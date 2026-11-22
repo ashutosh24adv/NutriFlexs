@@ -144,13 +144,13 @@ export default function CustomerConsultationsPage() {
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#EAF4E3] text-[#2F7D16] text-[11px] font-bold border border-[#2F7D16]/20">
                 <HeartPulse className="w-3.5 h-3.5" />
-                <span>MY CLINICAL CONSULTATIONS</span>
+                <span>MY COACH CONSULTATIONS</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-nutri-charcoal tracking-tight mt-1">
-                Nutritionist Appointments &amp; Diet Plans
+                Health Coaching Sessions &amp; Nutrition Plans
               </h1>
               <p className="text-xs sm:text-sm text-nutri-secondary mt-0.5">
-                Manage your scheduled specialist sessions, private chat, and dietitian meal targets.
+                Manage your scheduled coach sessions, private chat, and personalized meal targets.
               </p>
             </div>
 
@@ -236,12 +236,12 @@ export default function CustomerConsultationsPage() {
                   </div>
                   <h3 className="text-sm font-bold text-nutri-charcoal">No Upcoming Consultations</h3>
                   <p className="text-xs text-nutri-secondary max-w-sm mx-auto">
-                    You do not have any active appointments scheduled. Book a 1-on-1 session with a
-                    registered dietitian today.
+                    You do not have any active appointments scheduled. Book a 1-on-1 session with an
+                    experienced health coach today.
                   </p>
                   <Link href="/dietitians">
                     <Button className="bg-[#2F7D16] hover:bg-[#24630F] text-white rounded-full text-xs font-bold px-5 py-2">
-                      Find a Dietitian
+                      Find a Health Coach
                     </Button>
                   </Link>
                 </div>
@@ -262,7 +262,7 @@ export default function CustomerConsultationsPage() {
                                   c.dietitian?.profileImageUrl ||
                                   "https://images.unsplash.com/photo-1594824813511-236be048b64a?auto=format&fit=crop&w=400&q=80"
                                 }
-                                alt={c.dietitian?.fullName || "Dietitian"}
+                                alt={c.dietitian?.fullName || "Health Coach"}
                                 fill
                                 className="object-cover"
                               />
@@ -334,7 +334,7 @@ export default function CustomerConsultationsPage() {
                           className="flex-1 bg-[#2F7D16] hover:bg-[#24630F] text-white font-bold text-xs py-2 rounded-full inline-flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
                         >
                           <MessageCircle className="w-3.5 h-3.5" />
-                          <span>Chat with Dietitian</span>
+                          <span>Chat with Coach</span>
                         </Link>
 
                         {c.meetingLink && (
@@ -420,8 +420,8 @@ export default function CustomerConsultationsPage() {
                   No Active Diet Plan Yet
                 </h3>
                 <p className="text-xs text-nutri-secondary max-w-md mx-auto leading-relaxed">
-                  Once you complete a consultation, your dietitian will author and publish a bespoke,
-                  calorie- and macro-calculated diet plan directly to your account.
+                  Once you complete a consultation, your coach will author and publish a bespoke,
+                  calorie- and macro-calculated nutrition plan directly to your account.
                 </p>
                 <Link href="/dietitians">
                   <Button className="bg-[#2F7D16] hover:bg-[#24630F] text-white rounded-full text-xs font-bold px-5 py-2">
@@ -440,7 +440,7 @@ export default function CustomerConsultationsPage() {
                           Active Plan
                         </span>
                         <span className="text-xs text-nutri-secondary font-medium">
-                          Prescribed by {activePlan.dietitian?.fullName}
+                          Created by {activePlan.dietitian?.fullName}
                         </span>
                       </div>
                       <h2 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal mt-1">
@@ -492,10 +492,10 @@ export default function CustomerConsultationsPage() {
                     </div>
                   </div>
 
-                  {/* Dietitian Clinical Notes */}
+                  {/* Coach Notes */}
                   {activePlan.notes && (
                     <div className="p-3.5 rounded-2xl bg-[#F3F7EE]/60 border border-[#E5E7E2] text-xs text-nutri-secondary leading-relaxed">
-                      <strong className="text-nutri-charcoal block mb-0.5">Specialist Guidance:</strong>
+                      <strong className="text-nutri-charcoal block mb-0.5">Coach Guidance:</strong>
                       {activePlan.notes}
                     </div>
                   )}
