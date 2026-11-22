@@ -143,16 +143,26 @@ export const MealDiarySection: React.FC<MealDiarySectionProps> = ({
               slotMeals.map((meal) => (
                 <TouchableOpacity
                   key={meal.id}
-                  activeOpacity={0.8}
+                  activeOpacity={0.85}
                   onPress={() => onPressMeal?.(meal)}
                   style={styles.mealCard}
                 >
                   <View style={styles.mealTopRow}>
-                    <Text style={styles.mealTitle} numberOfLines={2}>
-                      {meal.title}
-                    </Text>
-                    <View style={styles.calorieBadge}>
-                      <Text style={styles.calorieText}>{meal.calories} kcal</Text>
+                    <View style={styles.mealTitleWrapper}>
+                      <Text style={styles.mealTitle} numberOfLines={2}>
+                        {meal.title}
+                      </Text>
+                      {meal.time ? (
+                        <View style={styles.timeTag}>
+                          <Ionicons name="time-outline" size={11} color="#6B7280" style={{ marginRight: 3 }} />
+                          <Text style={styles.timeTagText}>{meal.time}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <View style={styles.topRightCardGroup}>
+                      <View style={styles.calorieBadge}>
+                        <Text style={styles.calorieText}>{meal.calories} kcal</Text>
+                      </View>
                     </View>
                   </View>
 
@@ -349,15 +359,41 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EBECE8',
+    borderColor: '#E8EDE9',
+    borderLeftWidth: 4,
+    borderLeftColor: '#1D4D3E', // Forest Green brand left accent
     padding: spacing.md,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xs + 3,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   mealTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 8,
+  },
+  mealTitleWrapper: {
+    flex: 1,
+    marginRight: 8,
+  },
+  timeTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+  },
+  timeTagText: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  topRightCardGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   mealTitle: {
     flex: 1,

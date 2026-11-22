@@ -389,11 +389,11 @@ class HealthSyncService {
   private detectedSources: Map<string, HealthSourceInfo> = new Map();
 
   private targets: NutritionTargets = {
-    calories: 2000,
-    proteinGrams: 120,
-    carbsGrams: 250,
-    fatGrams: 65,
-    waterMl: 3000,
+    calories: 0,
+    proteinGrams: 0,
+    carbsGrams: 0,
+    fatGrams: 0,
+    waterMl: 0,
   };
 
   private listeners: Set<() => void> = new Set();

@@ -134,6 +134,7 @@ export interface SessionCache {
   user: UserProfile | null;
   nutritionGoal: NutritionGoalProfile | null;
   lastMode?: 'track' | 'order' | string;
+  token?: string | null;
 }
 
 // In-memory fallback for environments where native storage is unavailable
@@ -160,6 +161,7 @@ async function getAsyncStorage() {
 }
 
 async function readTokenFromSecureStore(): Promise<string | null> {
+  // 1. Try Expo SecureStore (Native hardware keystore)
   try {
     const secureStore = await getSecureStore();
     if (secureStore && typeof secureStore.getItemAsync === 'function') {
@@ -172,6 +174,30 @@ async function readTokenFromSecureStore(): Promise<string | null> {
     }
   } catch {}
 
+  // 2. Try AsyncStorage backup keys (resilient across app swipe-kill)
+  try {
+    const storage = await getAsyncStorage();
+    if (storage && typeof storage.getItem === 'function') {
+      for (const key of [...SECURE_STORE_TOKEN_KEYS, 'nutriflex_token', 'user_token']) {
+        const val = await storage.getItem(key);
+        if (val && typeof val === 'string' && val.trim().length > 0) {
+          return val.trim();
+        }
+      }
+      // Also check token embedded inside cached session
+      const rawSession = await storage.getItem(ASYNC_STORAGE_SESSION_KEY);
+      if (rawSession) {
+        try {
+          const parsed = JSON.parse(rawSession);
+          if (parsed && parsed.token && typeof parsed.token === 'string' && parsed.token.trim().length > 0) {
+            return parsed.token.trim();
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+
+  // 3. Web localStorage fallback
   if (typeof localStorage !== 'undefined') {
     for (const key of SECURE_STORE_TOKEN_KEYS) {
       const val = localStorage.getItem(key);
@@ -181,6 +207,7 @@ async function readTokenFromSecureStore(): Promise<string | null> {
     }
   }
 
+  // 4. In-memory cache fallback
   for (const key of SECURE_STORE_TOKEN_KEYS) {
     const memVal = memoryCache.get(key);
     if (memVal && typeof memVal === 'string' && memVal.trim().length > 0) {
@@ -204,12 +231,25 @@ async function writeTokenToSecureStore(token: string): Promise<void> {
     } catch {}
   }
 
+  // Native Expo SecureStore
   try {
     const secureStore = await getSecureStore();
     if (secureStore && typeof secureStore.setItemAsync === 'function') {
       await Promise.allSettled(
         SECURE_STORE_TOKEN_KEYS.map((k) => secureStore.setItemAsync(k, token))
       );
+    }
+  } catch {}
+
+  // AsyncStorage backup (persists across app task manager kills on Android)
+  try {
+    const storage = await getAsyncStorage();
+    if (storage && typeof storage.setItem === 'function') {
+      await Promise.allSettled([
+        ...SECURE_STORE_TOKEN_KEYS.map((k) => storage.setItem(k, token)),
+        storage.setItem('nutriflex_token', token),
+        storage.setItem('user_token', token),
+      ]);
     }
   } catch {}
 }
@@ -238,6 +278,17 @@ export async function clearSecureStoreToken(): Promise<void> {
           secureStore.deleteItemAsync(k)
         )
       );
+    }
+  } catch {}
+
+  try {
+    const storage = await getAsyncStorage();
+    if (storage && typeof storage.removeItem === 'function') {
+      await Promise.allSettled([
+        ...SECURE_STORE_TOKEN_KEYS.map((k) => storage.removeItem(k)),
+        storage.removeItem('nutriflex_token'),
+        storage.removeItem('user_token'),
+      ]);
     }
   } catch {}
 }
@@ -346,11 +397,12 @@ export async function persistSession(params: {
     promises.push(writeTokenToSecureStore(token));
   }
 
-  // 2. Save { user, nutritionGoal, lastMode } in @react-native-async-storage/async-storage
+  // 2. Save { user, nutritionGoal, lastMode, token } in @react-native-async-storage/async-storage
   const sessionData: SessionCache = {
     user,
     nutritionGoal,
     lastMode,
+    token: token || undefined,
   };
   promises.push(writeItemToAsyncStorage(ASYNC_STORAGE_SESSION_KEY, sessionData));
   promises.push(writeItemToAsyncStorage('auth_session', sessionData));
@@ -486,6 +538,7 @@ export const authActions = {
         user = session.user || null;
         nutritionGoal = session.nutritionGoal || null;
         if (session.lastMode) lastMode = session.lastMode;
+        if (!token && session.token) token = session.token;
       }
 
       // 2. Resilient fallbacks for individual keys
@@ -506,7 +559,41 @@ export const authActions = {
       console.warn('[useAuthStore hydrate storage read error]:', storageErr);
     }
 
-    if (token && user) {
+    if (token) {
+      if (!user) {
+        // Recover user from JWT payload if user object in AsyncStorage had cold-start read delay
+        let fallbackEmail = '';
+        let fallbackName = 'Nutri Athlete';
+        let fallbackId = 'usr_' + Date.now();
+        try {
+          const parts = token.split('.');
+          if (parts.length >= 2) {
+            const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            let decodedStr = '';
+            if (typeof atob === 'function') {
+              decodedStr = atob(base64);
+            } else if (typeof Buffer !== 'undefined') {
+              decodedStr = Buffer.from(base64, 'base64').toString('utf8');
+            }
+            if (decodedStr) {
+              const payload = JSON.parse(decodedStr);
+              if (payload.email) fallbackEmail = payload.email;
+              if (payload.name) fallbackName = payload.name;
+              if (payload.id || payload.sub) fallbackId = payload.id || payload.sub;
+            }
+          }
+        } catch {}
+
+        user = {
+          id: fallbackId,
+          name: fallbackName,
+          email: fallbackEmail || 'athlete@nutriflex.fit',
+          avatarInitials: computeAvatarInitials(fallbackName),
+          passBalance: 0,
+          isGuest: false,
+        };
+      }
+
       const mergedGoal = nutritionGoal || user.nutritionGoal || user.goals || null;
       const normalizedUser: UserProfile = {
         ...user,

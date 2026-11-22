@@ -323,28 +323,138 @@ export default function TrackProfileScreen() {
     setFeedbackNotice('Nutrition & macro targets updated successfully!');
   };
 
+  const computePersonalizedNutrition = (params: {
+    weightKg?: number;
+    heightCm?: number;
+    sex?: string;
+    workoutFrequency?: string;
+    primaryGoal?: string;
+    dateOfBirth?: string | Date | null;
+  }) => {
+    const weight = params.weightKg && params.weightKg > 0 ? params.weightKg : 70;
+    const height = params.heightCm && params.heightCm > 0 ? params.heightCm : 172;
+
+    let age = 25;
+    if (params.dateOfBirth) {
+      const dob = new Date(params.dateOfBirth);
+      if (!isNaN(dob.getTime())) {
+        const diffMs = Date.now() - dob.getTime();
+        const compAge = Math.floor(diffMs / (365.25 * 24 * 60 * 60 * 1000));
+        if (compAge >= 14 && compAge <= 100) age = compAge;
+      }
+    }
+
+    const isFemale = (params.sex || '').toLowerCase().includes('female');
+    const bmr = 10 * weight + 6.25 * height - 5 * age + (isFemale ? -161 : 5);
+
+    const freq = (params.workoutFrequency || '').toLowerCase();
+    let activityMultiplier = 1.4;
+    if (
+      freq.includes('7+') ||
+      freq.includes('daily') ||
+      freq.includes('every day') ||
+      freq.includes('athlete') ||
+      freq.includes('6-7')
+    ) {
+      activityMultiplier = 1.725;
+    } else if (freq.includes('4-6') || freq.includes('5') || freq.includes('active')) {
+      activityMultiplier = 1.55;
+    } else if (freq.includes('0-4') || freq.includes('1-3') || freq.includes('sedentary') || freq.includes('light')) {
+      activityMultiplier = 1.35;
+    }
+
+    let tdee = bmr * activityMultiplier;
+
+    const goal = (params.primaryGoal || '').toLowerCase();
+    if (goal.includes('lose') || goal.includes('loss') || goal.includes('cut')) {
+      tdee -= 400;
+    } else if (goal.includes('build') || goal.includes('muscle') || goal.includes('mass') || goal.includes('gain')) {
+      tdee += 300;
+    }
+
+    const dailyCalorieGoal = Math.max(1200, Math.min(4500, Math.round(tdee / 50) * 50));
+    const proteinGoal = Math.round(weight * 2.0);
+    const fatGoal = Math.round((dailyCalorieGoal * 0.25) / 9);
+    const carbCalories = Math.max(0, dailyCalorieGoal - proteinGoal * 4 - fatGoal * 9);
+    const carbohydrateGoal = Math.round(carbCalories / 4);
+    const waterGoalMl = Math.round((weight * 38) / 100) * 100;
+
+    return {
+      dailyCalorieGoal,
+      proteinGoal,
+      carbohydrateGoal,
+      fatGoal,
+      waterGoalMl,
+    };
+  };
+
   const handleSaveBaseline = async () => {
     setIsSavingBaseline(true);
+    const parsedWeight = parseFloat(editWeight) || undefined;
+    const parsedHeight = parseFloat(editHeight) || undefined;
+
+    // Automatically recalculate required calories, protein and all macros from new details!
+    const calculated = computePersonalizedNutrition({
+      weightKg: parsedWeight,
+      heightCm: parsedHeight,
+      sex: editSex,
+      workoutFrequency: editWorkoutFreq,
+      primaryGoal: editPrimaryGoal,
+      dateOfBirth: user?.dateOfBirth,
+    });
+
+    setEditCalories(String(calculated.dailyCalorieGoal));
+    setEditProtein(String(calculated.proteinGoal));
+    setEditCarbs(String(calculated.carbohydrateGoal));
+    setEditFat(String(calculated.fatGoal));
+    setEditWater(String(calculated.waterGoalMl));
+
+    updateTargets({
+      calories: calculated.dailyCalorieGoal,
+      proteinGrams: calculated.proteinGoal,
+      carbsGrams: calculated.carbohydrateGoal,
+      fatGrams: calculated.fatGoal,
+      waterMl: calculated.waterGoalMl,
+    });
+
     const updates = {
-      weightKg: parseFloat(editWeight) || undefined,
-      heightCm: parseFloat(editHeight) || undefined,
+      weightKg: parsedWeight,
+      heightCm: parsedHeight,
       sex: editSex,
       workoutFrequency: editWorkoutFreq,
       primaryGoal: editPrimaryGoal,
       dietPreference: editDietPref,
       calorieRollover: editCalorieRollover,
       dietitianConsulted: editDietitianHistory,
+      dailyCalorieGoal: calculated.dailyCalorieGoal,
+      calorieTarget: calculated.dailyCalorieGoal,
+      proteinGoal: calculated.proteinGoal,
+      proteinTarget: calculated.proteinGoal,
+      carbohydrateGoal: calculated.carbohydrateGoal,
+      carbsTarget: calculated.carbohydrateGoal,
+      fatGoal: calculated.fatGoal,
+      fatsTarget: calculated.fatGoal,
+      waterGoal: calculated.waterGoalMl,
+      waterGoalMl: calculated.waterGoalMl,
     };
+
     try {
       await updateGoals(updates);
       updateProfile(updates);
     } catch (storeErr) {
       console.warn('[Profile] Store baseline update warning:', storeErr);
     }
-    await saveGoalsToBackend();
+
+    await saveGoalsToBackend({
+      ...updates,
+      recalculateGoals: true,
+    });
+
     setIsSavingBaseline(false);
     setIsEditingBaseline(false);
-    setFeedbackNotice('Baseline stats & diet preferences saved successfully!');
+    setFeedbackNotice(
+      `Updated: ${calculated.dailyCalorieGoal} kcal • ${calculated.proteinGoal}g protein calculated from your new stats!`
+    );
   };
 
   const handlePresetSelect = (preset: 'hypertrophy' | 'fatloss' | 'maintenance') => {

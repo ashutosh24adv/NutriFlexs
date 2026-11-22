@@ -45,7 +45,7 @@ async function getAuthToken(): Promise<string | null> {
 
 export default function TrackTodayScreen() {
   const router = useRouter();
-  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeOption>('1w');
+  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeOption>('1d');
   const [activeNotice, setActiveNotice] = useState<string | null>(null);
   const [loggerModalVisible, setLoggerModalVisible] = useState(false);
   const [loggerMode, setLoggerMode] = useState<'search' | 'quick-add' | 'water'>('search');
@@ -257,10 +257,9 @@ export default function TrackTodayScreen() {
 
   const calorieGoal =
     authCalorieTarget ||
-    (remoteSummary?.targets?.calories && remoteSummary.targets.calories !== 2000 ? remoteSummary.targets.calories : null) ||
-    remoteSummary?.targets?.calories ||
-    (targets.calories && targets.calories !== 2000 ? targets.calories : null) ||
-    2000;
+    (remoteSummary?.targets?.calories && remoteSummary.targets.calories > 0 ? remoteSummary.targets.calories : null) ||
+    (targets.calories && targets.calories > 0 ? targets.calories : null) ||
+    0;
   const activeMeals = remoteSummary?.meals !== undefined ? remoteSummary.meals : todayMeals;
 
   const foodCalories = remoteSummary?.consumed?.calories !== undefined
@@ -269,27 +268,27 @@ export default function TrackTodayScreen() {
 
   const burnCalories = telemetry.activeBurned || 0; // strictly real active calories burned
   // Remaining = Goal - Food Logged + Active Calories Burned
-  const caloriesRemaining = Math.max(0, calorieGoal - foodCalories + burnCalories);
+  const caloriesRemaining = calorieGoal > 0 ? Math.max(0, calorieGoal - foodCalories + burnCalories) : 0;
 
   const carbs = {
     current: remoteSummary?.consumed?.carbs !== undefined
       ? remoteSummary.consumed.carbs
       : activeMeals.reduce((acc, m) => acc + m.macros.carbs, 0),
-    target: authCarbsTarget || (remoteSummary?.targets?.carbsGrams && remoteSummary.targets.carbsGrams !== 250 ? remoteSummary.targets.carbsGrams : null) || remoteSummary?.targets?.carbsGrams || targets.carbsGrams || 250,
+    target: authCarbsTarget || (remoteSummary?.targets?.carbsGrams && remoteSummary.targets.carbsGrams > 0 ? remoteSummary.targets.carbsGrams : null) || (targets.carbsGrams && targets.carbsGrams > 0 ? targets.carbsGrams : null) || 0,
   };
   const protein = {
     current: remoteSummary?.consumed?.protein !== undefined
       ? remoteSummary.consumed.protein
       : activeMeals.reduce((acc, m) => acc + m.macros.protein, 0),
-    target: authProteinTarget || (remoteSummary?.targets?.proteinGrams && remoteSummary.targets.proteinGrams !== 120 ? remoteSummary.targets.proteinGrams : null) || remoteSummary?.targets?.proteinGrams || targets.proteinGrams || 120,
+    target: authProteinTarget || (remoteSummary?.targets?.proteinGrams && remoteSummary.targets.proteinGrams > 0 ? remoteSummary.targets.proteinGrams : null) || (targets.proteinGrams && targets.proteinGrams > 0 ? targets.proteinGrams : null) || 0,
   };
   const fat = {
     current: remoteSummary?.consumed?.fat !== undefined
       ? remoteSummary.consumed.fat
       : activeMeals.reduce((acc, m) => acc + m.macros.fat, 0),
-    target: authFatTarget || (remoteSummary?.targets?.fatGrams && remoteSummary.targets.fatGrams !== 65 ? remoteSummary.targets.fatGrams : null) || remoteSummary?.targets?.fatGrams || targets.fatGrams || 65,
+    target: authFatTarget || (remoteSummary?.targets?.fatGrams && remoteSummary.targets.fatGrams > 0 ? remoteSummary.targets.fatGrams : null) || (targets.fatGrams && targets.fatGrams > 0 ? targets.fatGrams : null) || 0,
   };
-  const waterGoal = authWaterGoal || remoteSummary?.targets?.waterMl || targets.waterMl || 3000;
+  const waterGoal = authWaterGoal || remoteSummary?.targets?.waterMl || targets.waterMl || 0;
 
   // Strictly compute streakDays from consecutive logged days (0 Day Streak for new accounts, never hardcoded 5)
   const dynamicStreakDays = React.useMemo(() => {

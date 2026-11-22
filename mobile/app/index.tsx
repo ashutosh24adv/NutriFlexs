@@ -83,19 +83,20 @@ export default function BrandIntroScreen() {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Cold start hydration: explicitly await authActions.hydrate() before deciding route
+    // 1. Cold start hydration: explicitly await authActions.hydrate() before deciding route.
+    // Returns the target route string after SecureStore/AsyncStorage reads are complete.
     const hydrationPromise = (async (): Promise<string> => {
       try {
         const result = await authActions.hydrate();
 
-        if (result && result.isAuthenticated && result.token && result.user) {
-          // If token and user exist, route directly into /(track) (or lastMode)
+        if (result && result.isAuthenticated && result.token) {
+          // Token found — route into the app based on last active mode
           const rawMode = (result.lastMode || '').toLowerCase();
           const targetRoute = rawMode === 'order' || rawMode === '/(order)' ? '/(order)' : '/(track)';
 
-          // Trigger a non-blocking background GET /api/mobile/auth/me refresh:
-          // ONLY clear session and route to /welcome if the server explicitly returns HTTP 401 Unauthorized
-          // (never on network timeout, 500, or offline state).
+          // Non-blocking background GET /api/mobile/auth/me:
+          // ONLY clear session and redirect to /welcome if the server explicitly returns HTTP 401.
+          // Never clear on network timeout, 500, or offline state.
           refreshSessionInBackground(result.token, () => {
             if (isMounted) {
               destinationRef.current = '/welcome';
@@ -113,21 +114,34 @@ export default function BrandIntroScreen() {
       return '/welcome';
     })();
 
-    // Helper ensuring cold-start hydration awaits authActions.hydrate() before deciding route
+    // 4.5-second hard timeout — if SecureStore is pathologically slow, navigate anyway.
+    const timeoutPromise = new Promise<string>((resolve) => {
+      setTimeout(() => {
+        resolve('/welcome');
+      }, 4500);
+    });
+
+    // Race: navigate as soon as hydration finishes (or timeout fires after 3 s).
+    // This replaces the old unconditional 1800 ms safety timer so the router always
+    // sees the hydrated token value rather than the unset in-memory default.
+    const racePromise = Promise.race([hydrationPromise, timeoutPromise]);
+
+    // Helper: navigate once — called by animation callback or the race winner.
     const proceedWhenReady = async () => {
       if (hasNavigatedRef.current || !isMounted) return;
 
+      let targetRoute = '/welcome';
       try {
-        const targetRoute = await hydrationPromise;
-        destinationRef.current = targetRoute;
+        targetRoute = await racePromise;
       } catch {
-        destinationRef.current = '/welcome';
+        targetRoute = '/welcome';
       }
+
+      destinationRef.current = targetRoute;
 
       if (hasNavigatedRef.current || !isMounted) return;
       hasNavigatedRef.current = true;
-      const target = destinationRef.current || '/welcome';
-      router.replace(target as any);
+      router.replace(targetRoute as Parameters<typeof router.replace>[0]);
     };
 
     // 2. 1.8-second Netflix-style zoom-through animation using React Native Native Driver (60fps)
@@ -203,15 +217,9 @@ export default function BrandIntroScreen() {
       triggerCrispHaptic();
     }, 750);
 
-    // High-precision 1800ms safety timer guaranteeing navigation
-    const safetyTimer = setTimeout(() => {
-      proceedWhenReady();
-    }, 1800);
-
     return () => {
       isMounted = false;
       clearTimeout(hapticTimer);
-      clearTimeout(safetyTimer);
     };
   }, [router]);
 

@@ -29,7 +29,7 @@ async function getAuthToken(): Promise<string | null> {
 }
 
 export default function TrackTrendsScreen() {
-  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeOption>('1w');
+  const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeOption>('1d');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [loggerModalVisible, setLoggerModalVisible] = useState(false);
 

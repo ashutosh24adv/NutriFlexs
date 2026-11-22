@@ -38,11 +38,12 @@ export const CalorieBudgetCard: React.FC<CalorieBudgetCardProps> = ({
 }) => {
   const finalConsumed = consumedCalories ?? consumed ?? 0;
   const finalActiveBurned = activeBurned ?? burnCalories ?? 0;
-  const finalTarget = targetCalories ?? target ?? 2000;
+  const finalTarget = targetCalories ?? target ?? 0;
+  const hasTarget = finalTarget > 0;
   const finalRemaining =
     remainingProp !== undefined
-      ? remainingProp
-      : Math.max(0, finalTarget - finalConsumed + finalActiveBurned);
+      ? (hasTarget ? remainingProp : 0)
+      : (hasTarget ? Math.max(0, finalTarget - finalConsumed + finalActiveBurned) : 0);
 
   // SVG Ring dimensions
   const size = 156;
@@ -76,7 +77,9 @@ export const CalorieBudgetCard: React.FC<CalorieBudgetCardProps> = ({
           )}
           <View style={styles.onTrackPill}>
             <Text style={styles.onTrackText}>
-              {finalConsumed === 0
+              {!hasTarget
+                ? 'Set Goals'
+                : finalConsumed === 0
                 ? 'Ready to Log'
                 : finalConsumed <= finalTarget + finalActiveBurned
                 ? 'On Track'
@@ -125,14 +128,14 @@ export const CalorieBudgetCard: React.FC<CalorieBudgetCardProps> = ({
 
           {/* Center Readout */}
           <View style={styles.centerReadout}>
-            <Text style={styles.centerNumber}>{finalRemaining.toLocaleString()}</Text>
-            <Text style={styles.centerLabel}>kcal left</Text>
+            <Text style={styles.centerNumber}>{hasTarget ? finalRemaining.toLocaleString() : '--'}</Text>
+            <Text style={styles.centerLabel}>{hasTarget ? 'kcal left' : 'no goal set'}</Text>
           </View>
         </View>
 
         {/* Right Flank: Target */}
         <View style={styles.flankCol}>
-          <Text style={styles.flankValue}>{finalTarget.toLocaleString()}</Text>
+          <Text style={styles.flankValue}>{hasTarget ? finalTarget.toLocaleString() : '--'}</Text>
           <Text style={styles.flankLabel}>target</Text>
           <View style={styles.flankSubPill}>
             <Text style={styles.flankSubText}>Budget</Text>
@@ -142,12 +145,18 @@ export const CalorieBudgetCard: React.FC<CalorieBudgetCardProps> = ({
 
       {/* Bottom Formula Breakdown */}
       <View style={styles.footerFormula}>
-        <Text style={styles.formulaEquation}>
-          <Text style={styles.formulaBold}>{finalTarget.toLocaleString()}</Text> base -{' '}
-          <Text style={styles.formulaBold}>{finalConsumed.toLocaleString()}</Text> food +{' '}
-          <Text style={styles.formulaBold}>{finalActiveBurned.toLocaleString()}</Text> active ={' '}
-          <Text style={styles.formulaHighlight}>{finalRemaining.toLocaleString()} kcal left</Text>
-        </Text>
+        {hasTarget ? (
+          <Text style={styles.formulaEquation}>
+            <Text style={styles.formulaBold}>{finalTarget.toLocaleString()}</Text> base -{' '}
+            <Text style={styles.formulaBold}>{finalConsumed.toLocaleString()}</Text> food +{' '}
+            <Text style={styles.formulaBold}>{finalActiveBurned.toLocaleString()}</Text> active ={' '}
+            <Text style={styles.formulaHighlight}>{finalRemaining.toLocaleString()} kcal left</Text>
+          </Text>
+        ) : (
+          <Text style={styles.formulaEquation}>
+            Tap Profile to enter weight & stats to compute personalized targets
+          </Text>
+        )}
       </View>
     </TouchableOpacity>
   );

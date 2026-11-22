@@ -344,23 +344,40 @@ async function handleUpsertGoals(req: NextRequest) {
 
     // Build update object for NutritionGoal
     const goalData: any = {};
-    if (dailyCalorieGoal !== undefined) {
-      goalData.dailyCalorieGoal = dailyCalorieGoal;
-      goalData.calorieTarget = dailyCalorieGoal;
+    const shouldRecalculate =
+      Boolean(body.recalculateGoals) ||
+      ((weightKg !== undefined || heightCm !== undefined || sex !== undefined || workoutFrequency !== undefined || primaryGoal !== undefined) &&
+        dailyCalorieGoal === undefined);
+
+    if (shouldRecalculate) {
+      goalData.dailyCalorieGoal = baseline.dailyCalorieGoal;
+      goalData.calorieTarget = baseline.dailyCalorieGoal;
+      goalData.proteinGoal = baseline.proteinGoal;
+      goalData.proteinTarget = baseline.proteinGoal;
+      goalData.carbohydrateGoal = baseline.carbohydrateGoal;
+      goalData.carbsTarget = baseline.carbohydrateGoal;
+      goalData.fatGoal = baseline.fatGoal;
+      goalData.fatsTarget = baseline.fatGoal;
+      goalData.waterGoalMl = baseline.waterGoalMl;
+    } else {
+      if (dailyCalorieGoal !== undefined) {
+        goalData.dailyCalorieGoal = dailyCalorieGoal;
+        goalData.calorieTarget = dailyCalorieGoal;
+      }
+      if (proteinGoal !== undefined) {
+        goalData.proteinGoal = proteinGoal;
+        goalData.proteinTarget = proteinGoal;
+      }
+      if (carbohydrateGoal !== undefined) {
+        goalData.carbohydrateGoal = carbohydrateGoal;
+        goalData.carbsTarget = carbohydrateGoal;
+      }
+      if (fatGoal !== undefined) {
+        goalData.fatGoal = fatGoal;
+        goalData.fatsTarget = fatGoal;
+      }
+      if (waterGoalMl !== undefined) goalData.waterGoalMl = waterGoalMl;
     }
-    if (proteinGoal !== undefined) {
-      goalData.proteinGoal = proteinGoal;
-      goalData.proteinTarget = proteinGoal;
-    }
-    if (carbohydrateGoal !== undefined) {
-      goalData.carbohydrateGoal = carbohydrateGoal;
-      goalData.carbsTarget = carbohydrateGoal;
-    }
-    if (fatGoal !== undefined) {
-      goalData.fatGoal = fatGoal;
-      goalData.fatsTarget = fatGoal;
-    }
-    if (waterGoalMl !== undefined) goalData.waterGoalMl = waterGoalMl;
     if (onboardingCompleted !== undefined) goalData.onboardingCompleted = onboardingCompleted;
     if (sex !== undefined) goalData.sex = sex;
     if (dateOfBirth !== undefined) goalData.dateOfBirth = dateOfBirth;

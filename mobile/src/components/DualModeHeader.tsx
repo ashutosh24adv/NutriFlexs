@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import * as ReactNative from 'react-native';
+const { View, Text, TouchableOpacity, StyleSheet, Animated, Platform } = ReactNative;
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -160,7 +161,41 @@ export const DualModeHeader: React.FC<DualModeHeaderProps> = ({
   const activeTab: AppMode =
     propActiveTab ?? (pathname?.includes('track') ? 'track' : 'order');
 
+  const [containerWidth, setContainerWidth] = useState(0);
+  const slideAnim = useRef(new Animated.Value(activeTab === 'order' ? 0 : 1)).current;
+  const pressScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    (Animated as any).spring(slideAnim, {
+      toValue: activeTab === 'order' ? 0 : 1,
+      useNativeDriver: true,
+      tension: 140,
+      friction: 14,
+    }).start();
+  }, [activeTab, slideAnim]);
+
   const handleTabChange = (tab: AppMode) => {
+    try {
+      if (Platform.OS === 'android' || Platform.OS === 'ios') {
+        const vibration = (ReactNative as any).Vibration;
+        if (vibration && typeof vibration.vibrate === 'function') {
+          vibration.vibrate(20);
+        }
+      }
+    } catch {}
+
+    Animated.sequence([
+      Animated.timing(pressScale, { toValue: 0.97, duration: 70, useNativeDriver: true }),
+      Animated.timing(pressScale, { toValue: 1, duration: 90, useNativeDriver: true }),
+    ]).start();
+
+    (Animated as any).spring(slideAnim, {
+      toValue: tab === 'order' ? 0 : 1,
+      useNativeDriver: true,
+      tension: 150,
+      friction: 14,
+    }).start();
+
     try {
       authActions.setLastMode(tab);
     } catch {}
@@ -174,6 +209,12 @@ export const DualModeHeader: React.FC<DualModeHeaderProps> = ({
       }
     }
   };
+
+  const pillWidth = containerWidth > 0 ? (containerWidth - 8) / 2 : 0;
+  const translateX = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [4, containerWidth > 0 ? containerWidth / 2 : 160],
+  });
 
   return (
     <>
@@ -207,25 +248,45 @@ export const DualModeHeader: React.FC<DualModeHeaderProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Segmented Pill Switcher Below: Order Food | Track Health */}
-        <View style={styles.segmentedRow}>
+        {/* Animated Segmented Capsule Switcher Below: Order Food | Track Health */}
+        <Animated.View
+          style={[styles.segmentedRow, { transform: [{ scale: pressScale }] }]}
+          onLayout={(e: any) => setContainerWidth(e?.nativeEvent?.layout?.width || 0)}
+        >
+          {pillWidth > 0 && (
+            <Animated.View
+              style={[
+                styles.slidingIndicator,
+                {
+                  width: pillWidth,
+                  transform: [{ translateX }],
+                },
+              ]}
+            />
+          )}
+
           {/* Order Food Pill */}
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => handleTabChange('order')}
-            style={[
-              styles.tabPill,
-              activeTab === 'order' ? styles.tabActive : styles.tabInactive,
-            ]}
+            style={styles.tabPill}
           >
-            <Text
-              style={[
-                styles.tabTitle,
-                activeTab === 'order' ? styles.titleActive : styles.titleInactive,
-              ]}
-            >
-              Order Food
-            </Text>
+            <View style={styles.tabTitleRow}>
+              <Ionicons
+                name="fast-food-outline"
+                size={13}
+                color={activeTab === 'order' ? '#1D4D3E' : '#FFFFFF'}
+                style={{ marginRight: 4 }}
+              />
+              <Text
+                style={[
+                  styles.tabTitle,
+                  activeTab === 'order' ? styles.titleActive : styles.titleInactive,
+                ]}
+              >
+                Order Food
+              </Text>
+            </View>
             <Text
               style={[
                 styles.tabSubtext,
@@ -240,19 +301,24 @@ export const DualModeHeader: React.FC<DualModeHeaderProps> = ({
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => handleTabChange('track')}
-            style={[
-              styles.tabPill,
-              activeTab === 'track' ? styles.tabActive : styles.tabInactive,
-            ]}
+            style={styles.tabPill}
           >
-            <Text
-              style={[
-                styles.tabTitle,
-                activeTab === 'track' ? styles.titleActive : styles.titleInactive,
-              ]}
-            >
-              Track Health
-            </Text>
+            <View style={styles.tabTitleRow}>
+              <Ionicons
+                name="fitness-outline"
+                size={13}
+                color={activeTab === 'track' ? '#1D4D3E' : '#FFFFFF'}
+                style={{ marginRight: 4 }}
+              />
+              <Text
+                style={[
+                  styles.tabTitle,
+                  activeTab === 'track' ? styles.titleActive : styles.titleInactive,
+                ]}
+              >
+                Track Health
+              </Text>
+            </View>
             <Text
               style={[
                 styles.tabSubtext,
@@ -262,7 +328,7 @@ export const DualModeHeader: React.FC<DualModeHeaderProps> = ({
               {liveTrackSubtext}
             </Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
 
       {/* Interactive Kiosk Selection Modal */}
@@ -342,37 +408,47 @@ const styles = StyleSheet.create({
   },
   segmentedRow: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    gap: 8,
-    paddingTop: spacing.xs,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs + 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.24)',
+    borderRadius: 24,
+    padding: 4,
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  slidingIndicator: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    backgroundColor: '#F7F8F6', // Crisp off-white brand background
+    borderRadius: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 3,
   },
   tabPill: {
     flex: 1,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderTopLeftRadius: 14,
-    borderTopRightRadius: 14,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: 48,
+    zIndex: 2,
+    minHeight: 46,
   },
-  tabActive: {
-    backgroundColor: '#F7F8F6', // Off-white canvas matching the screen body
-    elevation: 3,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-  },
-  tabInactive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+  tabTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
   },
   tabTitle: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '800',
-    marginBottom: 2,
   },
   titleActive: {
     color: '#1D4D3E', // Forest green text for active tab
@@ -381,8 +457,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   tabSubtext: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10.5,
+    fontWeight: '700',
   },
   subtextActive: {
     color: '#059669', // Emerald accent for active subtext

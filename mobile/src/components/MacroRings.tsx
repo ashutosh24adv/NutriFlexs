@@ -43,15 +43,15 @@ export const MacroRings: React.FC<MacroRingsProps> = ({
 }) => {
   const resolvedProtein = {
     current: protein?.current ?? 0,
-    target: protein?.target ?? 120,
+    target: protein?.target ?? 0,
   };
   const resolvedCarbs = {
     current: carbs?.current ?? 0,
-    target: carbs?.target ?? 250,
+    target: carbs?.target ?? 0,
   };
   const resolvedFat = {
     current: fat?.current ?? 0,
-    target: fat?.target ?? 65,
+    target: fat?.target ?? 0,
   };
 
   const macros: MacroColumnConfig[] = [
@@ -158,7 +158,7 @@ export const MacroRings: React.FC<MacroRingsProps> = ({
                   {macro.current}
                 </Text>
                 <Text style={styles.macroDivider}>/</Text>
-                <Text style={styles.macroTarget}>{macro.target}g</Text>
+                <Text style={styles.macroTarget}>{macro.target > 0 ? `${macro.target}g` : '--'}</Text>
               </Text>
 
               {/* Flat Rounded Progress Pill Strip */}
@@ -177,7 +177,9 @@ export const MacroRings: React.FC<MacroRingsProps> = ({
               {/* Remaining pill indicator */}
               <View style={[styles.leftBadge, { backgroundColor: macro.softBg }]}>
                 <Text style={[styles.leftText, { color: macro.color }]}>
-                  {macro.current === 0
+                  {macro.target === 0
+                    ? 'No goal'
+                    : macro.current === 0
                     ? `${macro.target}g left`
                     : remaining > 0
                     ? `${remaining}g left`

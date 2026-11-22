@@ -36,6 +36,22 @@ export async function saveSecureToken(token: string): Promise<void> {
   } catch {
     // Ignore storage errors
   }
+
+  // 3. AsyncStorage backup (ensures token survives app kills when SecureStore has keystore delays)
+  try {
+    const AsyncStorage = typeof require !== 'undefined' ? require('@react-native-async-storage/async-storage') : null;
+    const storage = AsyncStorage?.default || AsyncStorage;
+    if (storage && typeof storage.setItem === 'function') {
+      await Promise.allSettled([
+        storage.setItem('jwt_token', token),
+        storage.setItem('auth_token', token),
+        storage.setItem('token', token),
+        storage.setItem('nutriflex_token', token),
+      ]);
+    }
+  } catch {
+    // Non-fatal fallback
+  }
 }
 
 /**
@@ -63,6 +79,22 @@ export async function getSecureToken(): Promise<string | null> {
     if (typeof window !== 'undefined' && window?.localStorage) {
       const stored = window.localStorage.getItem('jwt_token') || window.localStorage.getItem('auth_token');
       if (stored) return stored;
+    }
+  } catch {
+    // Fallback
+  }
+
+  // 3. Try AsyncStorage backup
+  try {
+    const AsyncStorage = typeof require !== 'undefined' ? require('@react-native-async-storage/async-storage') : null;
+    const storage = AsyncStorage?.default || AsyncStorage;
+    if (storage && typeof storage.getItem === 'function') {
+      for (const k of ['jwt_token', 'auth_token', 'token', 'nutriflex_token']) {
+        const val = await storage.getItem(k);
+        if (val && typeof val === 'string' && val.trim().length > 0) {
+          return val.trim();
+        }
+      }
     }
   } catch {
     // Fallback
