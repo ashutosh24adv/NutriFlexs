@@ -114,20 +114,31 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const targetCalories =
-      goalRecord?.calorieTarget || goalRecord?.dailyCalorieGoal || baseline.dailyCalorieGoal;
-    const targetProtein =
-      goalRecord?.proteinTarget ||
-      goalRecord?.proteinGoal ||
-      userRecord?.customDailyProteinGoal ||
-      userRecord?.proteinGoalGrams ||
-      baseline.proteinGoal;
-    const targetCarbs =
-      goalRecord?.carbsTarget || goalRecord?.carbohydrateGoal || baseline.carbohydrateGoal;
-    const targetFat =
-      goalRecord?.fatsTarget || goalRecord?.fatGoal || baseline.fatGoal;
-    const targetWater =
-      goalRecord?.waterGoalMl || baseline.waterGoalMl;
+    const hasUserDetails = Boolean(
+      (userRecord?.weightKg && userRecord.weightKg > 0) ||
+      (userRecord?.heightCm && userRecord.heightCm > 0) ||
+      (goalRecord?.onboardingCompleted && goalRecord?.dailyCalorieGoal && goalRecord.dailyCalorieGoal > 0)
+    );
+
+    const targetCalories = hasUserDetails
+      ? (goalRecord?.calorieTarget || goalRecord?.dailyCalorieGoal || baseline.dailyCalorieGoal)
+      : 0;
+    const targetProtein = hasUserDetails
+      ? (goalRecord?.proteinTarget ||
+          goalRecord?.proteinGoal ||
+          userRecord?.customDailyProteinGoal ||
+          userRecord?.proteinGoalGrams ||
+          baseline.proteinGoal)
+      : 0;
+    const targetCarbs = hasUserDetails
+      ? (goalRecord?.carbsTarget || goalRecord?.carbohydrateGoal || baseline.carbohydrateGoal)
+      : 0;
+    const targetFat = hasUserDetails
+      ? (goalRecord?.fatsTarget || goalRecord?.fatGoal || baseline.fatGoal)
+      : 0;
+    const targetWater = hasUserDetails
+      ? (goalRecord?.waterGoalMl || baseline.waterGoalMl)
+      : 0;
 
     // 2. Fetch food logs for targetDate
     const logs = await withDbRetry(() =>

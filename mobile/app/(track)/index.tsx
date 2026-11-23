@@ -161,11 +161,11 @@ export default function TrackTodayScreen() {
             // Normalize targets
             const rawTargets = summary.targets || {};
             const fetchedTargets = {
-              calories: rawTargets.calories || rawTargets.calorieTarget || rawTargets.dailyCalorieGoal || authCalorieTarget || 2000,
-              proteinGrams: rawTargets.proteinGrams || rawTargets.proteinTarget || rawTargets.proteinGoal || authProteinTarget || 120,
-              carbsGrams: rawTargets.carbsGrams || rawTargets.carbsTarget || rawTargets.carbohydrateGoal || authCarbsTarget || 250,
-              fatGrams: rawTargets.fatGrams || rawTargets.fatsTarget || rawTargets.fatGoal || authFatTarget || 65,
-              waterMl: rawTargets.waterMl || rawTargets.waterGoalMl || rawTargets.waterGoal || authWaterGoal || 3000,
+              calories: rawTargets.calories || rawTargets.calorieTarget || rawTargets.dailyCalorieGoal || authCalorieTarget || 0,
+              proteinGrams: rawTargets.proteinGrams || rawTargets.proteinTarget || rawTargets.proteinGoal || authProteinTarget || 0,
+              carbsGrams: rawTargets.carbsGrams || rawTargets.carbsTarget || rawTargets.carbohydrateGoal || authCarbsTarget || 0,
+              fatGrams: rawTargets.fatGrams || rawTargets.fatsTarget || rawTargets.fatGoal || authFatTarget || 0,
+              waterMl: rawTargets.waterMl || rawTargets.waterGoalMl || rawTargets.waterGoal || authWaterGoal || 0,
             };
 
             // Normalize meals/foodLogs

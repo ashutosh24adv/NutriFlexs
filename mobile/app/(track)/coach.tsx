@@ -249,9 +249,9 @@ export default function TrackCoachScreen() {
     addWater,
   } = useDiaryStore();
 
-  const targetProtein = targets.proteinGrams || 120;
-  const targetCalories = targets.calories || 2000;
-  const targetCarbs = targets.carbsGrams || 250;
+  const targetProtein = targets.proteinGrams || 0;
+  const targetCalories = targets.calories || 0;
+  const targetCarbs = targets.carbsGrams || 0;
   const activeBurned = telemetry.activeBurned || 0;
 
   // Real remaining macro gap calculations

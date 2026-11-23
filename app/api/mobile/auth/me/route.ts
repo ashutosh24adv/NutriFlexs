@@ -49,7 +49,12 @@ export async function GET(req: NextRequest) {
       proteinGoalGrams: user.proteinGoalGrams,
     });
 
-    if (!goal) {
+    const hasBaselineStats = Boolean(
+      (user.weightKg && user.weightKg > 0) ||
+      (user.heightCm && user.heightCm > 0)
+    );
+
+    if (!goal && hasBaselineStats) {
       // Calculate and persist baseline nutrition goals in Neon Postgres if not yet saved
       try {
         goal = await withDbRetry(() =>
@@ -91,20 +96,21 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const targetCalories =
-      goal?.calorieTarget || goal?.dailyCalorieGoal || baseline.dailyCalorieGoal;
-    const targetProtein =
-      goal?.proteinTarget ||
-      goal?.proteinGoal ||
-      user.customDailyProteinGoal ||
-      user.proteinGoalGrams ||
-      baseline.proteinGoal;
-    const targetCarbs =
-      goal?.carbsTarget || goal?.carbohydrateGoal || baseline.carbohydrateGoal;
-    const targetFat =
-      goal?.fatsTarget || goal?.fatGoal || baseline.fatGoal;
-    const targetWater =
-      goal?.waterGoalMl || baseline.waterGoalMl;
+    const targetCalories = goal
+      ? (goal.calorieTarget || goal.dailyCalorieGoal || 0)
+      : (hasBaselineStats ? baseline.dailyCalorieGoal : 0);
+    const targetProtein = goal
+      ? (goal.proteinTarget || goal.proteinGoal || 0)
+      : (user.customDailyProteinGoal || user.proteinGoalGrams || (hasBaselineStats ? baseline.proteinGoal : 0));
+    const targetCarbs = goal
+      ? (goal.carbsTarget || goal.carbohydrateGoal || 0)
+      : (hasBaselineStats ? baseline.carbohydrateGoal : 0);
+    const targetFat = goal
+      ? (goal.fatsTarget || goal.fatGoal || 0)
+      : (hasBaselineStats ? baseline.fatGoal : 0);
+    const targetWater = goal
+      ? (goal.waterGoalMl || 0)
+      : (hasBaselineStats ? baseline.waterGoalMl : 0);
 
     const targets = {
       calories: targetCalories,

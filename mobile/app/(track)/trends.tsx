@@ -75,8 +75,8 @@ export default function TrackTrendsScreen() {
 
             if (summary.targets) {
               setRemoteTargets({
-                calories: summary.targets.calories || summary.targets.dailyCalorieGoal || 2000,
-                proteinGrams: summary.targets.proteinGrams || summary.targets.proteinGoal || 120,
+                calories: summary.targets.calories || summary.targets.dailyCalorieGoal || 0,
+                proteinGrams: summary.targets.proteinGrams || summary.targets.proteinGoal || 0,
               });
             }
 
@@ -118,8 +118,8 @@ export default function TrackTrendsScreen() {
     fetchSummary();
   }, [fetchSummary]);
 
-  const targetCalories = remoteTargets?.calories || targets.calories || 2000;
-  const targetProtein = remoteTargets?.proteinGrams || targets.proteinGrams || 120;
+  const targetCalories = remoteTargets?.calories || targets.calories || 0;
+  const targetProtein = remoteTargets?.proteinGrams || targets.proteinGrams || 0;
 
   // Real 7-day bars fetched from backend summary, with fallback to real local history
   const weekData = remoteTrends && remoteTrends.length > 0 ? remoteTrends : get7DayHistory();

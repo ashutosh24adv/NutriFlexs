@@ -142,7 +142,7 @@ export const DualModeHeader: React.FC<DualModeHeaderProps> = ({
     (user as any)?.dailyCalorieGoal ||
     (user as any)?.calorieTarget ||
     authStore.calorieTarget ||
-    2000;
+    0;
 
   const { todayCalories } = useDiaryStore();
   const { telemetry } = useHealthSync();
@@ -154,9 +154,10 @@ export const DualModeHeader: React.FC<DualModeHeaderProps> = ({
     telemetry?.activeCalories ??
     0;
 
-  const remainingCalories = Math.max(0, calorieTarget - consumed + burned);
+  const remainingCalories = calorieTarget > 0 ? Math.max(0, calorieTarget - consumed + burned) : 0;
   const liveTrackSubtext =
-    customTrackSubtext ?? `${remainingCalories.toLocaleString()} kcal left`;
+    customTrackSubtext ??
+    (calorieTarget > 0 ? `${remainingCalories.toLocaleString()} kcal left` : 'Daily Tracker');
 
   const activeTab: AppMode =
     propActiveTab ?? (pathname?.includes('track') ? 'track' : 'order');

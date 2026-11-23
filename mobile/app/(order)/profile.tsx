@@ -339,7 +339,9 @@ export default function OrderProfileScreen() {
               <View style={styles.nutritionInfoRow}>
                 <Text style={styles.nutritionInfoLabel}>Daily Target</Text>
                 <Text style={styles.nutritionInfoValue}>
-                  {(nutritionGoal?.proteinTarget || (user as any)?.nutritionGoal?.proteinTarget || (user as any)?.proteinTarget || 140)}g Protein • {(nutritionGoal?.calorieTarget || nutritionGoal?.dailyCalorieGoal || (user as any)?.nutritionGoal?.calorieTarget || (user as any)?.calorieTarget || (user as any)?.dailyCalorieGoal || 2000).toLocaleString('en-IN')} kcal
+                  {nutritionGoal?.calorieTarget || nutritionGoal?.dailyCalorieGoal || (user as any)?.targets?.calories
+                    ? `${(nutritionGoal?.proteinTarget || (user as any)?.targets?.proteinGrams || 0)}g Protein • ${(nutritionGoal?.calorieTarget || nutritionGoal?.dailyCalorieGoal || (user as any)?.targets?.calories || 0).toLocaleString('en-IN')} kcal`
+                    : 'Not set yet'}
                 </Text>
               </View>
 

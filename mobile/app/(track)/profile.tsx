@@ -105,30 +105,30 @@ export default function TrackProfileScreen() {
     effectiveGoal?.dailyCalorieGoal ??
     user?.targets?.calories ??
     targets.calories ??
-    2000;
+    0;
   const effectiveProtein =
     effectiveGoal?.proteinTarget ??
     effectiveGoal?.proteinGoal ??
     user?.targets?.proteinGrams ??
     targets.proteinGrams ??
-    120;
+    0;
   const effectiveCarbs =
     effectiveGoal?.carbsTarget ??
     effectiveGoal?.carbohydrateGoal ??
     user?.targets?.carbsGrams ??
     targets.carbsGrams ??
-    250;
+    0;
   const effectiveFat =
     effectiveGoal?.fatsTarget ??
     effectiveGoal?.fatGoal ??
     user?.targets?.fatGrams ??
     targets.fatGrams ??
-    65;
+    0;
   const effectiveWater =
     effectiveGoal?.waterGoalMl ??
     user?.targets?.waterMl ??
     targets.waterMl ??
-    3000;
+    0;
 
   const [isEditingGoals, setIsEditingGoals] = useState(false);
   const [editCalories, setEditCalories] = useState(String(effectiveCalories));
@@ -232,11 +232,11 @@ export default function TrackProfileScreen() {
 
   const saveGoalsToBackend = async (extraPayload: Record<string, any> = {}) => {
     const payload = {
-      dailyCalorieGoal: parseInt(editCalories, 10) || 2000,
-      proteinGoal: parseInt(editProtein, 10) || 120,
-      carbohydrateGoal: parseInt(editCarbs, 10) || 250,
-      fatGoal: parseInt(editFat, 10) || 65,
-      waterGoal: parseInt(editWater, 10) || 3000,
+      dailyCalorieGoal: parseInt(editCalories, 10) || 0,
+      proteinGoal: parseInt(editProtein, 10) || 0,
+      carbohydrateGoal: parseInt(editCarbs, 10) || 0,
+      fatGoal: parseInt(editFat, 10) || 0,
+      waterGoal: parseInt(editWater, 10) || 0,
       weightKg: parseFloat(editWeight) || undefined,
       heightCm: parseFloat(editHeight) || undefined,
       sex: editSex,
@@ -276,11 +276,11 @@ export default function TrackProfileScreen() {
   };
 
   const handleSaveGoals = async () => {
-    const newCalories = parseInt(editCalories, 10) || 2000;
-    const newProtein = parseInt(editProtein, 10) || 120;
-    const newCarbs = parseInt(editCarbs, 10) || 250;
-    const newFat = parseInt(editFat, 10) || 65;
-    const newWater = parseInt(editWater, 10) || 3000;
+    const newCalories = parseInt(editCalories, 10) || 0;
+    const newProtein = parseInt(editProtein, 10) || 0;
+    const newCarbs = parseInt(editCarbs, 10) || 0;
+    const newFat = parseInt(editFat, 10) || 0;
+    const newWater = parseInt(editWater, 10) || 0;
 
     updateTargets({
       calories: newCalories,
