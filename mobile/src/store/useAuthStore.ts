@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { cartActions } from './cartStore';
 import { API_BASE_URL } from '../config/api';
 
@@ -140,52 +142,32 @@ export interface SessionCache {
 // In-memory fallback for environments where native storage is unavailable
 const memoryCache = new Map<string, string>();
 
-async function getSecureStore() {
-  try {
-    if (typeof require !== 'undefined') {
-      const mod = require('expo-secure-store');
-      return mod?.default || mod;
-    }
-  } catch {}
-  return null;
-}
-
-async function getAsyncStorage() {
-  try {
-    if (typeof require !== 'undefined') {
-      const mod = require('@react-native-async-storage/async-storage');
-      return mod?.default || mod;
-    }
-  } catch {}
-  return null;
-}
-
 async function readTokenFromSecureStore(): Promise<string | null> {
   // 1. Try Expo SecureStore (Native hardware keystore)
   try {
-    const secureStore = await getSecureStore();
-    if (secureStore && typeof secureStore.getItemAsync === 'function') {
+    if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
       for (const key of SECURE_STORE_TOKEN_KEYS) {
-        const val = await secureStore.getItemAsync(key);
+        const val = await SecureStore.getItemAsync(key);
         if (val && typeof val === 'string' && val.trim().length > 0) {
           return val.trim();
         }
       }
     }
-  } catch {}
+  } catch (err) {
+    console.log('[readTokenFromSecureStore] SecureStore error, falling back to AsyncStorage:', err);
+  }
 
   // 2. Try AsyncStorage backup keys (resilient across app swipe-kill)
   try {
-    const storage = await getAsyncStorage();
-    if (storage && typeof storage.getItem === 'function') {
+    if (AsyncStorage && typeof AsyncStorage.getItem === 'function') {
       for (const key of [...SECURE_STORE_TOKEN_KEYS, 'nutriflex_token', 'user_token']) {
-        const val = await storage.getItem(key);
+        const val = await AsyncStorage.getItem(key);
         if (val && typeof val === 'string' && val.trim().length > 0) {
           return val.trim();
         }
       }
       // Also check token embedded inside cached session
-      const rawSession = await storage.getItem(ASYNC_STORAGE_SESSION_KEY);
+      const rawSession = await AsyncStorage.getItem(ASYNC_STORAGE_SESSION_KEY);
       if (rawSession) {
         try {
           const parsed = JSON.parse(rawSession);
@@ -233,22 +215,20 @@ async function writeTokenToSecureStore(token: string): Promise<void> {
 
   // Native Expo SecureStore
   try {
-    const secureStore = await getSecureStore();
-    if (secureStore && typeof secureStore.setItemAsync === 'function') {
+    if (SecureStore && typeof SecureStore.setItemAsync === 'function') {
       await Promise.allSettled(
-        SECURE_STORE_TOKEN_KEYS.map((k) => secureStore.setItemAsync(k, token))
+        SECURE_STORE_TOKEN_KEYS.map((k) => SecureStore.setItemAsync(k, token))
       );
     }
   } catch {}
 
   // AsyncStorage backup (persists across app task manager kills on Android)
   try {
-    const storage = await getAsyncStorage();
-    if (storage && typeof storage.setItem === 'function') {
+    if (AsyncStorage && typeof AsyncStorage.setItem === 'function') {
       await Promise.allSettled([
-        ...SECURE_STORE_TOKEN_KEYS.map((k) => storage.setItem(k, token)),
-        storage.setItem('nutriflex_token', token),
-        storage.setItem('user_token', token),
+        ...SECURE_STORE_TOKEN_KEYS.map((k) => AsyncStorage.setItem(k, token)),
+        AsyncStorage.setItem('nutriflex_token', token),
+        AsyncStorage.setItem('user_token', token),
       ]);
     }
   } catch {}
@@ -271,23 +251,21 @@ export async function clearSecureStoreToken(): Promise<void> {
   }
 
   try {
-    const secureStore = await getSecureStore();
-    if (secureStore && typeof secureStore.deleteItemAsync === 'function') {
+    if (SecureStore && typeof SecureStore.deleteItemAsync === 'function') {
       await Promise.allSettled(
         [...SECURE_STORE_TOKEN_KEYS, 'refreshToken', 'refresh_token', 'user_session', 'user_session_jwt'].map((k) =>
-          secureStore.deleteItemAsync(k)
+          SecureStore.deleteItemAsync(k)
         )
       );
     }
   } catch {}
 
   try {
-    const storage = await getAsyncStorage();
-    if (storage && typeof storage.removeItem === 'function') {
+    if (AsyncStorage && typeof AsyncStorage.removeItem === 'function') {
       await Promise.allSettled([
-        ...SECURE_STORE_TOKEN_KEYS.map((k) => storage.removeItem(k)),
-        storage.removeItem('nutriflex_token'),
-        storage.removeItem('user_token'),
+        ...SECURE_STORE_TOKEN_KEYS.map((k) => AsyncStorage.removeItem(k)),
+        AsyncStorage.removeItem('nutriflex_token'),
+        AsyncStorage.removeItem('user_token'),
       ]);
     }
   } catch {}
@@ -295,9 +273,8 @@ export async function clearSecureStoreToken(): Promise<void> {
 
 async function readItemFromAsyncStorage<T>(key: string): Promise<T | null> {
   try {
-    const storage = await getAsyncStorage();
-    if (storage && typeof storage.getItem === 'function') {
-      const raw = await storage.getItem(key);
+    if (AsyncStorage && typeof AsyncStorage.getItem === 'function') {
+      const raw = await AsyncStorage.getItem(key);
       if (raw) return JSON.parse(raw);
     }
   } catch {}
@@ -330,9 +307,8 @@ async function writeItemToAsyncStorage(key: string, value: any): Promise<void> {
   }
 
   try {
-    const storage = await getAsyncStorage();
-    if (storage && typeof storage.setItem === 'function') {
-      await storage.setItem(key, serialized);
+    if (AsyncStorage && typeof AsyncStorage.setItem === 'function') {
+      await AsyncStorage.setItem(key, serialized);
     }
   } catch {}
 }
@@ -347,9 +323,8 @@ async function removeItemFromAsyncStorage(key: string): Promise<void> {
   }
 
   try {
-    const storage = await getAsyncStorage();
-    if (storage && typeof storage.removeItem === 'function') {
-      await storage.removeItem(key);
+    if (AsyncStorage && typeof AsyncStorage.removeItem === 'function') {
+      await AsyncStorage.removeItem(key);
     }
   } catch {}
 }

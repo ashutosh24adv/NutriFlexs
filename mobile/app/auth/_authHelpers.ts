@@ -1,3 +1,5 @@
+import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL, normalizeApiUrl } from '../../src/config/api';
 
 /**
@@ -14,8 +16,6 @@ export async function saveSecureToken(token: string): Promise<void> {
 
   // 1. Expo SecureStore (Native)
   try {
-    // @ts-ignore
-    const SecureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
     if (SecureStore && typeof SecureStore.setItemAsync === 'function') {
       await Promise.allSettled([
         SecureStore.setItemAsync('jwt_token', token),
@@ -39,14 +39,12 @@ export async function saveSecureToken(token: string): Promise<void> {
 
   // 3. AsyncStorage backup (ensures token survives app kills when SecureStore has keystore delays)
   try {
-    const AsyncStorage = typeof require !== 'undefined' ? require('@react-native-async-storage/async-storage') : null;
-    const storage = AsyncStorage?.default || AsyncStorage;
-    if (storage && typeof storage.setItem === 'function') {
+    if (AsyncStorage && typeof AsyncStorage.setItem === 'function') {
       await Promise.allSettled([
-        storage.setItem('jwt_token', token),
-        storage.setItem('auth_token', token),
-        storage.setItem('token', token),
-        storage.setItem('nutriflex_token', token),
+        AsyncStorage.setItem('jwt_token', token),
+        AsyncStorage.setItem('auth_token', token),
+        AsyncStorage.setItem('token', token),
+        AsyncStorage.setItem('nutriflex_token', token),
       ]);
     }
   } catch {
@@ -60,8 +58,6 @@ export async function saveSecureToken(token: string): Promise<void> {
 export async function getSecureToken(): Promise<string | null> {
   // 1. Try Native Expo SecureStore
   try {
-    // @ts-ignore
-    const SecureStore = typeof require !== 'undefined' ? require('expo-secure-store') : null;
     if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
       const jwt = await SecureStore.getItemAsync('jwt_token');
       if (jwt) return jwt;
@@ -74,7 +70,21 @@ export async function getSecureToken(): Promise<string | null> {
     // Fallback
   }
 
-  // 2. Try Web localStorage
+  // 2. Try AsyncStorage backup
+  try {
+    if (AsyncStorage && typeof AsyncStorage.getItem === 'function') {
+      const jwt = await AsyncStorage.getItem('jwt_token');
+      if (jwt) return jwt;
+      const auth = await AsyncStorage.getItem('auth_token');
+      if (auth) return auth;
+      const tok = await AsyncStorage.getItem('token');
+      if (tok) return tok;
+      const nutri = await AsyncStorage.getItem('nutriflex_token');
+      if (nutri) return nutri;
+    }
+  } catch {}
+
+  // 3. Try Web localStorage
   try {
     if (typeof window !== 'undefined' && window?.localStorage) {
       const stored = window.localStorage.getItem('jwt_token') || window.localStorage.getItem('auth_token');

@@ -68,7 +68,8 @@
         }
       ],
       "react-native-health-connect",
-      "./plugins/withHealthConnectPermissionDelegate.js"
+      "./plugins/withHealthConnectPermissionDelegate.js",
+      "expo-secure-store"
     ],
     "scheme": "nutriflexs",
     "experiments": {

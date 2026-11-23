@@ -9,6 +9,8 @@
  */
 
 import { Alert } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL, normalizeApiUrl } from '../config/api';
 import { useAuthStore, authActions } from '../store/useAuthStore';
 
@@ -68,10 +70,9 @@ export async function getAuthToken(): Promise<string | null> {
 
   // 3. Check expo-secure-store
   try {
-    const store = getSecureStore();
-    if (store && typeof store.getItemAsync === 'function') {
+    if (SecureStore && typeof SecureStore.getItemAsync === 'function') {
       for (const key of TOKEN_KEYS) {
-        const val = await store.getItemAsync(key);
+        const val = await SecureStore.getItemAsync(key);
         if (val && typeof val === 'string' && val.trim().length > 0) {
           inMemoryToken = val.trim();
           return inMemoryToken;
@@ -81,6 +82,19 @@ export async function getAuthToken(): Promise<string | null> {
   } catch {
     // Ignore storage read errors
   }
+
+  // 3b. Check AsyncStorage backup
+  try {
+    if (AsyncStorage && typeof AsyncStorage.getItem === 'function') {
+      for (const key of [...TOKEN_KEYS, 'nutriflex_token']) {
+        const val = await AsyncStorage.getItem(key);
+        if (val && typeof val === 'string' && val.trim().length > 0) {
+          inMemoryToken = val.trim();
+          return inMemoryToken;
+        }
+      }
+    }
+  } catch {}
 
   // 4. Check web localStorage if available
   if (typeof localStorage !== 'undefined') {
