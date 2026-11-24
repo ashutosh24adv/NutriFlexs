@@ -71,6 +71,15 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Redirect kitchen portal requests to the dedicated Kitchen Login page
+  useEffect(() => {
+    if (portalParam === "kitchen" || (callbackUrl.startsWith("/kitchen") && !urlError)) {
+      const target = new URL("/kitchen/login", window.location.origin);
+      if (rawCallbackUrl) target.searchParams.set("callbackUrl", rawCallbackUrl);
+      router.replace(target.pathname + target.search);
+    }
+  }, [portalParam, callbackUrl, rawCallbackUrl, urlError, router]);
+
   // Set initial error from URL query params (e.g. from middleware redirect)
   useEffect(() => {
     if (urlError === "unauthorized_role") {
@@ -110,9 +119,19 @@ function LoginForm() {
         return;
       }
 
-      // If no permission conflict, redirect safely
+      // If no permission conflict, redirect safely by role
       if (!urlError) {
-        router.push(callbackUrl);
+        if (currentRole === "TRAINER") {
+          router.push("/trainer");
+        } else if (currentRole === "KITCHEN") {
+          router.push("/kitchen");
+        } else if (currentRole === "ADMIN" || currentRole === "SUPER_ADMIN") {
+          router.push(callbackUrl && callbackUrl !== "/home" ? callbackUrl : "/admin");
+        } else if (currentRole === "DIETITIAN") {
+          router.push("/dietitian");
+        } else {
+          router.push(callbackUrl);
+        }
       }
     }
   }, [status, currentRole, callbackUrl, currentUser, urlError, router]);
@@ -132,10 +151,31 @@ function LoginForm() {
       });
 
       if (res?.ok) {
-        // Successful login, refresh session and navigate
+        // Successful login, refresh session and navigate strictly by role
         router.refresh();
+        try {
+          const sessionRes = await fetch("/api/auth/session");
+          const sessionData = await sessionRes.json();
+          const loggedInRole = sessionData?.user?.role;
+          if (loggedInRole === "TRAINER") {
+            router.push("/trainer");
+            return;
+          }
+          if (loggedInRole === "KITCHEN") {
+            router.push("/kitchen");
+            return;
+          }
+          if (loggedInRole === "ADMIN" || loggedInRole === "SUPER_ADMIN") {
+            router.push(callbackUrl && callbackUrl !== "/login" && callbackUrl !== "/home" ? callbackUrl : "/admin");
+            return;
+          }
+          if (loggedInRole === "DIETITIAN") {
+            router.push("/dietitian");
+            return;
+          }
+        } catch {}
 
-        // If the user signed in, determine the destination
+        // Customer / default fallback
         if (callbackUrl && callbackUrl !== "/login") {
           router.push(callbackUrl);
         } else {

@@ -247,7 +247,7 @@ async function matchFoodItemWithDatabase(
       limit: 3,
       includeNutriFlexsProducts: false,
     });
-    suggestions = related.foods.slice(0, 3).map((f) => ({
+    suggestions = related.foods.slice(0, 3).map((f: any) => ({
       id: f.id,
       name: f.name,
       category: f.category,

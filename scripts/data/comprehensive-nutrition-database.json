@@ -1,0 +1,6202 @@
+[
+  {
+    "name": "Steamed White Rice (Cooked)",
+    "category": "Rice and grains",
+    "subCategory": "Cooked Rice",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 130,
+    "protein": 2.7,
+    "carbohydrates": 28.2,
+    "fat": 0.3,
+    "fiber": 0.4,
+    "sugar": 0.1,
+    "sodium": 1,
+    "saturatedFat": 0.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "small_bowl",
+        "label": "Small Katori (100g)",
+        "grams": 100
+      },
+      {
+        "unit": "large_bowl",
+        "label": "Large Bowl (250g)",
+        "grams": 250
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Basmati Rice (Cooked)",
+    "category": "Rice and grains",
+    "subCategory": "Cooked Rice",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 121,
+    "protein": 3.5,
+    "carbohydrates": 25.2,
+    "fat": 0.4,
+    "fiber": 0.6,
+    "sugar": 0.1,
+    "sodium": 2,
+    "saturatedFat": 0.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Brown Rice (Cooked)",
+    "category": "Rice and grains",
+    "subCategory": "Cooked Rice",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 111,
+    "protein": 2.6,
+    "carbohydrates": 23,
+    "fat": 0.9,
+    "fiber": 1.8,
+    "sugar": 0.2,
+    "sodium": 5,
+    "saturatedFat": 0.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Jeera Rice (Cooked)",
+    "category": "Rice and grains",
+    "subCategory": "Flavored Rice",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 145,
+    "protein": 2.8,
+    "carbohydrates": 26.5,
+    "fat": 3.2,
+    "fiber": 0.8,
+    "sugar": 0.2,
+    "sodium": 120,
+    "saturatedFat": 1.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "plate",
+        "label": "Plate (250g)",
+        "grams": 250
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Curd Rice (Thayir Sadam)",
+    "category": "Rice and grains",
+    "subCategory": "Flavored Rice",
+    "cuisine": "South Indian",
+    "brand": null,
+    "caloriesPer100g": 125,
+    "protein": 3.8,
+    "carbohydrates": 18.2,
+    "fat": 4.1,
+    "fiber": 0.6,
+    "sugar": 1.8,
+    "sodium": 140,
+    "saturatedFat": 2.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 180,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "plate",
+        "label": "Plate (250g)",
+        "grams": 250
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Vegetable Pulao",
+    "category": "Rice and grains",
+    "subCategory": "Pulao",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 135,
+    "protein": 3.2,
+    "carbohydrates": 23.5,
+    "fat": 3.1,
+    "fiber": 1.8,
+    "sugar": 1.2,
+    "sodium": 150,
+    "saturatedFat": 0.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 180,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "plate",
+        "label": "Plate (280g)",
+        "grams": 280
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Peas Pulao (Matar Pulao)",
+    "category": "Rice and grains",
+    "subCategory": "Pulao",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 140,
+    "protein": 3.6,
+    "carbohydrates": 24.8,
+    "fat": 3.2,
+    "fiber": 2.1,
+    "sugar": 1.4,
+    "sodium": 155,
+    "saturatedFat": 0.9,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 180,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Vegetable Dum Biryani",
+    "category": "Rice and grains",
+    "subCategory": "Biryani",
+    "cuisine": "Hyderabadi",
+    "brand": null,
+    "caloriesPer100g": 155,
+    "protein": 3.8,
+    "carbohydrates": 22.4,
+    "fat": 5.6,
+    "fiber": 2.1,
+    "sugar": 1.4,
+    "sodium": 220,
+    "saturatedFat": 1.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "plate",
+    "servingWeightGrams": 300,
+    "servingUnits": [
+      {
+        "unit": "plate",
+        "label": "Plate (300g)",
+        "grams": 300
+      },
+      {
+        "unit": "bowl",
+        "label": "Bowl (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Chicken Dum Biryani",
+    "category": "Rice and grains",
+    "subCategory": "Biryani",
+    "cuisine": "Hyderabadi",
+    "brand": null,
+    "caloriesPer100g": 185,
+    "protein": 9.8,
+    "carbohydrates": 21,
+    "fat": 6.8,
+    "fiber": 1.2,
+    "sugar": 1,
+    "sodium": 260,
+    "saturatedFat": 2.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "plate",
+    "servingWeightGrams": 350,
+    "servingUnits": [
+      {
+        "unit": "plate",
+        "label": "Full Plate (350g)",
+        "grams": 350
+      },
+      {
+        "unit": "half_plate",
+        "label": "Half Plate (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Mutton Dum Biryani",
+    "category": "Rice and grains",
+    "subCategory": "Biryani",
+    "cuisine": "Hyderabadi",
+    "brand": null,
+    "caloriesPer100g": 215,
+    "protein": 11.2,
+    "carbohydrates": 19.5,
+    "fat": 9.8,
+    "fiber": 1.1,
+    "sugar": 0.9,
+    "sodium": 280,
+    "saturatedFat": 3.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "plate",
+    "servingWeightGrams": 350,
+    "servingUnits": [
+      {
+        "unit": "plate",
+        "label": "Full Plate (350g)",
+        "grams": 350
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Egg Biryani",
+    "category": "Rice and grains",
+    "subCategory": "Biryani",
+    "cuisine": "Hyderabadi",
+    "brand": null,
+    "caloriesPer100g": 172,
+    "protein": 6.5,
+    "carbohydrates": 22.8,
+    "fat": 6.2,
+    "fiber": 1.4,
+    "sugar": 1.1,
+    "sodium": 240,
+    "saturatedFat": 1.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "plate",
+    "servingWeightGrams": 320,
+    "servingUnits": [
+      {
+        "unit": "plate",
+        "label": "Full Plate (320g)",
+        "grams": 320
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Moong Dal Khichdi (with Ghee)",
+    "category": "Rice and grains",
+    "subCategory": "Khichdi",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 118,
+    "protein": 4.5,
+    "carbohydrates": 19.2,
+    "fat": 2.8,
+    "fiber": 2.2,
+    "sugar": 0.5,
+    "sodium": 130,
+    "saturatedFat": 1.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 200,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "large_bowl",
+        "label": "Large Bowl (300g)",
+        "grams": 300
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Oats Khichdi (Vegetable)",
+    "category": "Rice and grains",
+    "subCategory": "Khichdi",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 95,
+    "protein": 3.8,
+    "carbohydrates": 15.6,
+    "fat": 2.1,
+    "fiber": 3.1,
+    "sugar": 1.1,
+    "sodium": 120,
+    "saturatedFat": 0.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 200,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Bajra Khichdi",
+    "category": "Rice and grains",
+    "subCategory": "Khichdi",
+    "cuisine": "Rajasthani",
+    "brand": null,
+    "caloriesPer100g": 132,
+    "protein": 4.2,
+    "carbohydrates": 22.5,
+    "fat": 3.2,
+    "fiber": 3.8,
+    "sugar": 0.6,
+    "sodium": 110,
+    "saturatedFat": 1.4,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 200,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Matta Rice (Kerala Red Rice, Cooked)",
+    "category": "Rice and grains",
+    "subCategory": "Cooked Rice",
+    "cuisine": "South Indian",
+    "brand": null,
+    "caloriesPer100g": 115,
+    "protein": 2.8,
+    "carbohydrates": 24.2,
+    "fat": 0.6,
+    "fiber": 2.2,
+    "sugar": 0.2,
+    "sodium": 3,
+    "saturatedFat": 0.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Lemon Rice (Chitranna)",
+    "category": "Rice and grains",
+    "subCategory": "Flavored Rice",
+    "cuisine": "South Indian",
+    "brand": null,
+    "caloriesPer100g": 155,
+    "protein": 2.8,
+    "carbohydrates": 27.2,
+    "fat": 4.2,
+    "fiber": 1.2,
+    "sugar": 0.6,
+    "sodium": 180,
+    "saturatedFat": 0.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 170,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (170g)",
+        "grams": 170
+      },
+      {
+        "unit": "plate",
+        "label": "Plate (250g)",
+        "grams": 250
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Tamarind Rice (Puliyogare)",
+    "category": "Rice and grains",
+    "subCategory": "Flavored Rice",
+    "cuisine": "South Indian",
+    "brand": null,
+    "caloriesPer100g": 165,
+    "protein": 3.2,
+    "carbohydrates": 28.5,
+    "fat": 4.8,
+    "fiber": 1.8,
+    "sugar": 1.8,
+    "sodium": 210,
+    "saturatedFat": 0.9,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 170,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (170g)",
+        "grams": 170
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Coconut Rice",
+    "category": "Rice and grains",
+    "subCategory": "Flavored Rice",
+    "cuisine": "South Indian",
+    "brand": null,
+    "caloriesPer100g": 175,
+    "protein": 2.9,
+    "carbohydrates": 26.5,
+    "fat": 6.8,
+    "fiber": 1.5,
+    "sugar": 1.2,
+    "sodium": 160,
+    "saturatedFat": 5.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 170,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (170g)",
+        "grams": 170
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Tomato Rice (Thakkali Sadam)",
+    "category": "Rice and grains",
+    "subCategory": "Flavored Rice",
+    "cuisine": "South Indian",
+    "brand": null,
+    "caloriesPer100g": 140,
+    "protein": 2.6,
+    "carbohydrates": 25.2,
+    "fat": 3.5,
+    "fiber": 1.4,
+    "sugar": 2.1,
+    "sodium": 190,
+    "saturatedFat": 0.7,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 170,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (170g)",
+        "grams": 170
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Sambar Rice (Sambar Sadam)",
+    "category": "Rice and grains",
+    "subCategory": "Flavored Rice",
+    "cuisine": "South Indian",
+    "brand": null,
+    "caloriesPer100g": 128,
+    "protein": 3.8,
+    "carbohydrates": 21.5,
+    "fat": 3.2,
+    "fiber": 2.4,
+    "sugar": 1.5,
+    "sodium": 220,
+    "saturatedFat": 0.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 220,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (220g)",
+        "grams": 220
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Quinoa (Cooked)",
+    "category": "Rice and grains",
+    "subCategory": "Grains",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 120,
+    "protein": 4.4,
+    "carbohydrates": 21.3,
+    "fat": 1.9,
+    "fiber": 2.8,
+    "sugar": 0.9,
+    "sodium": 7,
+    "saturatedFat": 0.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (185g)",
+        "grams": 185
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Dalia / Broken Wheat (Cooked)",
+    "category": "Rice and grains",
+    "subCategory": "Grains",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 85,
+    "protein": 3.1,
+    "carbohydrates": 17.5,
+    "fat": 0.5,
+    "fiber": 3.5,
+    "sugar": 0.4,
+    "sodium": 10,
+    "saturatedFat": 0.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 180,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Vegetable Dalia (Spiced Bulgur Wheat)",
+    "category": "Rice and grains",
+    "subCategory": "Khichdi",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 105,
+    "protein": 3.6,
+    "carbohydrates": 18.8,
+    "fat": 2.2,
+    "fiber": 3.8,
+    "sugar": 1.4,
+    "sodium": 140,
+    "saturatedFat": 0.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 200,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Millets Pulao (Foxtail / Kodo)",
+    "category": "Rice and grains",
+    "subCategory": "Pulao",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 128,
+    "protein": 3.9,
+    "carbohydrates": 22.4,
+    "fat": 2.8,
+    "fiber": 4.2,
+    "sugar": 0.8,
+    "sodium": 130,
+    "saturatedFat": 0.6,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 170,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "Medium Bowl (170g)",
+        "grams": 170
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Puffed Rice (Murmura / Kurmura)",
+    "category": "Rice and grains",
+    "subCategory": "Grains",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 380,
+    "protein": 6.8,
+    "carbohydrates": 85,
+    "fat": 0.8,
+    "fiber": 2.8,
+    "sugar": 0.5,
+    "sodium": 25,
+    "saturatedFat": 0.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 20,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Bowl (20g)",
+        "grams": 20
+      },
+      {
+        "unit": "large_bowl",
+        "label": "Large Bowl (40g)",
+        "grams": 40
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (14g)",
+        "grams": 14
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Flattened Rice (Poha / Aval Raw)",
+    "category": "Rice and grains",
+    "subCategory": "Poha",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 360,
+    "protein": 6.8,
+    "carbohydrates": 79.5,
+    "fat": 1.2,
+    "fiber": 3.2,
+    "sugar": 0.6,
+    "sodium": 15,
+    "saturatedFat": 0.3,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "cup",
+    "servingWeightGrams": 50,
+    "servingUnits": [
+      {
+        "unit": "cup",
+        "label": "1/2 Cup Dry (50g)",
+        "grams": 50
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Whole Wheat Roti / Phulka (without Ghee)",
+    "category": "Roti and breads",
+    "subCategory": "Roti",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 297,
+    "protein": 10.5,
+    "carbohydrates": 61.2,
+    "fat": 1.8,
+    "fiber": 10.8,
+    "sugar": 1.2,
+    "sodium": 8,
+    "saturatedFat": 0.3,
+    "defaultServingSize": 2,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 35,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Roti (35g)",
+        "grams": 35
+      },
+      {
+        "unit": "serving",
+        "label": "2 Rotis (70g)",
+        "grams": 70
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Whole Wheat Chapati (with Light Ghee)",
+    "category": "Roti and breads",
+    "subCategory": "Roti",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 315,
+    "protein": 9.8,
+    "carbohydrates": 56.5,
+    "fat": 6.2,
+    "fiber": 9.8,
+    "sugar": 1.1,
+    "sodium": 12,
+    "saturatedFat": 2.8,
+    "defaultServingSize": 2,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 40,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Chapati with Ghee (40g)",
+        "grams": 40
+      },
+      {
+        "unit": "serving",
+        "label": "2 Chapatis (80g)",
+        "grams": 80
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Tandoori Roti (Whole Wheat)",
+    "category": "Roti and breads",
+    "subCategory": "Tandoori",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 285,
+    "protein": 10.2,
+    "carbohydrates": 58.5,
+    "fat": 1.6,
+    "fiber": 10.2,
+    "sugar": 1,
+    "sodium": 120,
+    "saturatedFat": 0.3,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 50,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Tandoori Roti (50g)",
+        "grams": 50
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Butter Tandoori Roti",
+    "category": "Roti and breads",
+    "subCategory": "Tandoori",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 320,
+    "protein": 9.5,
+    "carbohydrates": 54,
+    "fat": 7.8,
+    "fiber": 9.2,
+    "sugar": 1.1,
+    "sodium": 140,
+    "saturatedFat": 4.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 55,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Butter Roti (55g)",
+        "grams": 55
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Plain Paratha (Shallow Fried)",
+    "category": "Roti and breads",
+    "subCategory": "Paratha",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 335,
+    "protein": 8.2,
+    "carbohydrates": 51.5,
+    "fat": 11.2,
+    "fiber": 7.2,
+    "sugar": 1,
+    "sodium": 140,
+    "saturatedFat": 3.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 65,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Plain Paratha (65g)",
+        "grams": 65
+      },
+      {
+        "unit": "serving",
+        "label": "2 Parathas (130g)",
+        "grams": 130
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Aloo Paratha (Stuffed Potato)",
+    "category": "Roti and breads",
+    "subCategory": "Paratha",
+    "cuisine": "Punjabi",
+    "brand": null,
+    "caloriesPer100g": 235,
+    "protein": 5.4,
+    "carbohydrates": 36.8,
+    "fat": 7.8,
+    "fiber": 4.2,
+    "sugar": 1.2,
+    "sodium": 240,
+    "saturatedFat": 2.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 110,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Aloo Paratha (110g)",
+        "grams": 110
+      },
+      {
+        "unit": "large",
+        "label": "Large Dhaba Paratha (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Paneer Paratha (Stuffed Cottage Cheese)",
+    "category": "Roti and breads",
+    "subCategory": "Paratha",
+    "cuisine": "Punjabi",
+    "brand": null,
+    "caloriesPer100g": 285,
+    "protein": 10.8,
+    "carbohydrates": 32.5,
+    "fat": 12.8,
+    "fiber": 3.6,
+    "sugar": 1,
+    "sodium": 260,
+    "saturatedFat": 5.4,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 110,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Paneer Paratha (110g)",
+        "grams": 110
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Gobi Paratha (Stuffed Cauliflower)",
+    "category": "Roti and breads",
+    "subCategory": "Paratha",
+    "cuisine": "Punjabi",
+    "brand": null,
+    "caloriesPer100g": 220,
+    "protein": 5.8,
+    "carbohydrates": 34.2,
+    "fat": 7.2,
+    "fiber": 4.8,
+    "sugar": 1.4,
+    "sodium": 230,
+    "saturatedFat": 1.9,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 110,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Gobi Paratha (110g)",
+        "grams": 110
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Methi Paratha",
+    "category": "Roti and breads",
+    "subCategory": "Paratha",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 265,
+    "protein": 7.2,
+    "carbohydrates": 42,
+    "fat": 8.1,
+    "fiber": 6.2,
+    "sugar": 1.1,
+    "sodium": 210,
+    "saturatedFat": 2.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 75,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Methi Paratha (75g)",
+        "grams": 75
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Mooli Paratha (Stuffed Radish)",
+    "category": "Roti and breads",
+    "subCategory": "Paratha",
+    "cuisine": "Punjabi",
+    "brand": null,
+    "caloriesPer100g": 210,
+    "protein": 5.2,
+    "carbohydrates": 33.5,
+    "fat": 6.8,
+    "fiber": 4.5,
+    "sugar": 1.6,
+    "sodium": 240,
+    "saturatedFat": 1.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 110,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Mooli Paratha (110g)",
+        "grams": 110
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Pyaz Paratha (Stuffed Spiced Onion)",
+    "category": "Roti and breads",
+    "subCategory": "Paratha",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 245,
+    "protein": 5.8,
+    "carbohydrates": 38.2,
+    "fat": 8.1,
+    "fiber": 4.4,
+    "sugar": 2.2,
+    "sodium": 230,
+    "saturatedFat": 2.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 100,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Pyaz Paratha (100g)",
+        "grams": 100
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Sattu Paratha (Spiced Gram Flour Stuffed)",
+    "category": "Roti and breads",
+    "subCategory": "Paratha",
+    "cuisine": "Bihari",
+    "brand": null,
+    "caloriesPer100g": 275,
+    "protein": 9.8,
+    "carbohydrates": 42,
+    "fat": 8.2,
+    "fiber": 6.8,
+    "sugar": 1.2,
+    "sodium": 250,
+    "saturatedFat": 2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 100,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Sattu Paratha (100g)",
+        "grams": 100
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Lachha Paratha (Layered Flatbread with Ghee)",
+    "category": "Roti and breads",
+    "subCategory": "Paratha",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 360,
+    "protein": 7.8,
+    "carbohydrates": 48.5,
+    "fat": 15.2,
+    "fiber": 5.2,
+    "sugar": 1.2,
+    "sodium": 180,
+    "saturatedFat": 6.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 80,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Lachha Paratha (80g)",
+        "grams": 80
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Bajra Roti (Pearl Millet)",
+    "category": "Roti and breads",
+    "subCategory": "Millet Roti",
+    "cuisine": "Rajasthani",
+    "brand": null,
+    "caloriesPer100g": 260,
+    "protein": 8.5,
+    "carbohydrates": 52,
+    "fat": 3.2,
+    "fiber": 8.5,
+    "sugar": 0.8,
+    "sodium": 15,
+    "saturatedFat": 0.6,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 60,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Bajra Roti (60g)",
+        "grams": 60
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Jowar Roti (Sorghum Bhakri)",
+    "category": "Roti and breads",
+    "subCategory": "Millet Roti",
+    "cuisine": "Maharashtrian",
+    "brand": null,
+    "caloriesPer100g": 250,
+    "protein": 7.8,
+    "carbohydrates": 54.2,
+    "fat": 2.1,
+    "fiber": 7.2,
+    "sugar": 0.6,
+    "sodium": 12,
+    "saturatedFat": 0.4,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 55,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Jowar Bhakri (55g)",
+        "grams": 55
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Ragi Roti (Finger Millet)",
+    "category": "Roti and breads",
+    "subCategory": "Millet Roti",
+    "cuisine": "South Indian",
+    "brand": null,
+    "caloriesPer100g": 240,
+    "protein": 6.5,
+    "carbohydrates": 51.5,
+    "fat": 1.8,
+    "fiber": 8.8,
+    "sugar": 0.5,
+    "sodium": 18,
+    "saturatedFat": 0.4,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 60,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Ragi Roti (60g)",
+        "grams": 60
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Makki di Roti (Cornmeal)",
+    "category": "Roti and breads",
+    "subCategory": "Corn Roti",
+    "cuisine": "Punjabi",
+    "brand": null,
+    "caloriesPer100g": 275,
+    "protein": 6.8,
+    "carbohydrates": 55.4,
+    "fat": 4.2,
+    "fiber": 6.8,
+    "sugar": 1.2,
+    "sodium": 20,
+    "saturatedFat": 0.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 60,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Makki Roti (60g)",
+        "grams": 60
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Rumali Roti",
+    "category": "Roti and breads",
+    "subCategory": "Flatbread",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 280,
+    "protein": 8.2,
+    "carbohydrates": 56.5,
+    "fat": 2.5,
+    "fiber": 3.2,
+    "sugar": 1.8,
+    "sodium": 160,
+    "saturatedFat": 0.6,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 65,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Rumali Roti (65g)",
+        "grams": 65
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Butter Naan",
+    "category": "Roti and breads",
+    "subCategory": "Naan",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 310,
+    "protein": 8.5,
+    "carbohydrates": 50.2,
+    "fat": 8.9,
+    "fiber": 2.8,
+    "sugar": 2.5,
+    "sodium": 320,
+    "saturatedFat": 4.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 90,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Butter Naan (90g)",
+        "grams": 90
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Garlic Naan",
+    "category": "Roti and breads",
+    "subCategory": "Naan",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 315,
+    "protein": 8.8,
+    "carbohydrates": 49.5,
+    "fat": 9.4,
+    "fiber": 3.1,
+    "sugar": 2.4,
+    "sodium": 340,
+    "saturatedFat": 5.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 95,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Garlic Naan (95g)",
+        "grams": 95
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Plain Naan",
+    "category": "Roti and breads",
+    "subCategory": "Naan",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 280,
+    "protein": 8.8,
+    "carbohydrates": 53.5,
+    "fat": 3.8,
+    "fiber": 2.8,
+    "sugar": 2.4,
+    "sodium": 290,
+    "saturatedFat": 0.9,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 85,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Plain Naan (85g)",
+        "grams": 85
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Bhatura (Deep Fried)",
+    "category": "Roti and breads",
+    "subCategory": "Deep Fried",
+    "cuisine": "Punjabi",
+    "brand": null,
+    "caloriesPer100g": 340,
+    "protein": 7.2,
+    "carbohydrates": 48,
+    "fat": 14.5,
+    "fiber": 2.2,
+    "sugar": 2,
+    "sodium": 280,
+    "saturatedFat": 4.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 85,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Bhatura (85g)",
+        "grams": 85
+      },
+      {
+        "unit": "serving",
+        "label": "Pair of 2 Bhature (170g)",
+        "grams": 170
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Puri (Deep Fried)",
+    "category": "Roti and breads",
+    "subCategory": "Deep Fried",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 365,
+    "protein": 7.5,
+    "carbohydrates": 46.5,
+    "fat": 17.8,
+    "fiber": 5.8,
+    "sugar": 0.9,
+    "sodium": 120,
+    "saturatedFat": 4.5,
+    "defaultServingSize": 2,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 30,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Puri (30g)",
+        "grams": 30
+      },
+      {
+        "unit": "serving",
+        "label": "4 Puris (120g)",
+        "grams": 120
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Brown Bread (1 Slice)",
+    "category": "Roti and breads",
+    "subCategory": "Sliced Bread",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 250,
+    "protein": 9,
+    "carbohydrates": 46,
+    "fat": 3.5,
+    "fiber": 6,
+    "sugar": 4.5,
+    "sodium": 420,
+    "saturatedFat": 0.8,
+    "defaultServingSize": 2,
+    "defaultServingUnit": "slice",
+    "servingWeightGrams": 30,
+    "servingUnits": [
+      {
+        "unit": "slice",
+        "label": "1 Slice (30g)",
+        "grams": 30
+      },
+      {
+        "unit": "serving",
+        "label": "2 Slices (60g)",
+        "grams": 60
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "White Bread (1 Slice)",
+    "category": "Roti and breads",
+    "subCategory": "Sliced Bread",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 265,
+    "protein": 8.5,
+    "carbohydrates": 50.5,
+    "fat": 3.2,
+    "fiber": 2.5,
+    "sugar": 5,
+    "sodium": 490,
+    "saturatedFat": 0.7,
+    "defaultServingSize": 2,
+    "defaultServingUnit": "slice",
+    "servingWeightGrams": 28,
+    "servingUnits": [
+      {
+        "unit": "slice",
+        "label": "1 Slice (28g)",
+        "grams": 28
+      },
+      {
+        "unit": "serving",
+        "label": "2 Slices (56g)",
+        "grams": 56
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Multigrain Bread (1 Slice)",
+    "category": "Roti and breads",
+    "subCategory": "Sliced Bread",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 255,
+    "protein": 11.2,
+    "carbohydrates": 43.5,
+    "fat": 4.2,
+    "fiber": 7.2,
+    "sugar": 4,
+    "sodium": 390,
+    "saturatedFat": 0.8,
+    "defaultServingSize": 2,
+    "defaultServingUnit": "slice",
+    "servingWeightGrams": 32,
+    "servingUnits": [
+      {
+        "unit": "slice",
+        "label": "1 Slice (32g)",
+        "grams": 32
+      },
+      {
+        "unit": "serving",
+        "label": "2 Slices (64g)",
+        "grams": 64
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Pav (Dinner Roll Bun)",
+    "category": "Roti and breads",
+    "subCategory": "Rolls",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 280,
+    "protein": 8.8,
+    "carbohydrates": 54,
+    "fat": 3.5,
+    "fiber": 2.8,
+    "sugar": 4.8,
+    "sodium": 410,
+    "saturatedFat": 1.1,
+    "defaultServingSize": 2,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 35,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Pav (35g)",
+        "grams": 35
+      },
+      {
+        "unit": "serving",
+        "label": "Pair of 2 Pavs (70g)",
+        "grams": 70
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Toor Dal / Arhar Dal (Yellow Dal Tadka)",
+    "category": "Dal and legumes",
+    "subCategory": "Dal",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 105,
+    "protein": 5.8,
+    "carbohydrates": 14.2,
+    "fat": 3.2,
+    "fiber": 3.8,
+    "sugar": 0.8,
+    "sodium": 180,
+    "saturatedFat": 0.9,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Dal Fry (Toor Dal Dhaba Style)",
+    "category": "Dal and legumes",
+    "subCategory": "Dal",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 125,
+    "protein": 5.9,
+    "carbohydrates": 14.8,
+    "fat": 5.4,
+    "fiber": 3.9,
+    "sugar": 1.1,
+    "sodium": 210,
+    "saturatedFat": 2.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Moong Dal (Yellow Split, Cooked)",
+    "category": "Dal and legumes",
+    "subCategory": "Dal",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 88,
+    "protein": 6.2,
+    "carbohydrates": 13.5,
+    "fat": 1.1,
+    "fiber": 3.5,
+    "sugar": 0.6,
+    "sodium": 140,
+    "saturatedFat": 0.3,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Green Moong Dal (Whole, Cooked Gravy)",
+    "category": "Dal and legumes",
+    "subCategory": "Dal",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 105,
+    "protein": 7.1,
+    "carbohydrates": 15.8,
+    "fat": 1.8,
+    "fiber": 4.8,
+    "sugar": 0.7,
+    "sodium": 150,
+    "saturatedFat": 0.3,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Masoor Dal (Red Lentil Curry)",
+    "category": "Dal and legumes",
+    "subCategory": "Dal",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 96,
+    "protein": 6.8,
+    "carbohydrates": 14.5,
+    "fat": 1.8,
+    "fiber": 3.9,
+    "sugar": 0.7,
+    "sodium": 160,
+    "saturatedFat": 0.4,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Chana Dal (Cooked with Spices)",
+    "category": "Dal and legumes",
+    "subCategory": "Dal",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 135,
+    "protein": 7.5,
+    "carbohydrates": 19.8,
+    "fat": 3.1,
+    "fiber": 5.2,
+    "sugar": 0.9,
+    "sodium": 190,
+    "saturatedFat": 0.6,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Urad Dal (Split White Dal)",
+    "category": "Dal and legumes",
+    "subCategory": "Dal",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 110,
+    "protein": 7.2,
+    "carbohydrates": 16.2,
+    "fat": 2.1,
+    "fiber": 4.5,
+    "sugar": 0.5,
+    "sodium": 160,
+    "saturatedFat": 0.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Dal Makhani (Black Lentils with Butter & Cream)",
+    "category": "Dal and legumes",
+    "subCategory": "Dal",
+    "cuisine": "Punjabi",
+    "brand": null,
+    "caloriesPer100g": 165,
+    "protein": 5.6,
+    "carbohydrates": 16.8,
+    "fat": 9.1,
+    "fiber": 4.2,
+    "sugar": 1.2,
+    "sodium": 240,
+    "saturatedFat": 4.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 180,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (220g)",
+        "grams": 220
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Dal Palak (Spinach & Lentil Curry)",
+    "category": "Dal and legumes",
+    "subCategory": "Dal",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 92,
+    "protein": 5.4,
+    "carbohydrates": 12.2,
+    "fat": 2.8,
+    "fiber": 3.8,
+    "sugar": 0.9,
+    "sodium": 170,
+    "saturatedFat": 0.6,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Panchmel Dal (Rajasthani 5 Lentil Dal)",
+    "category": "Dal and legumes",
+    "subCategory": "Dal",
+    "cuisine": "Rajasthani",
+    "brand": null,
+    "caloriesPer100g": 128,
+    "protein": 7.1,
+    "carbohydrates": 17.5,
+    "fat": 3.8,
+    "fiber": 4.8,
+    "sugar": 0.8,
+    "sodium": 190,
+    "saturatedFat": 1.4,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "South Indian Sambar",
+    "category": "Dal and legumes",
+    "subCategory": "Lentil Stew",
+    "cuisine": "South Indian",
+    "brand": null,
+    "caloriesPer100g": 65,
+    "protein": 2.8,
+    "carbohydrates": 9.8,
+    "fat": 1.8,
+    "fiber": 2.4,
+    "sugar": 1.8,
+    "sodium": 220,
+    "saturatedFat": 0.4,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 180,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Tomato Rasam (Spiced Tamarind Soup)",
+    "category": "Dal and legumes",
+    "subCategory": "Soup",
+    "cuisine": "South Indian",
+    "brand": null,
+    "caloriesPer100g": 40,
+    "protein": 1.2,
+    "carbohydrates": 6.8,
+    "fat": 1.1,
+    "fiber": 1.2,
+    "sugar": 1.5,
+    "sodium": 240,
+    "saturatedFat": 0.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori / Cup (150ml)",
+        "grams": 150
+      },
+      {
+        "unit": "ml",
+        "label": "Milliliters (ml)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Rajma Masala (Kidney Bean Curry)",
+    "category": "Dal and legumes",
+    "subCategory": "Legumes",
+    "cuisine": "Punjabi",
+    "brand": null,
+    "caloriesPer100g": 125,
+    "protein": 6.1,
+    "carbohydrates": 17.5,
+    "fat": 3.8,
+    "fiber": 4.5,
+    "sugar": 1.1,
+    "sodium": 210,
+    "saturatedFat": 0.7,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 180,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (220g)",
+        "grams": 220
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Boiled Rajma (Plain Salted Kidney Beans)",
+    "category": "Dal and legumes",
+    "subCategory": "Legumes",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 127,
+    "protein": 8.7,
+    "carbohydrates": 22.8,
+    "fat": 0.5,
+    "fiber": 6.4,
+    "sugar": 0.3,
+    "sodium": 110,
+    "saturatedFat": 0.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (177g)",
+        "grams": 177
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Chole / Chana Masala (Punjabi Chickpeas)",
+    "category": "Dal and legumes",
+    "subCategory": "Legumes",
+    "cuisine": "Punjabi",
+    "brand": null,
+    "caloriesPer100g": 145,
+    "protein": 6.8,
+    "carbohydrates": 18.2,
+    "fat": 5.4,
+    "fiber": 5.1,
+    "sugar": 1.2,
+    "sodium": 230,
+    "saturatedFat": 0.9,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 180,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (220g)",
+        "grams": 220
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Boiled Chickpeas (Kabuli Chana)",
+    "category": "Dal and legumes",
+    "subCategory": "Legumes",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 164,
+    "protein": 8.9,
+    "carbohydrates": 27.4,
+    "fat": 2.6,
+    "fiber": 7.6,
+    "sugar": 4.8,
+    "sodium": 80,
+    "saturatedFat": 0.3,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (164g)",
+        "grams": 164
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Kala Chana Curry (Black Chickpea Gravy)",
+    "category": "Dal and legumes",
+    "subCategory": "Legumes",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 135,
+    "protein": 7.2,
+    "carbohydrates": 19.5,
+    "fat": 3.6,
+    "fiber": 6.1,
+    "sugar": 0.8,
+    "sodium": 190,
+    "saturatedFat": 0.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Boiled Kala Chana Chaat",
+    "category": "Dal and legumes",
+    "subCategory": "Legumes",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 140,
+    "protein": 8.5,
+    "carbohydrates": 22,
+    "fat": 2.1,
+    "fiber": 7.2,
+    "sugar": 1.2,
+    "sodium": 160,
+    "saturatedFat": 0.3,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Lobia Curry (Black-Eyed Peas)",
+    "category": "Dal and legumes",
+    "subCategory": "Legumes",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 115,
+    "protein": 6.8,
+    "carbohydrates": 16.5,
+    "fat": 2.8,
+    "fiber": 4.8,
+    "sugar": 1,
+    "sodium": 170,
+    "saturatedFat": 0.4,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Matki Usal (Sprouted Moth Beans Curry)",
+    "category": "Dal and legumes",
+    "subCategory": "Legumes",
+    "cuisine": "Maharashtrian",
+    "brand": null,
+    "caloriesPer100g": 125,
+    "protein": 7.8,
+    "carbohydrates": 17.2,
+    "fat": 3.2,
+    "fiber": 5.5,
+    "sugar": 1.4,
+    "sodium": 180,
+    "saturatedFat": 0.6,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Sprouted Moong Salad",
+    "category": "Dal and legumes",
+    "subCategory": "Sprouts",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 80,
+    "protein": 6.5,
+    "carbohydrates": 12.8,
+    "fat": 0.8,
+    "fiber": 4.2,
+    "sugar": 1.8,
+    "sodium": 80,
+    "saturatedFat": 0.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 120,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (120g)",
+        "grams": 120
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Aloo Gobi (Dry Cauliflower & Potato Sabzi)",
+    "category": "Vegetables and curries",
+    "subCategory": "Dry Sabzi",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 110,
+    "protein": 2.4,
+    "carbohydrates": 14.8,
+    "fat": 4.8,
+    "fiber": 3.2,
+    "sugar": 2.1,
+    "sodium": 180,
+    "saturatedFat": 0.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Bhindi Masala (Okra / Ladyfinger Sabzi)",
+    "category": "Vegetables and curries",
+    "subCategory": "Dry Sabzi",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 95,
+    "protein": 2.1,
+    "carbohydrates": 9.5,
+    "fat": 5.6,
+    "fiber": 3.8,
+    "sugar": 1.8,
+    "sodium": 170,
+    "saturatedFat": 0.9,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 130,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (130g)",
+        "grams": 130
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Baingan Bharta (Roasted Eggplant Mash)",
+    "category": "Vegetables and curries",
+    "subCategory": "Dry Sabzi",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 85,
+    "protein": 1.8,
+    "carbohydrates": 7.8,
+    "fat": 5.4,
+    "fiber": 3.5,
+    "sugar": 2.6,
+    "sodium": 160,
+    "saturatedFat": 0.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Aloo Matar (Potato & Green Peas Curry)",
+    "category": "Vegetables and curries",
+    "subCategory": "Curry",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 105,
+    "protein": 2.8,
+    "carbohydrates": 15.2,
+    "fat": 3.8,
+    "fiber": 3.1,
+    "sugar": 2.4,
+    "sodium": 190,
+    "saturatedFat": 0.6,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Lauki Ki Sabzi (Bottle Gourd Curry)",
+    "category": "Vegetables and curries",
+    "subCategory": "Curry",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 55,
+    "protein": 1.2,
+    "carbohydrates": 6.2,
+    "fat": 2.8,
+    "fiber": 2.1,
+    "sugar": 1.8,
+    "sodium": 140,
+    "saturatedFat": 0.4,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Tori / Ridge Gourd Sabzi (Turai)",
+    "category": "Vegetables and curries",
+    "subCategory": "Curry",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 52,
+    "protein": 1.1,
+    "carbohydrates": 5.8,
+    "fat": 2.6,
+    "fiber": 2.2,
+    "sugar": 1.6,
+    "sodium": 135,
+    "saturatedFat": 0.4,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Karela Sabzi (Bitter Gourd Fry)",
+    "category": "Vegetables and curries",
+    "subCategory": "Dry Sabzi",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 82,
+    "protein": 1.9,
+    "carbohydrates": 8.5,
+    "fat": 4.8,
+    "fiber": 3.6,
+    "sugar": 1.4,
+    "sodium": 160,
+    "saturatedFat": 0.7,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 120,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (120g)",
+        "grams": 120
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Tinda Ki Sabzi (Apple Gourd)",
+    "category": "Vegetables and curries",
+    "subCategory": "Curry",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 58,
+    "protein": 1.3,
+    "carbohydrates": 6.5,
+    "fat": 3.1,
+    "fiber": 2.4,
+    "sugar": 1.7,
+    "sodium": 140,
+    "saturatedFat": 0.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Arbi Roast (Colocasia / Taro Root Fry)",
+    "category": "Vegetables and curries",
+    "subCategory": "Dry Sabzi",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 145,
+    "protein": 2.1,
+    "carbohydrates": 22.5,
+    "fat": 5.5,
+    "fiber": 4.1,
+    "sugar": 0.8,
+    "sodium": 180,
+    "saturatedFat": 0.9,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 130,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (130g)",
+        "grams": 130
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Aloo Jeera (Cumin Spiced Potatoes)",
+    "category": "Vegetables and curries",
+    "subCategory": "Dry Sabzi",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 135,
+    "protein": 2.1,
+    "carbohydrates": 21,
+    "fat": 5.2,
+    "fiber": 2.6,
+    "sugar": 0.9,
+    "sodium": 190,
+    "saturatedFat": 0.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 140,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (140g)",
+        "grams": 140
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Aloo Shimla Mirch (Potato & Capsicum)",
+    "category": "Vegetables and curries",
+    "subCategory": "Dry Sabzi",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 98,
+    "protein": 2,
+    "carbohydrates": 14.5,
+    "fat": 3.8,
+    "fiber": 2.8,
+    "sugar": 2.2,
+    "sodium": 170,
+    "saturatedFat": 0.6,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 140,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (140g)",
+        "grams": 140
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Mix Vegetable Curry",
+    "category": "Vegetables and curries",
+    "subCategory": "Curry",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 90,
+    "protein": 2.2,
+    "carbohydrates": 11.2,
+    "fat": 4.2,
+    "fiber": 3.4,
+    "sugar": 2.5,
+    "sodium": 180,
+    "saturatedFat": 0.7,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Cabbage Poriyal / Sabzi",
+    "category": "Vegetables and curries",
+    "subCategory": "Dry Sabzi",
+    "cuisine": "South Indian",
+    "brand": null,
+    "caloriesPer100g": 68,
+    "protein": 1.8,
+    "carbohydrates": 7.2,
+    "fat": 3.8,
+    "fiber": 2.8,
+    "sugar": 2.2,
+    "sodium": 150,
+    "saturatedFat": 1.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 130,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (130g)",
+        "grams": 130
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Carrot Beans Poriyal",
+    "category": "Vegetables and curries",
+    "subCategory": "Dry Sabzi",
+    "cuisine": "South Indian",
+    "brand": null,
+    "caloriesPer100g": 72,
+    "protein": 2,
+    "carbohydrates": 8.5,
+    "fat": 3.5,
+    "fiber": 3.4,
+    "sugar": 2.8,
+    "sodium": 140,
+    "saturatedFat": 1.6,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 130,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (130g)",
+        "grams": 130
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Drumstick Curry (Murungakkai Sambar/Curry)",
+    "category": "Vegetables and curries",
+    "subCategory": "Curry",
+    "cuisine": "South Indian",
+    "brand": null,
+    "caloriesPer100g": 75,
+    "protein": 2.5,
+    "carbohydrates": 9.8,
+    "fat": 3.2,
+    "fiber": 3.2,
+    "sugar": 2.1,
+    "sodium": 175,
+    "saturatedFat": 0.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Methi Malai Matar",
+    "category": "Vegetables and curries",
+    "subCategory": "Curry",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 175,
+    "protein": 4.8,
+    "carbohydrates": 12.5,
+    "fat": 12,
+    "fiber": 3.8,
+    "sugar": 3.5,
+    "sodium": 210,
+    "saturatedFat": 6.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Sarson Ka Saag",
+    "category": "Vegetables and curries",
+    "subCategory": "Saag",
+    "cuisine": "Punjabi",
+    "brand": null,
+    "caloriesPer100g": 115,
+    "protein": 3.8,
+    "carbohydrates": 8.2,
+    "fat": 7.8,
+    "fiber": 4.5,
+    "sugar": 1.5,
+    "sodium": 210,
+    "saturatedFat": 3.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 180,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Palak Saag (Spinach Curry)",
+    "category": "Vegetables and curries",
+    "subCategory": "Saag",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 75,
+    "protein": 3.2,
+    "carbohydrates": 6.2,
+    "fat": 4.5,
+    "fiber": 3.2,
+    "sugar": 1.2,
+    "sodium": 180,
+    "saturatedFat": 1.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Gatte Ki Sabzi",
+    "category": "Vegetables and curries",
+    "subCategory": "Regional Curry",
+    "cuisine": "Rajasthani",
+    "brand": null,
+    "caloriesPer100g": 145,
+    "protein": 5.8,
+    "carbohydrates": 12.5,
+    "fat": 8.4,
+    "fiber": 2.8,
+    "sugar": 1.8,
+    "sodium": 230,
+    "saturatedFat": 3.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 180,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Sev Tameta Nu Shaak (Sev Tomato Curry)",
+    "category": "Vegetables and curries",
+    "subCategory": "Regional Curry",
+    "cuisine": "Gujarati",
+    "brand": null,
+    "caloriesPer100g": 165,
+    "protein": 4.2,
+    "carbohydrates": 16.5,
+    "fat": 9.5,
+    "fiber": 2.6,
+    "sugar": 4.8,
+    "sodium": 280,
+    "saturatedFat": 2.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Aloo Posto (Potatoes in Poppy Seed Paste)",
+    "category": "Vegetables and curries",
+    "subCategory": "Regional Curry",
+    "cuisine": "Bengali",
+    "brand": null,
+    "caloriesPer100g": 155,
+    "protein": 3.8,
+    "carbohydrates": 18.5,
+    "fat": 7.8,
+    "fiber": 3.5,
+    "sugar": 1.2,
+    "sodium": 160,
+    "saturatedFat": 1.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Shukto (Bengali Mixed Bitter & Sweet Vegetable)",
+    "category": "Vegetables and curries",
+    "subCategory": "Regional Curry",
+    "cuisine": "Bengali",
+    "brand": null,
+    "caloriesPer100g": 85,
+    "protein": 2.2,
+    "carbohydrates": 10.5,
+    "fat": 4.1,
+    "fiber": 3.2,
+    "sugar": 2.5,
+    "sodium": 150,
+    "saturatedFat": 1.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Fresh Paneer (Raw Cottage Cheese)",
+    "category": "Dairy products",
+    "subCategory": "Paneer",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 265,
+    "protein": 18.3,
+    "carbohydrates": 3.4,
+    "fat": 20.8,
+    "fiber": 0,
+    "sugar": 2.8,
+    "sodium": 22,
+    "saturatedFat": 13.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "serving",
+    "servingWeightGrams": 100,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "100g Slab",
+        "grams": 100
+      },
+      {
+        "unit": "small",
+        "label": "50g Portion",
+        "grams": 50
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Low-Fat Paneer",
+    "category": "Dairy products",
+    "subCategory": "Paneer",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 165,
+    "protein": 24.5,
+    "carbohydrates": 4.8,
+    "fat": 5.2,
+    "fiber": 0,
+    "sugar": 3.1,
+    "sodium": 30,
+    "saturatedFat": 3.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "serving",
+    "servingWeightGrams": 100,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "100g Portion",
+        "grams": 100
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Palak Paneer",
+    "category": "Dairy products",
+    "subCategory": "Paneer Dishes",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 140,
+    "protein": 7.2,
+    "carbohydrates": 5.6,
+    "fat": 10.2,
+    "fiber": 2.6,
+    "sugar": 1.8,
+    "sodium": 210,
+    "saturatedFat": 5.4,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 180,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (220g)",
+        "grams": 220
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Matar Paneer",
+    "category": "Dairy products",
+    "subCategory": "Paneer Dishes",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 155,
+    "protein": 7.8,
+    "carbohydrates": 8.5,
+    "fat": 10.5,
+    "fiber": 2.5,
+    "sugar": 2.4,
+    "sodium": 220,
+    "saturatedFat": 5.6,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 180,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Paneer Butter Masala",
+    "category": "Dairy products",
+    "subCategory": "Paneer Dishes",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 220,
+    "protein": 8.5,
+    "carbohydrates": 8.2,
+    "fat": 17.5,
+    "fiber": 1.8,
+    "sugar": 3.2,
+    "sodium": 280,
+    "saturatedFat": 9.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 200,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Shahi Paneer",
+    "category": "Dairy products",
+    "subCategory": "Paneer Dishes",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 235,
+    "protein": 8.8,
+    "carbohydrates": 9.5,
+    "fat": 18.2,
+    "fiber": 1.5,
+    "sugar": 3.8,
+    "sodium": 270,
+    "saturatedFat": 10.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 200,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Kadai Paneer",
+    "category": "Dairy products",
+    "subCategory": "Paneer Dishes",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 185,
+    "protein": 9.2,
+    "carbohydrates": 7.8,
+    "fat": 13.5,
+    "fiber": 2.2,
+    "sugar": 2.2,
+    "sodium": 260,
+    "saturatedFat": 6.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 180,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (180g)",
+        "grams": 180
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Paneer Tikka (Grilled)",
+    "category": "Dairy products",
+    "subCategory": "Paneer Dishes",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 215,
+    "protein": 14.5,
+    "carbohydrates": 6.2,
+    "fat": 15.2,
+    "fiber": 1.6,
+    "sugar": 1.8,
+    "sodium": 260,
+    "saturatedFat": 8.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "plate",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "plate",
+        "label": "Plate of 6 Cubes (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "piece",
+        "label": "1 Cube (25g)",
+        "grams": 25
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Paneer Bhurji",
+    "category": "Dairy products",
+    "subCategory": "Paneer Dishes",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 195,
+    "protein": 12.8,
+    "carbohydrates": 5.2,
+    "fat": 14,
+    "fiber": 1.5,
+    "sugar": 1.8,
+    "sodium": 240,
+    "saturatedFat": 7.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Plain Dahi / Curd (Cow Milk)",
+    "category": "Dairy products",
+    "subCategory": "Yogurt & Curd",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 61,
+    "protein": 3.5,
+    "carbohydrates": 4.7,
+    "fat": 3.2,
+    "fiber": 0,
+    "sugar": 4.5,
+    "sodium": 46,
+    "saturatedFat": 2.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Greek Yogurt (0% Fat)",
+    "category": "Dairy products",
+    "subCategory": "Yogurt & Curd",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 59,
+    "protein": 10.3,
+    "carbohydrates": 3.6,
+    "fat": 0.4,
+    "fiber": 0,
+    "sugar": 3.2,
+    "sodium": 36,
+    "saturatedFat": 0.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "cup",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "cup",
+        "label": "1 Cup / Tub (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Cucumber Raita",
+    "category": "Dairy products",
+    "subCategory": "Raita",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 50,
+    "protein": 2.8,
+    "carbohydrates": 4.2,
+    "fat": 2.5,
+    "fiber": 0.5,
+    "sugar": 3.4,
+    "sodium": 120,
+    "saturatedFat": 1.6,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 120,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (120g)",
+        "grams": 120
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Boondi Raita",
+    "category": "Dairy products",
+    "subCategory": "Raita",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 95,
+    "protein": 3.5,
+    "carbohydrates": 8.8,
+    "fat": 5.2,
+    "fiber": 0.6,
+    "sugar": 3.2,
+    "sodium": 180,
+    "saturatedFat": 2.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 120,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (120g)",
+        "grams": 120
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Onion Tomato Raita",
+    "category": "Dairy products",
+    "subCategory": "Raita",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 52,
+    "protein": 2.6,
+    "carbohydrates": 5.1,
+    "fat": 2.4,
+    "fiber": 0.6,
+    "sugar": 3.5,
+    "sodium": 125,
+    "saturatedFat": 1.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 120,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori (120g)",
+        "grams": 120
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Amul Butter (Salted)",
+    "category": "Dairy products",
+    "subCategory": "Butter",
+    "cuisine": "Indian",
+    "brand": "Amul",
+    "caloriesPer100g": 717,
+    "protein": 0.8,
+    "carbohydrates": 0.6,
+    "fat": 81,
+    "fiber": 0,
+    "sugar": 0.6,
+    "sodium": 650,
+    "saturatedFat": 51,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "tbsp",
+    "servingWeightGrams": 10,
+    "servingUnits": [
+      {
+        "unit": "tbsp",
+        "label": "1 Pat / Tablespoon (10g)",
+        "grams": 10
+      },
+      {
+        "unit": "tsp",
+        "label": "1 Teaspoon (5g)",
+        "grams": 5
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Desi Ghee (Clarified Butter)",
+    "category": "Dairy products",
+    "subCategory": "Ghee",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 897,
+    "protein": 0.2,
+    "carbohydrates": 0,
+    "fat": 99.5,
+    "fiber": 0,
+    "sugar": 0,
+    "sodium": 2,
+    "saturatedFat": 62,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "tsp",
+    "servingWeightGrams": 5,
+    "servingUnits": [
+      {
+        "unit": "tsp",
+        "label": "1 Teaspoon (5g)",
+        "grams": 5
+      },
+      {
+        "unit": "tbsp",
+        "label": "1 Tablespoon (15g)",
+        "grams": 15
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Processed Cheese Slice (Amul / Britannia)",
+    "category": "Dairy products",
+    "subCategory": "Cheese",
+    "cuisine": "Global",
+    "brand": "Amul",
+    "caloriesPer100g": 310,
+    "protein": 20,
+    "carbohydrates": 2.5,
+    "fat": 25,
+    "fiber": 0,
+    "sugar": 2,
+    "sodium": 950,
+    "saturatedFat": 16,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "slice",
+    "servingWeightGrams": 20,
+    "servingUnits": [
+      {
+        "unit": "slice",
+        "label": "1 Cheese Slice (20g)",
+        "grams": 20
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Mozzarella Cheese (Shredded)",
+    "category": "Dairy products",
+    "subCategory": "Cheese",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 300,
+    "protein": 22.2,
+    "carbohydrates": 2.2,
+    "fat": 22.4,
+    "fiber": 0,
+    "sugar": 1,
+    "sodium": 627,
+    "saturatedFat": 13.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "tbsp",
+    "servingWeightGrams": 28,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "1 Serving (28g)",
+        "grams": 28
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup Shredded (112g)",
+        "grams": 112
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Chicken Breast (Grilled, Skinless)",
+    "category": "Chicken and meat",
+    "subCategory": "Poultry",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 165,
+    "protein": 31,
+    "carbohydrates": 0,
+    "fat": 3.6,
+    "fiber": 0,
+    "sugar": 0,
+    "sodium": 74,
+    "saturatedFat": 1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "serving",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "1 Breast (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "small",
+        "label": "100g Portion",
+        "grams": 100
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Chicken Breast (Boiled / Shredded)",
+    "category": "Chicken and meat",
+    "subCategory": "Poultry",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 158,
+    "protein": 32.1,
+    "carbohydrates": 0,
+    "fat": 3.2,
+    "fiber": 0,
+    "sugar": 0,
+    "sodium": 65,
+    "saturatedFat": 0.9,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 120,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Bowl (120g)",
+        "grams": 120
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (140g)",
+        "grams": 140
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Chicken Thigh (Skinless, Grilled)",
+    "category": "Chicken and meat",
+    "subCategory": "Poultry",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 198,
+    "protein": 24.2,
+    "carbohydrates": 0,
+    "fat": 11.2,
+    "fiber": 0,
+    "sugar": 0,
+    "sodium": 82,
+    "saturatedFat": 3.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 120,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Thigh (120g)",
+        "grams": 120
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Tandoori Chicken (Roasted)",
+    "category": "Chicken and meat",
+    "subCategory": "Tandoori",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 185,
+    "protein": 26.5,
+    "carbohydrates": 2.4,
+    "fat": 7.8,
+    "fiber": 0.6,
+    "sugar": 0.4,
+    "sodium": 280,
+    "saturatedFat": 2.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Leg / Breast (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "half",
+        "label": "Half Chicken (300g)",
+        "grams": 300
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Chicken Tikka (Boneless, Grilled)",
+    "category": "Chicken and meat",
+    "subCategory": "Tandoori",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 175,
+    "protein": 28,
+    "carbohydrates": 2.8,
+    "fat": 5.8,
+    "fiber": 0.5,
+    "sugar": 0.4,
+    "sodium": 290,
+    "saturatedFat": 1.6,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "plate",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "plate",
+        "label": "Plate of 6 Pieces (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "piece",
+        "label": "1 Piece (25g)",
+        "grams": 25
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Indian Chicken Curry (Homestyle)",
+    "category": "Chicken and meat",
+    "subCategory": "Chicken Curry",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 160,
+    "protein": 16.5,
+    "carbohydrates": 4.2,
+    "fat": 8.8,
+    "fiber": 1.2,
+    "sugar": 1.1,
+    "sodium": 260,
+    "saturatedFat": 2.4,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 200,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Medium Bowl (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Butter Chicken (Murgh Makhani)",
+    "category": "Chicken and meat",
+    "subCategory": "Chicken Curry",
+    "cuisine": "Punjabi",
+    "brand": null,
+    "caloriesPer100g": 195,
+    "protein": 13.5,
+    "carbohydrates": 5.8,
+    "fat": 13.2,
+    "fiber": 1.2,
+    "sugar": 3.1,
+    "sodium": 280,
+    "saturatedFat": 6.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 220,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Bowl (220g)",
+        "grams": 220
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Kadai Chicken",
+    "category": "Chicken and meat",
+    "subCategory": "Chicken Curry",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 170,
+    "protein": 17.2,
+    "carbohydrates": 4.5,
+    "fat": 9.4,
+    "fiber": 1.5,
+    "sugar": 1.4,
+    "sodium": 270,
+    "saturatedFat": 2.6,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 200,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Bowl (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Chicken Keema (Minced Chicken Curry)",
+    "category": "Chicken and meat",
+    "subCategory": "Poultry",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 170,
+    "protein": 22.4,
+    "carbohydrates": 3.5,
+    "fat": 7.5,
+    "fiber": 1.1,
+    "sugar": 0.8,
+    "sodium": 240,
+    "saturatedFat": 2.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Bowl (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Mutton Rogan Josh",
+    "category": "Chicken and meat",
+    "subCategory": "Mutton Curry",
+    "cuisine": "Kashmiri",
+    "brand": null,
+    "caloriesPer100g": 205,
+    "protein": 15.5,
+    "carbohydrates": 4.1,
+    "fat": 14.5,
+    "fiber": 1.2,
+    "sugar": 0.9,
+    "sodium": 280,
+    "saturatedFat": 5.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 200,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Bowl (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Mutton Keema Curry",
+    "category": "Chicken and meat",
+    "subCategory": "Mutton Curry",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 225,
+    "protein": 18.2,
+    "carbohydrates": 3.8,
+    "fat": 15.5,
+    "fiber": 1.1,
+    "sugar": 0.8,
+    "sodium": 270,
+    "saturatedFat": 6.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Bowl (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Boiled Whole Egg",
+    "category": "Eggs",
+    "subCategory": "Eggs",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 155,
+    "protein": 12.6,
+    "carbohydrates": 1.1,
+    "fat": 10.6,
+    "fiber": 0,
+    "sugar": 1.1,
+    "sodium": 124,
+    "saturatedFat": 3.3,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 50,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Large Egg (50g)",
+        "grams": 50
+      },
+      {
+        "unit": "serving",
+        "label": "2 Whole Eggs (100g)",
+        "grams": 100
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Boiled Egg White",
+    "category": "Eggs",
+    "subCategory": "Eggs",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 52,
+    "protein": 10.9,
+    "carbohydrates": 0.7,
+    "fat": 0.2,
+    "fiber": 0,
+    "sugar": 0.7,
+    "sodium": 166,
+    "saturatedFat": 0,
+    "defaultServingSize": 2,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 33,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Egg White (33g)",
+        "grams": 33
+      },
+      {
+        "unit": "serving",
+        "label": "3 Egg Whites (100g)",
+        "grams": 100
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Egg Omelette (Plain 2 Eggs)",
+    "category": "Eggs",
+    "subCategory": "Egg Dishes",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 185,
+    "protein": 11.5,
+    "carbohydrates": 2.5,
+    "fat": 14.2,
+    "fiber": 0.5,
+    "sugar": 1.2,
+    "sodium": 210,
+    "saturatedFat": 4.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 100,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "2-Egg Omelette (100g)",
+        "grams": 100
+      },
+      {
+        "unit": "large",
+        "label": "3-Egg Omelette (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Egg Bhurji (Scrambled with Spices)",
+    "category": "Eggs",
+    "subCategory": "Egg Dishes",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 175,
+    "protein": 11.2,
+    "carbohydrates": 3.2,
+    "fat": 13,
+    "fiber": 0.8,
+    "sugar": 1.4,
+    "sodium": 220,
+    "saturatedFat": 3.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 120,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Bowl (2 Eggs - 120g)",
+        "grams": 120
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Egg Curry (with 2 Boiled Eggs & Gravy)",
+    "category": "Eggs",
+    "subCategory": "Egg Dishes",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 140,
+    "protein": 8.5,
+    "carbohydrates": 5.2,
+    "fat": 9.5,
+    "fiber": 1.2,
+    "sugar": 1.6,
+    "sodium": 230,
+    "saturatedFat": 2.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 200,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Bowl (2 Eggs + Gravy - 200g)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Rohu Fish (Cooked / Steamed)",
+    "category": "Fish and seafood",
+    "subCategory": "Fish",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 102,
+    "protein": 19.5,
+    "carbohydrates": 0,
+    "fat": 2.6,
+    "fiber": 0,
+    "sugar": 0,
+    "sodium": 68,
+    "saturatedFat": 0.7,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 120,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Piece (120g)",
+        "grams": 120
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Salmon Fillet (Grilled)",
+    "category": "Fish and seafood",
+    "subCategory": "Fish",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 206,
+    "protein": 22.1,
+    "carbohydrates": 0,
+    "fat": 12.3,
+    "fiber": 0,
+    "sugar": 0,
+    "sodium": 61,
+    "saturatedFat": 2.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Fillet (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Canned Tuna (in Spring Water, Drained)",
+    "category": "Fish and seafood",
+    "subCategory": "Fish",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 116,
+    "protein": 25.5,
+    "carbohydrates": 0,
+    "fat": 0.8,
+    "fiber": 0,
+    "sugar": 0,
+    "sodium": 280,
+    "saturatedFat": 0.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "can",
+    "servingWeightGrams": 130,
+    "servingUnits": [
+      {
+        "unit": "can",
+        "label": "1 Can Drained (130g)",
+        "grams": 130
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Prawns / Shrimp (Steamed or Grilled)",
+    "category": "Fish and seafood",
+    "subCategory": "Seafood",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 99,
+    "protein": 24,
+    "carbohydrates": 0.2,
+    "fat": 0.3,
+    "fiber": 0,
+    "sugar": 0,
+    "sodium": 111,
+    "saturatedFat": 0.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "serving",
+    "servingWeightGrams": 100,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "100g Portion",
+        "grams": 100
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Fish Tikka (Tandoori Fish)",
+    "category": "Fish and seafood",
+    "subCategory": "Tandoori",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 145,
+    "protein": 22.5,
+    "carbohydrates": 2.5,
+    "fat": 5.2,
+    "fiber": 0.5,
+    "sugar": 0.4,
+    "sodium": 280,
+    "saturatedFat": 1.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "plate",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "plate",
+        "label": "Plate of 6 Pieces (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Pomfret Fish Fry (Rava Coated)",
+    "category": "Fish and seafood",
+    "subCategory": "Fried Fish",
+    "cuisine": "Maharashtrian",
+    "brand": null,
+    "caloriesPer100g": 210,
+    "protein": 18.5,
+    "carbohydrates": 8.5,
+    "fat": 11.5,
+    "fiber": 0.8,
+    "sugar": 0.2,
+    "sodium": 260,
+    "saturatedFat": 2.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 140,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Medium Whole Fish (140g)",
+        "grams": 140
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Surmai / Kingfish (Pan Fried)",
+    "category": "Fish and seafood",
+    "subCategory": "Fried Fish",
+    "cuisine": "Goan",
+    "brand": null,
+    "caloriesPer100g": 195,
+    "protein": 21,
+    "carbohydrates": 3.5,
+    "fat": 10.8,
+    "fiber": 0.5,
+    "sugar": 0.2,
+    "sodium": 240,
+    "saturatedFat": 2.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 130,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Steak Slice (130g)",
+        "grams": 130
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Apple (Fresh Whole with Skin)",
+    "category": "Fruits",
+    "subCategory": "Fresh Fruit",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 52,
+    "protein": 0.3,
+    "carbohydrates": 13.8,
+    "fat": 0.2,
+    "fiber": 2.4,
+    "sugar": 10.4,
+    "sodium": 1,
+    "saturatedFat": 0,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Medium Apple (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Banana (Fresh Ripe)",
+    "category": "Fruits",
+    "subCategory": "Fresh Fruit",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 89,
+    "protein": 1.1,
+    "carbohydrates": 22.8,
+    "fat": 0.3,
+    "fiber": 2.6,
+    "sugar": 12.2,
+    "sodium": 1,
+    "saturatedFat": 0.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 118,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Medium Banana (118g)",
+        "grams": 118
+      },
+      {
+        "unit": "small",
+        "label": "1 Small Elaichi Banana (60g)",
+        "grams": 60
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Mango (Fresh Sliced Pulp)",
+    "category": "Fruits",
+    "subCategory": "Fresh Fruit",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 60,
+    "protein": 0.8,
+    "carbohydrates": 15,
+    "fat": 0.4,
+    "fiber": 1.6,
+    "sugar": 13.7,
+    "sodium": 1,
+    "saturatedFat": 0.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "cup",
+    "servingWeightGrams": 165,
+    "servingUnits": [
+      {
+        "unit": "cup",
+        "label": "1 Cup Slices (165g)",
+        "grams": 165
+      },
+      {
+        "unit": "piece",
+        "label": "1 Medium Whole Mango (200g pulp)",
+        "grams": 200
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Guava (Amrood)",
+    "category": "Fruits",
+    "subCategory": "Fresh Fruit",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 68,
+    "protein": 2.6,
+    "carbohydrates": 14.3,
+    "fat": 1,
+    "fiber": 5.4,
+    "sugar": 8.9,
+    "sodium": 2,
+    "saturatedFat": 0.3,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 120,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Medium Guava (120g)",
+        "grams": 120
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Papaya (Fresh Cubes)",
+    "category": "Fruits",
+    "subCategory": "Fresh Fruit",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 43,
+    "protein": 0.5,
+    "carbohydrates": 10.8,
+    "fat": 0.3,
+    "fiber": 1.7,
+    "sugar": 7.8,
+    "sodium": 8,
+    "saturatedFat": 0.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Bowl (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "cup",
+        "label": "1 Cup (145g)",
+        "grams": 145
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Watermelon (Fresh Cubes)",
+    "category": "Fruits",
+    "subCategory": "Fresh Fruit",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 30,
+    "protein": 0.6,
+    "carbohydrates": 7.6,
+    "fat": 0.2,
+    "fiber": 0.4,
+    "sugar": 6.2,
+    "sodium": 1,
+    "saturatedFat": 0,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 200,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Bowl (200g)",
+        "grams": 200
+      },
+      {
+        "unit": "wedge",
+        "label": "1 Wedge (280g)",
+        "grams": 280
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Orange / Sweet Lime (Mosambi)",
+    "category": "Fruits",
+    "subCategory": "Fresh Fruit",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 47,
+    "protein": 0.9,
+    "carbohydrates": 11.8,
+    "fat": 0.1,
+    "fiber": 2.4,
+    "sugar": 9.4,
+    "sodium": 0,
+    "saturatedFat": 0,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 130,
+    "servingUnits": [
+      {
+        "unit": "piece",
+        "label": "1 Fruit (130g)",
+        "grams": 130
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Pomegranate Arils (Anaar)",
+    "category": "Fruits",
+    "subCategory": "Fresh Fruit",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 83,
+    "protein": 1.7,
+    "carbohydrates": 18.7,
+    "fat": 1.2,
+    "fiber": 4,
+    "sugar": 13.7,
+    "sodium": 3,
+    "saturatedFat": 0.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 100,
+    "servingUnits": [
+      {
+        "unit": "bowl",
+        "label": "1 Katori / Cup (100g)",
+        "grams": 100
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Almonds (Raw Whole)",
+    "category": "Nuts and seeds",
+    "subCategory": "Tree Nuts",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 579,
+    "protein": 21.2,
+    "carbohydrates": 21.6,
+    "fat": 49.9,
+    "fiber": 12.5,
+    "sugar": 4.4,
+    "sodium": 1,
+    "saturatedFat": 3.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "serving",
+    "servingWeightGrams": 28,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "1 Handful / 23 Almonds (28g)",
+        "grams": 28
+      },
+      {
+        "unit": "piece",
+        "label": "1 Almond (1.2g)",
+        "grams": 1.2
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Walnuts (Raw Halves)",
+    "category": "Nuts and seeds",
+    "subCategory": "Tree Nuts",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 654,
+    "protein": 15.2,
+    "carbohydrates": 13.7,
+    "fat": 65.2,
+    "fiber": 6.7,
+    "sugar": 2.6,
+    "sodium": 2,
+    "saturatedFat": 6.1,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "serving",
+    "servingWeightGrams": 28,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "1 Handful / 14 Halves (28g)",
+        "grams": 28
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Cashews (Raw Kaju)",
+    "category": "Nuts and seeds",
+    "subCategory": "Tree Nuts",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 553,
+    "protein": 18.2,
+    "carbohydrates": 30.2,
+    "fat": 43.8,
+    "fiber": 3.3,
+    "sugar": 5.9,
+    "sodium": 12,
+    "saturatedFat": 7.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "serving",
+    "servingWeightGrams": 28,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "1 Handful (28g)",
+        "grams": 28
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Pistachios (Roasted & Salted)",
+    "category": "Nuts and seeds",
+    "subCategory": "Tree Nuts",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 567,
+    "protein": 20.9,
+    "carbohydrates": 28.3,
+    "fat": 45.8,
+    "fiber": 10.3,
+    "sugar": 7.7,
+    "sodium": 420,
+    "saturatedFat": 5.6,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "serving",
+    "servingWeightGrams": 28,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "1 Handful (28g)",
+        "grams": 28
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Flax Seeds (Alsi Raw)",
+    "category": "Nuts and seeds",
+    "subCategory": "Seeds",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 534,
+    "protein": 18.3,
+    "carbohydrates": 28.9,
+    "fat": 42.2,
+    "fiber": 27.3,
+    "sugar": 1.6,
+    "sodium": 30,
+    "saturatedFat": 3.7,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "tbsp",
+    "servingWeightGrams": 10,
+    "servingUnits": [
+      {
+        "unit": "tbsp",
+        "label": "1 Tablespoon (10g)",
+        "grams": 10
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Pumpkin Seeds (Roasted)",
+    "category": "Nuts and seeds",
+    "subCategory": "Seeds",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 559,
+    "protein": 30.2,
+    "carbohydrates": 10.7,
+    "fat": 49.1,
+    "fiber": 6,
+    "sugar": 1.4,
+    "sodium": 18,
+    "saturatedFat": 8.7,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "tbsp",
+    "servingWeightGrams": 15,
+    "servingUnits": [
+      {
+        "unit": "tbsp",
+        "label": "1 Tablespoon (15g)",
+        "grams": 15
+      },
+      {
+        "unit": "serving",
+        "label": "Handful (30g)",
+        "grams": 30
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Sunflower Seeds",
+    "category": "Nuts and seeds",
+    "subCategory": "Seeds",
+    "cuisine": "Global",
+    "brand": null,
+    "caloriesPer100g": 584,
+    "protein": 20.8,
+    "carbohydrates": 20,
+    "fat": 51.5,
+    "fiber": 8.6,
+    "sugar": 2.6,
+    "sodium": 9,
+    "saturatedFat": 4.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "tbsp",
+    "servingWeightGrams": 15,
+    "servingUnits": [
+      {
+        "unit": "tbsp",
+        "label": "1 Tablespoon (15g)",
+        "grams": 15
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "USDA FoodData Central",
+    "isVerified": true
+  },
+  {
+    "name": "Sunfeast Bounce Choco Cream Biscuits",
+    "category": "Miscellaneous Snacks",
+    "subCategory": "Miscellaneous Snacks",
+    "cuisine": "Indian",
+    "brand": "Sunfeast",
+    "caloriesPer100g": 485,
+    "protein": 5.8,
+    "carbohydrates": 72,
+    "fat": 19.5,
+    "fiber": 2,
+    "sugar": 34,
+    "sodium": 240,
+    "saturatedFat": 9.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 10,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (10g)",
+        "grams": 10
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Monaco Salted Biscuits",
+    "category": "Miscellaneous Snacks",
+    "subCategory": "Miscellaneous Snacks",
+    "cuisine": "Indian",
+    "brand": "Parle",
+    "caloriesPer100g": 492,
+    "protein": 8,
+    "carbohydrates": 68,
+    "fat": 21,
+    "fiber": 2.2,
+    "sugar": 8.5,
+    "sodium": 820,
+    "saturatedFat": 9.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 4,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (4g)",
+        "grams": 4
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Hide & Seek Chocolate Chip Biscuits",
+    "category": "Miscellaneous Snacks",
+    "subCategory": "Miscellaneous Snacks",
+    "cuisine": "Indian",
+    "brand": "Parle",
+    "caloriesPer100g": 490,
+    "protein": 6.2,
+    "carbohydrates": 71,
+    "fat": 20.5,
+    "fiber": 2.5,
+    "sugar": 32,
+    "sodium": 280,
+    "saturatedFat": 10.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 8.5,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (8.5g)",
+        "grams": 8.5
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Bingo Mad Angles Achaari Masti",
+    "category": "Miscellaneous Snacks",
+    "subCategory": "Miscellaneous Snacks",
+    "cuisine": "Indian",
+    "brand": "Bingo",
+    "caloriesPer100g": 540,
+    "protein": 6.5,
+    "carbohydrates": 56,
+    "fat": 32,
+    "fiber": 3.5,
+    "sugar": 3.2,
+    "sodium": 680,
+    "saturatedFat": 14.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "packet",
+    "servingWeightGrams": 35,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (35g)",
+        "grams": 35
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Doritos Nacho Cheese Tortilla Chips",
+    "category": "Miscellaneous Snacks",
+    "subCategory": "Miscellaneous Snacks",
+    "cuisine": "Indian",
+    "brand": "Doritos",
+    "caloriesPer100g": 500,
+    "protein": 7.1,
+    "carbohydrates": 64.3,
+    "fat": 25,
+    "fiber": 3.6,
+    "sugar": 3.6,
+    "sodium": 640,
+    "saturatedFat": 10.7,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "packet",
+    "servingWeightGrams": 45,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (45g)",
+        "grams": 45
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Pringles Original Potato Crisps",
+    "category": "Miscellaneous Snacks",
+    "subCategory": "Miscellaneous Snacks",
+    "cuisine": "Indian",
+    "brand": "Pringles",
+    "caloriesPer100g": 536,
+    "protein": 4.2,
+    "carbohydrates": 54,
+    "fat": 33,
+    "fiber": 3,
+    "sugar": 0.8,
+    "sodium": 520,
+    "saturatedFat": 9.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "serving",
+    "servingWeightGrams": 30,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (30g)",
+        "grams": 30
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Bikaji Bhujia Sev",
+    "category": "Miscellaneous Snacks",
+    "subCategory": "Miscellaneous Snacks",
+    "cuisine": "Indian",
+    "brand": "Bikaji",
+    "caloriesPer100g": 590,
+    "protein": 9.2,
+    "carbohydrates": 41,
+    "fat": 43,
+    "fiber": 4.5,
+    "sugar": 1.2,
+    "sodium": 640,
+    "saturatedFat": 17,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "serving",
+    "servingWeightGrams": 35,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (35g)",
+        "grams": 35
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Kellogg's Chocos",
+    "category": "Breakfast & Cereals",
+    "subCategory": "Breakfast & Cereals",
+    "cuisine": "Indian",
+    "brand": "Kellogg's",
+    "caloriesPer100g": 385,
+    "protein": 7.8,
+    "carbohydrates": 82,
+    "fat": 3,
+    "fiber": 4.8,
+    "sugar": 30,
+    "sodium": 340,
+    "saturatedFat": 1.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 30,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (30g)",
+        "grams": 30
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Kellogg's Special K",
+    "category": "Breakfast & Cereals",
+    "subCategory": "Breakfast & Cereals",
+    "cuisine": "Indian",
+    "brand": "Kellogg's",
+    "caloriesPer100g": 375,
+    "protein": 14,
+    "carbohydrates": 75,
+    "fat": 1.5,
+    "fiber": 5.5,
+    "sugar": 14,
+    "sodium": 510,
+    "saturatedFat": 0.3,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 30,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (30g)",
+        "grams": 30
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Quaker Oats (Whole Grain)",
+    "category": "Breakfast & Cereals",
+    "subCategory": "Breakfast & Cereals",
+    "cuisine": "Indian",
+    "brand": "Quaker",
+    "caloriesPer100g": 390,
+    "protein": 14.5,
+    "carbohydrates": 66,
+    "fat": 7.5,
+    "fiber": 10.5,
+    "sugar": 1,
+    "sodium": 5,
+    "saturatedFat": 1.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 40,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (40g)",
+        "grams": 40
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Top Ramen Curry Instant Noodles",
+    "category": "Miscellaneous Snacks",
+    "subCategory": "Miscellaneous Snacks",
+    "cuisine": "Indian",
+    "brand": "Top Ramen",
+    "caloriesPer100g": 455,
+    "protein": 9,
+    "carbohydrates": 64,
+    "fat": 18,
+    "fiber": 3.2,
+    "sugar": 2.8,
+    "sodium": 890,
+    "saturatedFat": 8.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "packet",
+    "servingWeightGrams": 70,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (70g)",
+        "grams": 70
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Wai Wai Ready to Eat Noodles",
+    "category": "Miscellaneous Snacks",
+    "subCategory": "Miscellaneous Snacks",
+    "cuisine": "Indian",
+    "brand": "Wai Wai",
+    "caloriesPer100g": 470,
+    "protein": 9.5,
+    "carbohydrates": 62,
+    "fat": 20.5,
+    "fiber": 3,
+    "sugar": 2.5,
+    "sodium": 920,
+    "saturatedFat": 9.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "packet",
+    "servingWeightGrams": 70,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (70g)",
+        "grams": 70
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Cadbury 5 Star Chocolate Bar",
+    "category": "Miscellaneous Snacks",
+    "subCategory": "Miscellaneous Snacks",
+    "cuisine": "Indian",
+    "brand": "Cadbury",
+    "caloriesPer100g": 445,
+    "protein": 3.5,
+    "carbohydrates": 72,
+    "fat": 15.5,
+    "fiber": 1.8,
+    "sugar": 52,
+    "sodium": 140,
+    "saturatedFat": 9.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bar",
+    "servingWeightGrams": 40,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (40g)",
+        "grams": 40
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Snickers Peanut Chocolate Bar",
+    "category": "Miscellaneous Snacks",
+    "subCategory": "Miscellaneous Snacks",
+    "cuisine": "Indian",
+    "brand": "Snickers",
+    "caloriesPer100g": 485,
+    "protein": 8.5,
+    "carbohydrates": 60.5,
+    "fat": 23.5,
+    "fiber": 2.5,
+    "sugar": 50,
+    "sodium": 240,
+    "saturatedFat": 9.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bar",
+    "servingWeightGrams": 50,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (50g)",
+        "grams": 50
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Frooti Mango Drink",
+    "category": "Beverages",
+    "subCategory": "Beverages",
+    "cuisine": "Indian",
+    "brand": "Frooti",
+    "caloriesPer100g": 65,
+    "protein": 0.1,
+    "carbohydrates": 16.2,
+    "fat": 0,
+    "fiber": 0.1,
+    "sugar": 15.5,
+    "sodium": 18,
+    "saturatedFat": 0,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "tetra",
+    "servingWeightGrams": 160,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (160g)",
+        "grams": 160
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Maaza Mango Drink",
+    "category": "Beverages",
+    "subCategory": "Beverages",
+    "cuisine": "Indian",
+    "brand": "Maaza",
+    "caloriesPer100g": 62,
+    "protein": 0.1,
+    "carbohydrates": 15.4,
+    "fat": 0,
+    "fiber": 0.1,
+    "sugar": 14.8,
+    "sodium": 15,
+    "saturatedFat": 0,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "tetra",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Thums Up",
+    "category": "Beverages",
+    "subCategory": "Beverages",
+    "cuisine": "Indian",
+    "brand": "Coca-Cola",
+    "caloriesPer100g": 42,
+    "protein": 0,
+    "carbohydrates": 10.5,
+    "fat": 0,
+    "fiber": 0,
+    "sugar": 10.5,
+    "sodium": 12,
+    "saturatedFat": 0,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "can",
+    "servingWeightGrams": 330,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (330g)",
+        "grams": 330
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Sprite (Lemon Lime Soda)",
+    "category": "Beverages",
+    "subCategory": "Beverages",
+    "cuisine": "Indian",
+    "brand": "Coca-Cola",
+    "caloriesPer100g": 40,
+    "protein": 0,
+    "carbohydrates": 10,
+    "fat": 0,
+    "fiber": 0,
+    "sugar": 10,
+    "sodium": 14,
+    "saturatedFat": 0,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "can",
+    "servingWeightGrams": 330,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (330g)",
+        "grams": 330
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Gatorade Thirst Quencher (Lemon)",
+    "category": "Beverages",
+    "subCategory": "Beverages",
+    "cuisine": "Indian",
+    "brand": "Gatorade",
+    "caloriesPer100g": 24,
+    "protein": 0,
+    "carbohydrates": 6,
+    "fat": 0,
+    "fiber": 0,
+    "sugar": 5.6,
+    "sodium": 48,
+    "saturatedFat": 0,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bottle",
+    "servingWeightGrams": 500,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (500g)",
+        "grams": 500
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Monster Energy Drink (Original)",
+    "category": "Beverages",
+    "subCategory": "Beverages",
+    "cuisine": "Indian",
+    "brand": "Monster",
+    "caloriesPer100g": 47,
+    "protein": 0,
+    "carbohydrates": 11.8,
+    "fat": 0,
+    "fiber": 0,
+    "sugar": 11,
+    "sodium": 78,
+    "saturatedFat": 0,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "can",
+    "servingWeightGrams": 350,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (350g)",
+        "grams": 350
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Yoga Bar Multigrain Energy Bar",
+    "category": "Miscellaneous Snacks",
+    "subCategory": "Miscellaneous Snacks",
+    "cuisine": "Indian",
+    "brand": "Yoga Bar",
+    "caloriesPer100g": 395,
+    "protein": 8.5,
+    "carbohydrates": 62,
+    "fat": 12.5,
+    "fiber": 7.5,
+    "sugar": 18,
+    "sodium": 140,
+    "saturatedFat": 3.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bar",
+    "servingWeightGrams": 38,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (38g)",
+        "grams": 38
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "The Whole Truth Protein Bar (Cocoa Cranberry)",
+    "category": "Miscellaneous Snacks",
+    "subCategory": "Miscellaneous Snacks",
+    "cuisine": "Indian",
+    "brand": "The Whole Truth",
+    "caloriesPer100g": 390,
+    "protein": 25,
+    "carbohydrates": 42,
+    "fat": 14,
+    "fiber": 8,
+    "sugar": 24,
+    "sodium": 95,
+    "saturatedFat": 4.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bar",
+    "servingWeightGrams": 52,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (52g)",
+        "grams": 52
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "MyProtein Impact Whey Isolate (Chocolate Smooth)",
+    "category": "Dairy products",
+    "subCategory": "Dairy products",
+    "cuisine": "Indian",
+    "brand": "MyProtein",
+    "caloriesPer100g": 375,
+    "protein": 82,
+    "carbohydrates": 4.5,
+    "fat": 2.2,
+    "fiber": 1,
+    "sugar": 2,
+    "sodium": 360,
+    "saturatedFat": 1.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "scoop",
+    "servingWeightGrams": 25,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (25g)",
+        "grams": 25
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "Open Food Facts / Manufacturer Label",
+    "isVerified": true
+  },
+  {
+    "name": "Gulab Jamun (in Sugar Syrup)",
+    "category": "Sweets & Desserts",
+    "subCategory": "Sweets & Desserts",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 320,
+    "protein": 4.5,
+    "carbohydrates": 54,
+    "fat": 10.5,
+    "fiber": 0.8,
+    "sugar": 45,
+    "sodium": 90,
+    "saturatedFat": 5.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 50,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (50g)",
+        "grams": 50
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Rasgulla (in Light Sugar Syrup)",
+    "category": "Sweets & Desserts",
+    "subCategory": "Sweets & Desserts",
+    "cuisine": "Bengali",
+    "brand": null,
+    "caloriesPer100g": 185,
+    "protein": 4.2,
+    "carbohydrates": 38,
+    "fat": 1.8,
+    "fiber": 0.2,
+    "sugar": 34,
+    "sodium": 45,
+    "saturatedFat": 0.9,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 50,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (50g)",
+        "grams": 50
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Gajar Ka Halwa (Carrot Pudding with Ghee & Milk)",
+    "category": "Sweets & Desserts",
+    "subCategory": "Sweets & Desserts",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 245,
+    "protein": 4.2,
+    "carbohydrates": 32.5,
+    "fat": 11.2,
+    "fiber": 2.8,
+    "sugar": 26,
+    "sodium": 65,
+    "saturatedFat": 6.8,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 100,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (100g)",
+        "grams": 100
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Kheer / Payasam (Rice Milk Pudding)",
+    "category": "Sweets & Desserts",
+    "subCategory": "Sweets & Desserts",
+    "cuisine": "Indian",
+    "brand": null,
+    "caloriesPer100g": 165,
+    "protein": 4.5,
+    "carbohydrates": 24,
+    "fat": 5.8,
+    "fiber": 0.5,
+    "sugar": 18.5,
+    "sodium": 55,
+    "saturatedFat": 3.4,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 150,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (150g)",
+        "grams": 150
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Besan Ladoo",
+    "category": "Sweets & Desserts",
+    "subCategory": "Sweets & Desserts",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 480,
+    "protein": 9.5,
+    "carbohydrates": 55,
+    "fat": 25.5,
+    "fiber": 4.2,
+    "sugar": 42,
+    "sodium": 35,
+    "saturatedFat": 12.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 40,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (40g)",
+        "grams": 40
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Motichoor Ladoo",
+    "category": "Sweets & Desserts",
+    "subCategory": "Sweets & Desserts",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 430,
+    "protein": 5.2,
+    "carbohydrates": 65,
+    "fat": 17.5,
+    "fiber": 1.5,
+    "sugar": 52,
+    "sodium": 40,
+    "saturatedFat": 8.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 40,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (40g)",
+        "grams": 40
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Rasmalai (Cottage Cheese Dumplings in Saffron Milk)",
+    "category": "Sweets & Desserts",
+    "subCategory": "Sweets & Desserts",
+    "cuisine": "Bengali",
+    "brand": null,
+    "caloriesPer100g": 195,
+    "protein": 6.8,
+    "carbohydrates": 25,
+    "fat": 7.8,
+    "fiber": 0.4,
+    "sugar": 21,
+    "sodium": 60,
+    "saturatedFat": 4.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 75,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (75g)",
+        "grams": 75
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Kaju Katli (Cashew Fudge)",
+    "category": "Sweets & Desserts",
+    "subCategory": "Sweets & Desserts",
+    "cuisine": "North Indian",
+    "brand": null,
+    "caloriesPer100g": 450,
+    "protein": 9.8,
+    "carbohydrates": 58,
+    "fat": 20.5,
+    "fiber": 2.1,
+    "sugar": 48,
+    "sodium": 25,
+    "saturatedFat": 4.2,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 20,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (20g)",
+        "grams": 20
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Moong Dal Halwa",
+    "category": "Sweets & Desserts",
+    "subCategory": "Sweets & Desserts",
+    "cuisine": "Rajasthani",
+    "brand": null,
+    "caloriesPer100g": 395,
+    "protein": 8.2,
+    "carbohydrates": 48,
+    "fat": 19.5,
+    "fiber": 3.8,
+    "sugar": 38,
+    "sodium": 50,
+    "saturatedFat": 11.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "bowl",
+    "servingWeightGrams": 100,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (100g)",
+        "grams": 100
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  },
+  {
+    "name": "Sandesh (Bengali Sweet)",
+    "category": "Sweets & Desserts",
+    "subCategory": "Sweets & Desserts",
+    "cuisine": "Bengali",
+    "brand": null,
+    "caloriesPer100g": 260,
+    "protein": 9.5,
+    "carbohydrates": 35,
+    "fat": 9.2,
+    "fiber": 0.2,
+    "sugar": 32,
+    "sodium": 40,
+    "saturatedFat": 5.5,
+    "defaultServingSize": 1,
+    "defaultServingUnit": "piece",
+    "servingWeightGrams": 35,
+    "servingUnits": [
+      {
+        "unit": "serving",
+        "label": "Standard Serving (35g)",
+        "grams": 35
+      },
+      {
+        "unit": "g",
+        "label": "Grams (g)",
+        "grams": 1
+      }
+    ],
+    "dataSource": "ICMR-NIN (IFCT 2017)",
+    "isVerified": true
+  }
+]

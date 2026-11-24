@@ -28,6 +28,7 @@ import {
   HelpCircle,
   Mail,
   HeartPulse,
+  Sparkles,
 } from "lucide-react";
 import { useGym } from "@/components/customer/gym-context";
 import { useCart } from "@/components/customer/cart-context";
@@ -182,6 +183,18 @@ export function PublicHeader() {
                 )}
               >
                 Health Coaches
+              </Link>
+              <Link
+                href="/ai-coach"
+                className={cn(
+                  "px-3 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5",
+                  pathname.startsWith("/ai-coach")
+                    ? "text-[#2F7D16] font-bold bg-[#EAF4E3]"
+                    : "text-nutri-secondary hover:text-[#2F7D16] hover:bg-[#EAF4E3]/60"
+                )}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500/20" />
+                <span>AI Coach</span>
               </Link>
               <Link
                 href="/pass"
@@ -684,6 +697,18 @@ export function PublicHeader() {
                 )}
               >
                 <HeartPulse className="w-4 h-4 text-nutri-green" /> Health Coaches
+              </Link>
+              <Link
+                href="/ai-coach"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold transition-colors",
+                  pathname.startsWith("/ai-coach")
+                    ? "bg-nutri-green-light text-nutri-green"
+                    : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
+                )}
+              >
+                <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500/20" /> AI Coach
               </Link>
               {isAuthenticated && (
                 <Link

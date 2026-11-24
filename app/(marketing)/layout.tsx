@@ -4,11 +4,11 @@ import { PublicFooter } from "@/components/customer/public-footer";
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col bg-nutri-bg">
+    <div className="min-h-screen flex flex-col bg-[#111111]">
       <PublicHeader />
 
       {/* Main Page Content */}
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 bg-nutri-bg">{children}</main>
 
       {/* Footer */}
       <PublicFooter />

@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { updateKitchenOrderStatusWithInventory } from "@/services/kitchen-orders.service";
 import { updateOrderStatus } from "@/services/order.service";
-import { OrderStatus } from "@/types/enums";
+import { OrderStatus } from "@prisma/client";
 
 export async function PATCH(
   request: Request,
@@ -19,6 +20,7 @@ export async function PATCH(
     }
 
     const userRole = (session.user as any)?.role;
+    const userId = (session.user as any)?.id;
     if (userRole !== "KITCHEN" && userRole !== "ADMIN") {
       return NextResponse.json(
         { success: false, error: "Unauthorized. Kitchen or Admin role required." },
@@ -27,28 +29,28 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { status } = body;
-    if (!status || !Object.values(OrderStatus).includes(status)) {
+    const { status, reason } = body;
+    if (!status || !Object.values(OrderStatus).includes(status as OrderStatus)) {
       return NextResponse.json(
         { success: false, error: "Invalid order status value" },
         { status: 400 }
       );
     }
 
+    const order = await prisma.order.findUnique({
+      where: { id: params.id },
+      select: { id: true, outletId: true },
+    });
+
+    if (!order) {
+      return NextResponse.json(
+        { success: false, error: "Order not found" },
+        { status: 404 }
+      );
+    }
+
     // Server-side outlet authorization for Kitchen staff
     if (userRole === "KITCHEN") {
-      const order = await prisma.order.findUnique({
-        where: { id: params.id },
-        select: { id: true, outletId: true },
-      });
-
-      if (!order) {
-        return NextResponse.json(
-          { success: false, error: "Order not found" },
-          { status: 404 }
-        );
-      }
-
       let staffOutletId = (session.user as any)?.selectedOutletId;
       if (!staffOutletId) {
         const dbUser = await prisma.user.findUnique({
@@ -69,9 +71,18 @@ export async function PATCH(
       }
     }
 
-    const updatedOrder = await updateOrderStatus(params.id, status as any);
-    return NextResponse.json({ success: true, order: updatedOrder });
+    // Use transaction-safe inventory reservation and consumption lifecycle
+    const result = await updateKitchenOrderStatusWithInventory({
+      orderId: params.id,
+      newStatus: status as OrderStatus,
+      outletId: order.outletId,
+      userId,
+      reason,
+    });
+
+    return NextResponse.json({ success: true, order: result.order });
   } catch (error: any) {
+    console.error("Order status update error:", error);
     return NextResponse.json(
       { success: false, error: error.message || "Failed to update order status" },
       { status: 500 }

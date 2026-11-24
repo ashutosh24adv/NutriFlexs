@@ -20,10 +20,17 @@ export async function GET(req: NextRequest) {
       minExperience,
     });
 
-    return NextResponse.json({
-      success: true,
-      dietitians,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        dietitians,
+      },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch (error: any) {
     console.error("[API /api/dietitians] Error:", error);
     return NextResponse.json(

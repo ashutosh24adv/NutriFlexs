@@ -1,58 +1,24 @@
 import { prisma, withDbRetry } from "@/lib/prisma";
+import {
+  OnboardingData,
+  normalizeGoal,
+  normalizeWorkoutFrequency,
+} from "@/lib/onboarding-engine";
 
-export interface OnboardingData {
-  gender?: "male" | "female" | "prefer_not_to_say" | null;
-  sex?: "male" | "female" | "prefer_not_to_say" | null;
-  birthDate?: string | null;
-  heightCm?: number | null;
-  heightUnit?: "cm" | "ft";
-  weightKg?: number | null;
-  weightUnit?: "kg" | "lbs";
-  workoutFrequency?:
-    | "0_sessions"
-    | "1_2_sessions"
-    | "3_4_sessions"
-    | "5_6_sessions"
-    | "7_plus_sessions"
-    | "0_4_days"
-    | "4_6_days"
-    | "7_plus_days"
-    | "none"
-    | null;
-  dietitianConsultation?: "yes" | "no" | "currently" | "prefer_not_to_say" | null;
-  primaryGoal?:
-    | "lose_weight"
-    | "maintain"
-    | "improve_fitness"
-    | "build_muscle"
-    | "gain_weight_build_muscle"
-    | "healthier_habits"
-    | null;
-  desiredGoalTarget?: {
-    targetWeightKg?: number | null;
-    muscleTarget?: string | null;
-    habitsTarget?: string | null;
-    fitnessTarget?: string | null;
-  } | null;
-  desiredTimelineWeeks?: number | null;
-  preferredPace?: "slow" | "moderate" | "fast" | null;
-  challenges?: string[];
-  challengesOther?: string | null;
-  dietPreference?: "vegetarian" | "vegan" | "eggetarian" | "non_vegetarian" | "no_specific" | "other" | null;
-  desiredOutcomes?: string[];
-  calorieRolloverEnabled?: boolean;
-  notificationsEnabled?: boolean;
-}
+export type { OnboardingData };
 
 export interface CalculatedNutritionTargets {
   bmi: number | null;
   bmiCategory: string | null;
-  bmr: number;
-  tdee: number;
-  dailyCalories: number;
-  proteinGrams: number;
-  carbsGrams: number;
-  fatGrams: number;
+  bmr: number | null;
+  tdee: number | null;
+  dailyCalories: number | null;
+  proteinGrams: number | null;
+  carbsGrams: number | null;
+  fatGrams: number | null;
+  hasCompleteMetrics: boolean;
+  missingMetrics: string[];
+  estimationBasis: string;
   isSafeGoal: boolean;
   feasibilityAssessment: {
     isRealistic: boolean;
@@ -63,147 +29,265 @@ export interface CalculatedNutritionTargets {
 }
 
 /**
- * Derives age from a birth date string (YYYY-MM-DD).
+ * Derives age from a birth date string (YYYY-MM-DD). Returns null if missing/invalid.
  */
-export function calculateAge(birthDateStr?: string | null): number {
-  if (!birthDateStr) return 26; // Safe standard adult baseline
+export function calculateAge(birthDateStr?: string | null): number | null {
+  if (!birthDateStr) return null;
   const birth = new Date(birthDateStr);
-  if (isNaN(birth.getTime())) return 26;
+  if (isNaN(birth.getTime())) return null;
   const today = new Date();
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
     age--;
   }
-  return Math.max(16, Math.min(age, 90));
+  return Math.max(13, Math.min(age, 100));
 }
 
 /**
  * Calculates evidence-based nutrition targets using Mifflin-St Jeor formula.
+ * Uses actual user responses; never fabricates falsely precise targets when key metrics are missing.
  */
 export function calculateNutritionTargets(data: OnboardingData): CalculatedNutritionTargets {
-  const weightKg = data.weightKg || 68;
-  const heightCm = data.heightCm || 172;
-  const age = calculateAge(data.birthDate);
+  const missingMetrics: string[] = [];
+  const rawWeight = data.weightKg && data.weightKg > 0 ? data.weightKg : null;
+  const rawHeight = !data.heightSkipped && data.heightCm && data.heightCm > 0 ? data.heightCm : null;
+  const rawAge = !data.birthDateSkipped ? calculateAge(data.birthDate) : null;
   const gender = data.gender || data.sex || "prefer_not_to_say";
 
-  // 1. BMI calculation: weight (kg) / [height (m)]^2
+  if (!rawWeight) missingMetrics.push("current weight");
+  if (!rawHeight) missingMetrics.push("height");
+  if (!rawAge) missingMetrics.push("age");
+
+  const hasCompleteMetrics = Boolean(rawWeight && rawHeight && rawAge);
+  const goal = normalizeGoal(data.primaryGoal);
+  const freq = normalizeWorkoutFrequency(data.workoutFrequency);
+
+  // 1. BMI calculation: only when both height & weight are provided
   let bmi: number | null = null;
   let bmiCategory: string | null = null;
-  if (heightCm > 0 && weightKg > 0) {
-    const heightM = heightCm / 100;
-    bmi = Number((weightKg / (heightM * heightM)).toFixed(1));
+  if (rawHeight && rawWeight) {
+    const heightM = rawHeight / 100;
+    bmi = Number((rawWeight / (heightM * heightM)).toFixed(1));
     if (bmi < 18.5) bmiCategory = "Underweight";
     else if (bmi < 24.9) bmiCategory = "Normal Weight";
     else if (bmi < 29.9) bmiCategory = "Overweight";
     else bmiCategory = "Obese";
   }
 
-  // 2. Basal Metabolic Rate (Mifflin-St Jeor)
+  // 2. Feasibility & Safety Assessment (only when weight & targetWeight are provided)
+  let targetDeltaKg = 0;
+  if (goal === "lose_weight" && rawWeight && data.desiredGoalTarget?.targetWeightKg) {
+    targetDeltaKg = Math.max(0, rawWeight - data.desiredGoalTarget.targetWeightKg);
+  } else if (
+    goal === "gain_weight_build_muscle" &&
+    rawWeight &&
+    data.desiredGoalTarget?.targetWeightKg
+  ) {
+    targetDeltaKg = Math.max(0, data.desiredGoalTarget.targetWeightKg - rawWeight);
+  }
+
+  const timelineWeeks =
+    data.desiredTimelineWeeks && data.desiredTimelineWeeks > 0
+      ? data.desiredTimelineWeeks
+      : targetDeltaKg > 0
+      ? Math.max(8, Math.round(targetDeltaKg / 0.5))
+      : 12;
+
+  const weeklyChangeKg =
+    targetDeltaKg > 0 && timelineWeeks > 0
+      ? Number((targetDeltaKg / timelineWeeks).toFixed(2))
+      : 0;
+
+  const isSafeGoal = weeklyChangeKg <= 1.0;
+  const recommendedTimelineWeeks =
+    targetDeltaKg > 0 ? Math.max(4, Math.ceil(targetDeltaKg / 0.5)) : 12;
+
+  let safetyNote =
+    "Your selected timeline aligns with conservative, sustainable wellness guidelines.";
+  if (!isSafeGoal && goal === "lose_weight") {
+    safetyNote =
+      "Losing more than ~1 kg per week can increase muscle loss and fatigue. Consider a longer timeline closer to 0.4–0.6 kg per week.";
+  } else if (!isSafeGoal && goal === "gain_weight_build_muscle") {
+    safetyNote =
+      "Gaining more than ~1 kg per week often adds excess body fat alongside muscle. A steadier pace of 0.25–0.5 kg per week supports leaner gains.";
+  }
+
+  // 3. If user shared existing dietitian targets and hasn't overridden them
+  if (
+    data.shareExistingTargets === "yes" &&
+    data.existingCalorieTarget &&
+    data.existingCalorieTarget >= 800
+  ) {
+    const dailyCalories = Math.round(data.existingCalorieTarget);
+    const proteinGrams = data.existingProteinTarget
+      ? Math.round(data.existingProteinTarget)
+      : rawWeight
+      ? Math.max(70, Math.min(Math.round(rawWeight * 1.8), 250))
+      : 120;
+    const fatGrams = Math.round((dailyCalories * 0.28) / 9);
+    const carbsGrams = Math.max(
+      50,
+      Math.round((dailyCalories - proteinGrams * 4 - fatGrams * 9) / 4)
+    );
+
+    return {
+      bmi,
+      bmiCategory,
+      bmr: null,
+      tdee: null,
+      dailyCalories: data.customCalorieTarget || dailyCalories,
+      proteinGrams: data.customProteinTarget || proteinGrams,
+      carbsGrams: data.customCarbsTarget || carbsGrams,
+      fatGrams: data.customFatTarget || fatGrams,
+      hasCompleteMetrics,
+      missingMetrics,
+      estimationBasis:
+        "Based on the existing nutrition targets you shared from your nutrition professional.",
+      isSafeGoal,
+      feasibilityAssessment: {
+        isRealistic: isSafeGoal,
+        weeklyChangeKg,
+        recommendedTimelineWeeks,
+        safetyNote,
+      },
+    };
+  }
+
+  // 4. If key physical metrics are missing, do not fabricate BMR/TDEE
+  if (!rawWeight || !rawHeight || !rawAge) {
+    // Allow custom manual edits if user entered them on the summary screen
+    const hasManualOverrides = Boolean(
+      data.customCalorieTarget || data.customProteinTarget
+    );
+    return {
+      bmi,
+      bmiCategory,
+      bmr: null,
+      tdee: null,
+      dailyCalories: data.customCalorieTarget || null,
+      proteinGrams: data.customProteinTarget || null,
+      carbsGrams: data.customCarbsTarget || null,
+      fatGrams: data.customFatTarget || null,
+      hasCompleteMetrics: false,
+      missingMetrics,
+      estimationBasis: hasManualOverrides
+        ? "Using your custom edited targets (some body metrics were skipped)."
+        : `Cannot compute a reliable calorie estimate without ${missingMetrics.join(", ")}. You can enter custom targets below or fill in the missing details.`,
+      isSafeGoal,
+      feasibilityAssessment: {
+        isRealistic: isSafeGoal,
+        weeklyChangeKg,
+        recommendedTimelineWeeks,
+        safetyNote,
+      },
+    };
+  }
+
+  // 5. Basal Metabolic Rate (Mifflin-St Jeor) using actual responses
   let bmr: number;
   if (gender === "male") {
-    bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
+    bmr = 10 * rawWeight + 6.25 * rawHeight - 5 * rawAge + 5;
   } else if (gender === "female") {
-    bmr = 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
+    bmr = 10 * rawWeight + 6.25 * rawHeight - 5 * rawAge - 161;
   } else {
-    // Gender-neutral balanced estimate
-    bmr = 10 * weightKg + 6.25 * heightCm - 5 * age - 78;
+    bmr = 10 * rawWeight + 6.25 * rawHeight - 5 * rawAge - 78;
   }
   bmr = Math.round(bmr);
 
-  // 3. Activity multiplier
-  let activityMultiplier = 1.375; // default 1–2 sessions or 3–4 sessions baseline
-  if (data.workoutFrequency === "0_sessions" || data.workoutFrequency === "none") {
+  // 6. Activity multiplier combining workout sessions, intensity, duration & daily activity
+  let activityMultiplier = 1.25;
+  if (freq === "0_sessions") {
     activityMultiplier = 1.2;
-  } else if (data.workoutFrequency === "1_2_sessions") {
-    activityMultiplier = 1.375;
-  } else if (data.workoutFrequency === "3_4_sessions" || data.workoutFrequency === "0_4_days") {
+  } else if (freq === "1_2_sessions") {
+    activityMultiplier = 1.35;
+  } else if (freq === "3_4_sessions") {
     activityMultiplier = 1.45;
-  } else if (data.workoutFrequency === "5_6_sessions" || data.workoutFrequency === "4_6_days") {
+  } else if (freq === "5_6_sessions") {
     activityMultiplier = 1.55;
-  } else if (data.workoutFrequency === "7_plus_sessions" || data.workoutFrequency === "7_plus_days") {
-    activityMultiplier = 1.725;
+  } else if (freq === "7_plus_sessions") {
+    activityMultiplier = 1.7;
   }
+
+  // Adjust for daily non-exercise activity level (Improve Fitness branch)
+  if (data.activityLevel === "sedentary") activityMultiplier = Math.min(activityMultiplier, 1.3);
+  else if (data.activityLevel === "moderately_active") activityMultiplier += 0.05;
+  else if (data.activityLevel === "very_active") activityMultiplier += 0.12;
+
+  // Adjust for workout intensity / duration
+  if (data.workoutIntensity === "very_high_athlete") activityMultiplier += 0.08;
+  else if (data.workoutIntensity === "high") activityMultiplier += 0.04;
+  if (data.workoutDuration === "60_plus") activityMultiplier += 0.04;
+
+  activityMultiplier = Math.min(1.9, activityMultiplier);
   const tdee = Math.round(bmr * activityMultiplier);
 
-  // 4. Daily Calorie Target based on Goal & Preferred Pace
+  // 7. Daily Calorie Target based on Goal & Preferred Pace
   let dailyCalories = tdee;
   const pace = data.preferredPace || "moderate";
 
   let deficit = 0;
   if (pace === "slow") deficit = 250;
   else if (pace === "moderate") deficit = 400;
-  else if (pace === "fast") deficit = 550; // Capped for safety
+  else if (pace === "fast") deficit = 500; // Conservative cap
 
-  const isMuscleGoal =
-    data.primaryGoal === "build_muscle" ||
-    data.primaryGoal === "gain_weight_build_muscle";
-
-  if (data.primaryGoal === "lose_weight") {
+  if (goal === "lose_weight") {
     dailyCalories = tdee - deficit;
-    // Enforce safe physiological floor
     const minCalories = gender === "female" ? 1200 : 1450;
     dailyCalories = Math.max(minCalories, dailyCalories);
-  } else if (isMuscleGoal) {
-    const surplus = pace === "slow" ? 200 : 350;
+  } else if (goal === "gain_weight_build_muscle") {
+    const surplus =
+      data.muscleFocus === "strength" || data.muscleFocus === "overall_weight_gain"
+        ? 350
+        : 250;
     dailyCalories = tdee + surplus;
-  } else if (data.primaryGoal === "improve_fitness") {
-    dailyCalories = Math.round(tdee - 150);
+  } else if (goal === "improve_fitness") {
+    dailyCalories =
+      data.fitnessObjective === "body_recomposition"
+        ? Math.round(tdee - 150)
+        : tdee;
   } else {
-    // maintain / healthier_habits
-    dailyCalories = tdee;
+    // maintain
+    dailyCalories =
+      data.maintainFocus === "improve_body_composition"
+        ? Math.round(tdee - 100)
+        : tdee;
   }
   dailyCalories = Math.round(dailyCalories);
 
-  // 5. Protein Target (g)
-  // Higher protein for fitness/muscle/weight loss (1.6 - 2.2 g/kg), baseline 1.5g/kg
-  let proteinMultiplier = 1.8;
-  if (isMuscleGoal || data.primaryGoal === "improve_fitness") {
-    proteinMultiplier = 2.0;
-  } else if (data.primaryGoal === "lose_weight") {
-    proteinMultiplier = 1.9; // Preserves lean mass in deficit
+  // 8. Protein Target (g)
+  let proteinMultiplier = 1.6;
+  if (goal === "gain_weight_build_muscle" || goal === "improve_fitness") {
+    proteinMultiplier = 1.9;
+  } else if (goal === "lose_weight") {
+    proteinMultiplier = 1.85;
+  } else if (data.maintainFocus === "improve_body_composition") {
+    proteinMultiplier = 1.8;
   }
-  let proteinGrams = Math.round(weightKg * proteinMultiplier);
-  proteinGrams = Math.max(90, Math.min(proteinGrams, 250)); // Bounded safely
+  let proteinGrams = Math.round(rawWeight * proteinMultiplier);
+  proteinGrams = Math.max(60, Math.min(proteinGrams, 250));
 
-  // 6. Fat Target (25% to 30% of total calories, 9 kcal/g)
-  const fatCalories = dailyCalories * 0.28;
-  const fatGrams = Math.round(fatCalories / 9);
-
-  // 7. Carbohydrates Target (Remaining calories / 4 kcal/g)
-  const proteinCalories = proteinGrams * 4;
-  const remainingCalories = dailyCalories - proteinCalories - (fatGrams * 9);
-  const carbsGrams = Math.max(50, Math.round(remainingCalories / 4));
-
-  // 8. Feasibility & Safety Assessment
-  let targetDeltaKg = 0;
-  if (data.primaryGoal === "lose_weight" && data.desiredGoalTarget?.targetWeightKg) {
-    targetDeltaKg = Math.max(0, weightKg - data.desiredGoalTarget.targetWeightKg);
-  } else if (isMuscleGoal && data.desiredGoalTarget?.targetWeightKg) {
-    targetDeltaKg = Math.max(0, data.desiredGoalTarget.targetWeightKg - weightKg);
-  }
-
-  const timelineWeeks = data.desiredTimelineWeeks || Math.max(8, Math.round(targetDeltaKg / 0.5));
-  const weeklyChangeKg = timelineWeeks > 0 ? Number((targetDeltaKg / timelineWeeks).toFixed(2)) : 0.5;
-
-  const isSafeGoal = weeklyChangeKg <= 1.0; // Over 1kg/week is aggressive/potentially unsafe
-  const recommendedTimelineWeeks = Math.max(4, Math.ceil(targetDeltaKg / 0.5)); // 0.5kg/week gold standard
-
-  let safetyNote = "Your goal pace is within healthy, sustainable guidelines.";
-  if (!isSafeGoal) {
-    safetyNote =
-      "A weight change exceeding 1kg per week can lead to muscle loss and rebound fatigue. We recommend a safe, steady pace of 0.4–0.6kg per week.";
-  }
+  // 9. Fat Target (28% of calories) & Carbs Target (remaining)
+  const finalCalories = data.customCalorieTarget || dailyCalories;
+  const finalProtein = data.customProteinTarget || proteinGrams;
+  const fatGrams = data.customFatTarget || Math.round((finalCalories * 0.28) / 9);
+  const carbsGrams =
+    data.customCarbsTarget ||
+    Math.max(50, Math.round((finalCalories - finalProtein * 4 - fatGrams * 9) / 4));
 
   return {
     bmi,
     bmiCategory,
     bmr,
     tdee,
-    dailyCalories,
-    proteinGrams,
+    dailyCalories: finalCalories,
+    proteinGrams: finalProtein,
     carbsGrams,
     fatGrams,
+    hasCompleteMetrics: true,
+    missingMetrics: [],
+    estimationBasis:
+      "Estimated using Mifflin-St Jeor equation combined with your goal, workout sessions, and activity responses.",
     isSafeGoal,
     feasibilityAssessment: {
       isRealistic: isSafeGoal,
@@ -344,7 +428,7 @@ export async function saveOnboardingProgress(
   };
 
   const userUpdateData: any = {
-    nutritionOnboardingStep: Math.max(1, Math.min(step, 19)),
+    nutritionOnboardingStep: Math.max(1, Math.min(step, 40)),
     nutritionOnboardingData: mergedData,
   };
 
@@ -411,8 +495,8 @@ export async function completeOnboarding(userId: string, finalData: OnboardingDa
           isVegetarian,
           calorieRolloverEnabled: Boolean(finalData.calorieRolloverEnabled),
           notificationsEnabled: Boolean(finalData.notificationsEnabled),
-          proteinGoalGrams: targets.proteinGrams,
-          customDailyProteinGoal: targets.proteinGrams,
+          proteinGoalGrams: targets.proteinGrams ?? undefined,
+          customDailyProteinGoal: targets.proteinGrams ?? undefined,
           primaryNutritionGoal:
             finalData.primaryGoal === "gain_weight_build_muscle"
               ? "build_muscle"

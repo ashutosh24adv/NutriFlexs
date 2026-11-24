@@ -93,6 +93,16 @@ enum InventoryTxType {
   ADJUSTMENT
 }
 
+enum KitchenMovementType {
+  STOCK_RECEIVED
+  ORDER_RESERVED
+  ORDER_CONSUMED
+  RESERVATION_RELEASED
+  WASTAGE
+  MANUAL_ADJUSTMENT
+  RETURN
+}
+
 enum MealType {
   BREAKFAST
   LUNCH
@@ -161,6 +171,7 @@ model User {
   nutritionGoal    NutritionGoal?
   foodLogs         FoodLog[]
   waterLogs        WaterLog[]
+  waterEntries     WaterEntry[]
   dailyHealthMetrics DailyHealthMetric[]
   customFoods      FoodItem[]     @relation("CustomFoodItems")
   favoriteFoods    FavoriteFood[]
@@ -173,6 +184,14 @@ model User {
   consultationMessagesSent      ConsultationMessage[]
   dietPlansAsCustomer           DietPlan[]             @relation("CustomerDietPlans")
   dietitianReviews              DietitianReview[]
+
+  // Kitchen Operations Relations
+  kitchenMovements              KitchenInventoryMovement[] @relation("UserKitchenMovements")
+  recordedWastages              KitchenWastage[]           @relation("UserRecordedWastages")
+  purchaseReceiptsReceived      KitchenPurchaseReceipt[]   @relation("UserPurchaseReceipts")
+
+  // AI Health Coach Relations
+  aiConversations               AIConversation[]
 }
 
 model Gym {
@@ -216,6 +235,10 @@ model Outlet {
   inventoryItems InventoryItem[]
   users          User[]
   staffAccessCodes StaffAccessCode[]
+  kitchenMovements     KitchenInventoryMovement[]
+  kitchenWastages      KitchenWastage[]
+  purchaseReceipts     KitchenPurchaseReceipt[]
+  orderReservations    OrderInventoryReservation[]
 
   @@index([gymId, isAvailable])
 }
@@ -258,6 +281,8 @@ model Product {
   protein                Float
   carbs                  Float
   fats                   Float
+  totalSugar             Float?
+  addedSugar             Float?
   preparationTimeMinutes Int                 @default(3)
   imageUrl               String
   categoryId             String
@@ -302,15 +327,23 @@ model Ingredient {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  productIngredients ProductIngredient[]
-  inventoryItems     InventoryItem[]
+  productIngredients   ProductIngredient[]
+  inventoryItems       InventoryItem[]
+  kitchenMovements     KitchenInventoryMovement[]
+  kitchenWastages      KitchenWastage[]
+  purchaseReceiptItems KitchenPurchaseReceiptItem[]
+  orderReservations    OrderInventoryReservation[]
 }
 
 model ProductIngredient {
-  id           String @id @default(uuid())
-  productId    String
-  ingredientId String
-  amount       String?
+  id               String   @id @default(uuid())
+  productId        String
+  ingredientId     String
+  amount           String?
+  quantityRequired Float?   @default(1)
+  unit             String?  @default("g")
+  prepNotes        String?
+  isOptional       Boolean? @default(false)
 
   product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
   ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
@@ -343,6 +376,8 @@ model Order {
   coupon     Coupon?     @relation(fields: [couponId], references: [id])
   items      OrderItem[]
   payment    Payment?
+  inventoryMovements    KitchenInventoryMovement[]
+  inventoryReservations OrderInventoryReservation[]
 
   @@index([userId, createdAt])
   @@index([outletId, status])
@@ -500,6 +535,9 @@ model Referral {
 
   trainer  Trainer @relation("TrainerReferrals", fields: [trainerId], references: [id])
   customer User    @relation("CustomerReferrals", fields: [customerId], references: [id])
+
+  @@index([trainerId, createdAt])
+  @@index([customerId])
 }
 
 model TrainerReward {
@@ -511,6 +549,8 @@ model TrainerReward {
   createdAt   DateTime  @default(now())
 
   trainer Trainer @relation(fields: [trainerId], references: [id])
+
+  @@index([trainerId, createdAt])
 }
 
 model Coupon {
@@ -531,20 +571,36 @@ model Coupon {
 }
 
 model InventoryItem {
-  id                String   @id @default(uuid())
-  outletId          String
-  ingredientId      String
-  quantity          Float
-  unit              String   @default("kg")
-  lowStockThreshold Float    @default(5)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                   String    @id @default(uuid())
+  outletId             String
+  ingredientId         String
+  quantity             Float
+  reservedQuantity     Float     @default(0)
+  unit                 String    @default("kg")
+  lowStockThreshold    Float     @default(5)
+  maxStockThreshold    Float?
+  category             String?   @default("General")
+  storageLocation      String?   @default("Main Storage")
+  purchasePricePerUnit Float?    @default(0)
+  supplier             String?
+  batchNumber          String?
+  expiryDate           DateTime?
+  notes                String?
+  isActive             Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  outlet       Outlet                 @relation(fields: [outletId], references: [id])
-  ingredient   Ingredient             @relation(fields: [ingredientId], references: [id])
-  transactions InventoryTransaction[]
+  outlet               Outlet                       @relation(fields: [outletId], references: [id])
+  ingredient           Ingredient                   @relation(fields: [ingredientId], references: [id])
+  transactions         InventoryTransaction[]
+  movements            KitchenInventoryMovement[]
+  wastages             KitchenWastage[]
+  reservations         OrderInventoryReservation[]
+  purchaseReceiptItems KitchenPurchaseReceiptItem[]
 
   @@unique([outletId, ingredientId])
+  @@index([outletId, category])
+  @@index([outletId, isActive])
 }
 
 model InventoryTransaction {
@@ -556,6 +612,111 @@ model InventoryTransaction {
   createdAt       DateTime        @default(now())
 
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+}
+
+model KitchenInventoryMovement {
+  id              String              @id @default(uuid())
+  outletId        String
+  inventoryItemId String
+  ingredientId    String
+  movementType    KitchenMovementType
+  quantity        Float
+  previousStock   Float
+  newStock        Float
+  orderId         String?
+  reason          String?
+  userId          String?
+  batchNumber     String?
+  cost            Float?
+  createdAt       DateTime            @default(now())
+
+  outlet        Outlet        @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  ingredient    Ingredient    @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  order         Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  user          User?         @relation("UserKitchenMovements", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([outletId, movementType])
+  @@index([inventoryItemId])
+  @@index([createdAt])
+}
+
+model KitchenWastage {
+  id              String   @id @default(uuid())
+  outletId        String
+  inventoryItemId String
+  ingredientId    String
+  quantity        Float
+  unit            String
+  reason          String
+  cost            Float?
+  notes           String?
+  recordedById    String?
+  createdAt       DateTime @default(now())
+
+  outlet        Outlet        @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  ingredient    Ingredient    @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  recordedBy    User?         @relation("UserRecordedWastages", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@index([outletId, createdAt])
+}
+
+model KitchenPurchaseReceipt {
+  id            String   @id @default(uuid())
+  outletId      String
+  receiptNumber String   @unique
+  supplier      String
+  totalCost     Float    @default(0)
+  notes         String?
+  receivedById  String?
+  createdAt     DateTime @default(now())
+
+  outlet     Outlet                       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  receivedBy User?                        @relation("UserPurchaseReceipts", fields: [receivedById], references: [id], onDelete: SetNull)
+  items      KitchenPurchaseReceiptItem[]
+
+  @@index([outletId, createdAt])
+}
+
+model KitchenPurchaseReceiptItem {
+  id              String    @id @default(uuid())
+  receiptId       String
+  inventoryItemId String
+  ingredientId    String
+  quantity        Float
+  unit            String
+  costPerUnit     Float     @default(0)
+  totalCost       Float     @default(0)
+  batchNumber     String?
+  expiryDate      DateTime?
+
+  receipt       KitchenPurchaseReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem          @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  ingredient    Ingredient             @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@index([receiptId])
+}
+
+model OrderInventoryReservation {
+  id              String   @id @default(uuid())
+  orderId         String
+  outletId        String
+  inventoryItemId String
+  ingredientId    String
+  quantity        Float
+  unit            String
+  status          String   @default("RESERVED") // RESERVED, CONSUMED, RELEASED
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  outlet        Outlet        @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  ingredient    Ingredient    @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, inventoryItemId])
+  @@index([outletId, status])
 }
 
 model StaffAccessCode {
@@ -590,9 +751,22 @@ model FoodItem {
   protein            Float    @default(0)
   carbohydrates      Float    @default(0)
   fat                Float    @default(0)
+  fiber              Float?   @default(0)
+  sugar              Float?   @default(0)
+  totalSugar         Float?
+  addedSugar         Float?
+  sodium             Float?   @default(0)
+  saturatedFat       Float?   @default(0)
   defaultServingSize Float    @default(100)
   defaultServingUnit String   @default("g")
   servingWeightGrams Float?   @default(100)
+  servingUnits       Json?    // Array or map of supported units with gram equivalents e.g. [{"unit":"katori","label":"1 Katori (150g)","grams":150}]
+  brand              String?
+  cuisine            String?
+  subCategory        String?
+  dataSource         String?  @default("ICMR-NIN / IFCT")
+  sourceId           String?
+  isVerified         Boolean  @default(true)
   isCustom           Boolean  @default(false)
   createdById        String?
   hasVariants        Boolean  @default(false)
@@ -610,6 +784,9 @@ model FoodItem {
   @@index([name])
   @@index([category, isActive])
   @@index([isCustom, createdById])
+  @@index([brand])
+  @@index([cuisine])
+  @@index([isVerified])
 }
 
 model FoodVariant {
@@ -622,6 +799,8 @@ model FoodVariant {
   protein            Float    @default(0)
   carbohydrates      Float    @default(0)
   fat                Float    @default(0)
+  totalSugar         Float?
+  addedSugar         Float?
   isDefault          Boolean  @default(false)
   servingConversions Json?    // Configurable portions: e.g. {"small_bowl": 100, "medium_bowl": 150, "large_bowl": 250, "cup": 200, "grams": 1}
   preparationMethod  String?
@@ -660,6 +839,9 @@ model FoodLog {
   protein             Float
   carbohydrates       Float
   fat                 Float
+  totalSugar          Float?
+  addedSugar          Float?
+  hasSugarData        Boolean  @default(false)
   loggedAt            DateTime @default(now())
   dateKey             String
   createdAt           DateTime @default(now())
@@ -689,6 +871,8 @@ model NutritionGoal {
   carbsTarget           Float?
   fatsTarget            Float?
   waterGoalMl           Int?      @default(3000)
+  sugarTarget           Float?    @default(35)
+  addedSugarTarget      Float?    @default(25)
   onboardingCompleted   Boolean   @default(false)
   sex                   String?
   dateOfBirth           DateTime?
@@ -724,6 +908,21 @@ model WaterLog {
 
   @@unique([userId, dateKey])
   @@index([userId, dateKey])
+}
+
+model WaterEntry {
+  id        String   @id @default(uuid())
+  userId    String
+  dateKey   String   // "YYYY-MM-DD"
+  amountMl  Int
+  loggedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, dateKey])
+  @@index([userId, loggedAt])
 }
 
 model DailyHealthMetric {
@@ -1042,5 +1241,36 @@ model DietitianReview {
   @@index([dietitianId])
   @@index([customerId])
 }
+
+// ==========================================
+// 12. AI HEALTH & FITNESS COACH
+// ==========================================
+
+model AIConversation {
+  id        String      @id @default(uuid())
+  userId    String
+  title     String      @default("Fitness & Nutrition Coaching")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  AIMessage[]
+
+  @@index([userId, updatedAt])
+}
+
+model AIMessage {
+  id             String         @id @default(uuid())
+  conversationId String
+  role           String         // "user" | "assistant" | "system"
+  content        String         @db.Text
+  metadata       Json?          // suggestedActions, recommendedFoods, recommendedCoaches, nutritionAnalysis
+  createdAt      DateTime       @default(now())
+
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
 
 

@@ -22,10 +22,32 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const isApiAdminPath = pathname.startsWith("/api/admin");
+  const isApiCustomerOnlyPath =
+    pathname.startsWith("/api/nutrition") || pathname.startsWith("/api/diet-plans");
   const isAdminPath = pathname.startsWith("/admin");
-  const isKitchenPath = pathname.startsWith("/kitchen");
+  const isKitchenPath = pathname.startsWith("/kitchen") && !pathname.startsWith("/kitchen/login");
+  const isKitchenLoginPath = pathname === "/kitchen/login";
   const isTrainerPath = pathname.startsWith("/trainer");
   const isDietitianPath = pathname.startsWith("/dietitian");
+  const isCustomerOnlyPath =
+    pathname === "/home" ||
+    pathname.startsWith("/home/") ||
+    pathname === "/nutrition" ||
+    pathname.startsWith("/nutrition/") ||
+    pathname === "/cart" ||
+    pathname.startsWith("/cart/") ||
+    pathname === "/orders" ||
+    pathname.startsWith("/orders/") ||
+    pathname === "/pass" ||
+    pathname.startsWith("/pass/") ||
+    pathname === "/profile" ||
+    pathname.startsWith("/profile/") ||
+    pathname === "/checkout" ||
+    pathname.startsWith("/checkout/") ||
+    pathname === "/diet-plans" ||
+    pathname.startsWith("/diet-plans/") ||
+    pathname === "/meals" ||
+    pathname.startsWith("/meals/");
 
   // 1. Defense-in-depth API route protections
   if (isApiAdminPath) {
@@ -52,7 +74,44 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Dashboard UI route protections
+  // Block Trainers from accessing customer-only APIs
+  if (isApiCustomerOnlyPath) {
+    const token = await getToken({ req, secret: authSecret });
+    if (token && (token.role as string) === "TRAINER") {
+      return NextResponse.json(
+        { success: false, error: "Forbidden: Trainers cannot access customer nutrition APIs." },
+        { status: 403 }
+      );
+    }
+    return NextResponse.next();
+  }
+
+  // Isolate Trainers from Customer-only UI routes -> redirect immediately to /trainer
+  if (isCustomerOnlyPath) {
+    const token = await getToken({ req, secret: authSecret });
+    if (token && (token.role as string) === "TRAINER") {
+      return NextResponse.redirect(new URL("/trainer", req.url));
+    }
+    return NextResponse.next();
+  }
+
+  // 2. Kitchen login page: If already logged in with authorized role, redirect to /kitchen
+  if (isKitchenLoginPath) {
+    const token = await getToken({
+      req,
+      secret: authSecret,
+    });
+
+    if (token) {
+      const userRole = (token.role as string) || "CUSTOMER";
+      if (userRole === "KITCHEN" || userRole === "ADMIN" || userRole === "SUPER_ADMIN") {
+        return NextResponse.redirect(new URL("/kitchen", req.url));
+      }
+    }
+    return NextResponse.next();
+  }
+
+  // 3. Dashboard UI route protections
   if (isAdminPath || isKitchenPath || isTrainerPath || isDietitianPath) {
     const token = await getToken({
       req,
@@ -63,6 +122,12 @@ export async function middleware(req: NextRequest) {
 
     // Unauthenticated users -> Redirect to staff sign-in
     if (!token) {
+      if (isKitchenPath) {
+        const kitchenLoginUrl = new URL("/kitchen/login", req.url);
+        kitchenLoginUrl.searchParams.set("callbackUrl", safeDestination);
+        return NextResponse.redirect(kitchenLoginUrl);
+      }
+
       const loginUrl = new URL("/login", req.url);
       loginUrl.searchParams.set("callbackUrl", safeDestination);
       loginUrl.searchParams.set("staff", "true");
@@ -83,10 +148,8 @@ export async function middleware(req: NextRequest) {
 
     // Kitchen Kiosk: KITCHEN or ADMIN or SUPER_ADMIN
     if (isKitchenPath && userRole !== "KITCHEN" && userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
-      const loginUrl = new URL("/login", req.url);
-      loginUrl.searchParams.set("staff", "true");
+      const loginUrl = new URL("/kitchen/login", req.url);
       loginUrl.searchParams.set("error", "unauthorized_role");
-      loginUrl.searchParams.set("portal", "kitchen");
       loginUrl.searchParams.set("callbackUrl", safeDestination);
       return NextResponse.redirect(loginUrl);
     }
@@ -116,5 +179,22 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/kitchen/:path*", "/trainer/:path*", "/dietitian/:path*", "/api/admin/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/kitchen/:path*",
+    "/trainer/:path*",
+    "/dietitian/:path*",
+    "/api/admin/:path*",
+    "/api/nutrition/:path*",
+    "/api/diet-plans/:path*",
+    "/home/:path*",
+    "/nutrition/:path*",
+    "/cart/:path*",
+    "/orders/:path*",
+    "/pass/:path*",
+    "/profile/:path*",
+    "/checkout/:path*",
+    "/diet-plans/:path*",
+    "/meals/:path*",
+  ],
 };

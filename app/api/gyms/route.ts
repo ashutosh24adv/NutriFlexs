@@ -21,12 +21,19 @@ export async function GET(request: NextRequest) {
       lng: !isNaN(lng as number) ? lng : undefined,
     });
 
-    return NextResponse.json({
-      success: true,
-      gyms: result.gyms,
-      cities: result.cities,
-      total: result.total,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        gyms: result.gyms,
+        cities: result.cities,
+        total: result.total,
+      },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+        },
+      }
+    );
   } catch (error: any) {
     console.error("Failed to fetch active gyms:", error);
     return NextResponse.json(

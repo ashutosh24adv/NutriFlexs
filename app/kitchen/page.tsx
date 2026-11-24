@@ -1,200 +1,424 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { signOut } from "next-auth/react";
-import { ChefHat, RefreshCw, LogOut } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { formatPrice } from "@/lib/utils";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { KitchenHeader } from "@/components/kitchen/kitchen-header";
+import { KitchenSidebar, KitchenTabType } from "@/components/kitchen/kitchen-sidebar";
+import { OverviewView } from "@/components/kitchen/views/overview-view";
+import { LiveOrdersView } from "@/components/kitchen/views/live-orders-view";
+import { InventoryView } from "@/components/kitchen/views/inventory-view";
+import { MovementsView } from "@/components/kitchen/views/movements-view";
+import { PurchaseView } from "@/components/kitchen/views/purchase-view";
+import { WastageView } from "@/components/kitchen/views/wastage-view";
+import { ReportsView } from "@/components/kitchen/views/reports-view";
+import { SettingsView } from "@/components/kitchen/views/settings-view";
+import { RefreshCw, AlertCircle } from "lucide-react";
 
-export default function KitchenDashboard() {
+export default function KitchenDashboardPage() {
+  const [activeTab, setActiveTab] = useState<KitchenTabType>("overview");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Outlet & Staff details
+  const [outletId, setOutletId] = useState<string>("");
+  const [outletName, setOutletName] = useState<string>("Indiranagar Cult Kiosk");
+  const [outlets, setOutlets] = useState<Array<{ id: string; name: string }>>([]);
+  const [userRole, setUserRole] = useState<string>("KITCHEN");
+  const [userName, setUserName] = useState<string>("Kitchen Chef");
+
+  // Orders state
   const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeOutlet, setActiveOutlet] = useState("Indiranagar Express Kiosk");
+  const [ordersKpi, setOrdersKpi] = useState({
+    newOrdersCount: 0,
+    acceptedOrdersCount: 0,
+    preparingOrdersCount: 0,
+    readyOrdersCount: 0,
+    completedTodayCount: 0,
+    totalDelayedCount: 0,
+  });
 
-  async function fetchKitchenOrders() {
-    setLoading(true);
+  // Inventory state
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [inventoryOverview, setInventoryOverview] = useState({
+    totalItems: 0,
+    inStockCount: 0,
+    lowStockCount: 0,
+    outOfStockCount: 0,
+    expiringSoonCount: 0,
+    expiredCount: 0,
+    totalValuation: 0,
+    lowStockAlerts: [] as any[],
+  });
+  const [categories, setCategories] = useState<string[]>([
+    "Proteins",
+    "Produce",
+    "Dairy",
+    "Grains",
+    "Superfoods",
+    "Packaging",
+  ]);
+
+  // Settings & Audio
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(10000);
+  const [loading, setLoading] = useState(true);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Audio tone generator
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const previousOrderIdsRef = useRef<Set<string>>(new Set());
+
+  const playChimeTone = useCallback(() => {
     try {
-      const res = await fetch("/api/orders?view=kitchen");
+      if (!audioContextRef.current) {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          audioContextRef.current = new AudioContextClass();
+        }
+      }
+      const ctx = audioContextRef.current;
+      if (!ctx) return;
+      if (ctx.state === "suspended") ctx.resume();
+
+      const now = ctx.currentTime;
+      // Tone 1 (D5 - 587.33 Hz)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(587.33, now);
+      gain1.gain.setValueAtTime(0.15, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.35);
+
+      // Tone 2 (A5 - 880 Hz)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(880, now + 0.12);
+      gain2.gain.setValueAtTime(0.2, now + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.12);
+      osc2.stop(now + 0.6);
+    } catch (e) {
+      console.warn("Audio chime playback blocked or not supported:", e);
+    }
+  }, []);
+
+  // 1. Fetch Outlets and User Context on Mount
+  useEffect(() => {
+    async function loadOutletsAndAuth() {
+      try {
+        const res = await fetch("/api/kitchen/outlets");
+        const data = await res.json();
+        if (data.success) {
+          setOutletId(data.currentOutletId);
+          setOutletName(data.currentOutletName);
+          setUserRole(data.userRole);
+          setUserName(data.userName);
+          if (data.outlets && data.outlets.length > 0) {
+            setOutlets(data.outlets);
+          }
+        } else if (data.status === 401 || data.status === 403) {
+          window.location.href = "/kitchen/login";
+        }
+      } catch (e) {
+        console.error("Failed to load kitchen authorization context:", e);
+      }
+    }
+    loadOutletsAndAuth();
+  }, []);
+
+  // 2. Fetch Orders for active outlet
+  const fetchOrders = useCallback(async () => {
+    if (!outletId) return;
+    try {
+      const res = await fetch(`/api/kitchen/orders?outletId=${outletId}`);
       const data = await res.json();
       if (data.success && data.orders) {
         setOrders(data.orders);
+        if (data.kpi) setOrdersKpi(data.kpi);
+
+        // Check if new orders arrived to play chime
+        const currentIds = new Set<string>(data.orders.map((o: any) => o.id));
+        if (previousOrderIdsRef.current.size > 0 && soundEnabled) {
+          const hasNew = data.orders.some(
+            (o: any) => o.status === "ORDER_PLACED" && !previousOrderIdsRef.current.has(o.id)
+          );
+          if (hasNew) {
+            playChimeTone();
+          }
+        }
+        previousOrderIdsRef.current = currentIds;
       }
     } catch (e) {
-      console.error("Failed to fetch kitchen orders from database", e);
+      console.error("Failed to load orders:", e);
+    }
+  }, [outletId, soundEnabled, playChimeTone]);
+
+  // 3. Fetch Inventory items & overview for active outlet
+  const fetchInventory = useCallback(async () => {
+    if (!outletId) return;
+    try {
+      const res = await fetch(`/api/kitchen/inventory?outletId=${outletId}&limit=100`);
+      const data = await res.json();
+      if (data.success && data.items) {
+        setInventoryItems(data.items);
+        if (data.overview) setInventoryOverview(data.overview);
+
+        // Extract distinct categories
+        const catSet = new Set<string>();
+        data.items.forEach((it: any) => {
+          if (it.category) catSet.add(it.category);
+        });
+        if (catSet.size > 0) setCategories(Array.from(catSet));
+      }
+    } catch (e) {
+      console.error("Failed to load inventory:", e);
+    }
+  }, [outletId]);
+
+  // Refresh all data
+  const refreshAll = useCallback(async () => {
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      await Promise.all([fetchOrders(), fetchInventory()]);
+    } catch (err: any) {
+      setErrorMsg("Failed to synchronize with server. Please try refreshing.");
     } finally {
       setLoading(false);
+      setInitialLoaded(true);
     }
-  }
+  }, [fetchOrders, fetchInventory]);
 
+  // Initial fetch and polling interval
   useEffect(() => {
-    fetchKitchenOrders();
-    const interval = setInterval(fetchKitchenOrders, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    if (outletId) {
+      refreshAll();
+      const interval = setInterval(fetchOrders, refreshInterval);
+      return () => clearInterval(interval);
+    }
+  }, [outletId, refreshInterval, fetchOrders, refreshAll]);
 
-  const handleUpdateStatus = async (orderId: string, newStatus: string) => {
+  // Update order status with optimistic update
+  const handleUpdateOrderStatus = async (orderId: string, newStatus: string, reason?: string) => {
     setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus as any } : o))
     );
 
     try {
-      await fetch(`/api/orders/${orderId}/status`, {
+      const res = await fetch(`/api/orders/${orderId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, reason }),
       });
-      fetchKitchenOrders();
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.error || "Failed to update order status.");
+      }
+      // Re-sync orders and inventory
+      fetchOrders();
+      fetchInventory();
     } catch (e) {
-      console.error("Status update error", e);
+      console.error("Order status update failed:", e);
+      fetchOrders();
     }
   };
 
-  const columns = [
-    { key: "ORDER_PLACED", label: "NEW ORDERS", color: "bg-rose-50 border-rose-200 text-rose-800" },
-    { key: "PREPARING", label: "PREPARING (~5 MIN)", color: "bg-amber-50 border-amber-200 text-amber-900" },
-    { key: "READY_FOR_PICKUP", label: "READY FOR PICKUP", color: "bg-emerald-50 border-emerald-200 text-emerald-900" },
-    { key: "COMPLETED", label: "COMPLETED", color: "bg-gray-50 border-gray-200 text-gray-700" },
-  ];
+  // Add/Update inventory item
+  const handleSaveInventoryItem = async (itemData: any) => {
+    try {
+      const res = await fetch("/api/kitchen/inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...itemData, outletId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchInventory();
+        return true;
+      } else {
+        alert(data.error || "Failed to save ingredient.");
+        return false;
+      }
+    } catch (e) {
+      console.error("Save ingredient failed:", e);
+      alert("Network error saving ingredient.");
+      return false;
+    }
+  };
+
+  // Adjust stock
+  const handleAdjustStock = async (adjustData: any) => {
+    try {
+      const res = await fetch("/api/kitchen/inventory/adjust", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...adjustData, outletId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchInventory();
+        return true;
+      } else {
+        alert(data.error || "Failed to adjust stock.");
+        return false;
+      }
+    } catch (e) {
+      console.error("Adjust stock failed:", e);
+      alert("Network error adjusting stock.");
+      return false;
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 p-4 sm:p-6 space-y-6 font-sans">
-      {/* Kiosk Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center font-extrabold shadow-lg">
-            <ChefHat className="w-7 h-7" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold font-heading text-white">Kiosk Kitchen Display System</h1>
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            </div>
-            <p className="text-xs text-slate-400">
-              Express Kiosk Orders • Live PostgreSQL Connection
-            </p>
-          </div>
+    <div className="min-h-screen bg-[#090D16] text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
+      {/* Top Header */}
+      <KitchenHeader
+        outletName={outletName}
+        outletId={outletId}
+        outlets={outlets}
+        onSelectOutlet={(newId) => {
+          setOutletId(newId);
+          const found = outlets.find((o) => o.id === newId);
+          if (found) setOutletName(found.name);
+        }}
+        userRole={userRole}
+        userName={userName}
+        loading={loading}
+        onRefresh={refreshAll}
+        soundEnabled={soundEnabled}
+        onToggleSound={() => setSoundEnabled(!soundEnabled)}
+        onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+      />
+
+      {/* Main Workspace: Sidebar + Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar for Desktop */}
+        <div className="hidden lg:flex">
+          <KitchenSidebar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+            liveOrdersCount={
+              ordersKpi.newOrdersCount + ordersKpi.acceptedOrdersCount + ordersKpi.preparingOrdersCount
+            }
+            lowStockCount={inventoryOverview.lowStockCount + inventoryOverview.outOfStockCount}
+          />
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={fetchKitchenOrders}
-            className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
-            title="Refresh Live Orders"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-          </button>
-          <button
-            onClick={() => signOut({ callbackUrl: "/" })}
-            className="text-xs bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 hover:text-rose-100 px-3 py-2 rounded-xl border border-rose-800/80 font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Sign Out of Kitchen Kiosk"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Sign Out</span>
-          </button>
-        </div>
-      </div>
-
-      {/* KDS Columns Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
-        {columns.map((col) => {
-          const colOrders = orders.filter((o) => o.status === col.key);
-
-          return (
-            <div key={col.key} className="bg-slate-950/60 rounded-3xl p-4 border border-slate-800 space-y-3 min-h-[500px]">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <span className={`text-xs font-extrabold px-3 py-1 rounded-full border ${col.color}`}>
-                  {col.label}
-                </span>
-                <span className="text-xs font-bold text-slate-400">{colOrders.length}</span>
-              </div>
-
-              <div className="space-y-3">
-                {colOrders.length === 0 ? (
-                  <div className="py-12 text-center text-slate-600 text-xs font-medium">
-                    No orders in this queue
-                  </div>
-                ) : (
-                  colOrders.map((ord) => (
-                    <div
-                      key={ord.id}
-                      className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-md"
-                    >
-                      <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-                        <div>
-                          <span className="text-sm font-extrabold text-emerald-400 font-heading">
-                            {ord.orderNumber}
-                          </span>
-                          <p className="text-[11px] font-bold text-slate-300 mt-0.5">
-                            {ord.user?.name || "Customer"}
-                          </p>
-                        </div>
-                        <span className="text-[11px] font-semibold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md">
-                          {new Date(ord.createdAt).toLocaleTimeString("en-IN", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-
-                      {/* Items */}
-                      <div className="space-y-1.5 py-1">
-                        {ord.items?.map((item: any) => (
-                          <div key={item.id} className="text-xs flex items-start justify-between gap-2">
-                            <span className="font-bold text-slate-200">
-                              {item.quantity}x {item.product?.name || item.name}
-                            </span>
-                            <span className="text-[10px] text-emerald-400 font-extrabold shrink-0">
-                              {item.product?.protein || 30}g P
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Action buttons */}
-                      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-400">
-                          {formatPrice(ord.totalAmount)}
-                        </span>
-
-                        {col.key === "ORDER_PLACED" && (
-                          <button
-                            onClick={() => handleUpdateStatus(ord.id, "PREPARING")}
-                            className="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm cursor-pointer"
-                          >
-                            Start Prep →
-                          </button>
-                        )}
-                        {col.key === "PREPARING" && (
-                          <button
-                            onClick={() => handleUpdateStatus(ord.id, "READY_FOR_PICKUP")}
-                            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm cursor-pointer"
-                          >
-                            Mark Ready →
-                          </button>
-                        )}
-                        {col.key === "READY_FOR_PICKUP" && (
-                          <button
-                            onClick={() => handleUpdateStatus(ord.id, "COMPLETED")}
-                            className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm cursor-pointer"
-                          >
-                            Complete ✔
-                          </button>
-                        )}
-                        {col.key === "COMPLETED" && (
-                          <span className="text-[10px] font-bold text-slate-500 uppercase">
-                            Delivered
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+        {/* Mobile Slide-over Sidebar */}
+        {mobileSidebarOpen && (
+          <div className="fixed inset-0 z-40 lg:hidden flex">
+            <div
+              className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm"
+              onClick={() => setMobileSidebarOpen(false)}
+            />
+            <div className="relative z-50 w-64 bg-slate-950 flex flex-col h-full border-r border-slate-800">
+              <KitchenSidebar
+                activeTab={activeTab}
+                onTabChange={(t) => {
+                  setActiveTab(t);
+                  setMobileSidebarOpen(false);
+                }}
+                collapsed={false}
+                onToggleCollapse={() => setMobileSidebarOpen(false)}
+                liveOrdersCount={ordersKpi.newOrdersCount}
+                lowStockCount={inventoryOverview.lowStockCount}
+              />
             </div>
-          );
-        })}
+          </div>
+        )}
+
+        {/* Dynamic View Content Container */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
+          {errorMsg && (
+            <div className="p-3.5 bg-rose-950/60 border border-rose-800/80 rounded-2xl text-rose-300 text-xs flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+              <button
+                onClick={refreshAll}
+                className="px-2.5 py-1 bg-rose-900/60 hover:bg-rose-800 text-white rounded-lg font-bold"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {activeTab === "overview" && (
+            <OverviewView
+              ordersKpi={ordersKpi}
+              inventoryOverview={inventoryOverview}
+              recentOrders={orders}
+              onNavigateTab={setActiveTab}
+              onUpdateOrderStatus={handleUpdateOrderStatus}
+            />
+          )}
+
+          {activeTab === "orders" && (
+            <LiveOrdersView
+              orders={orders}
+              onUpdateOrderStatus={handleUpdateOrderStatus}
+              loading={loading}
+            />
+          )}
+
+          {activeTab === "inventory" && (
+            <InventoryView
+              items={inventoryItems}
+              overview={inventoryOverview}
+              categories={categories}
+              onRefresh={fetchInventory}
+              onSaveItem={handleSaveInventoryItem}
+              onAdjustStock={handleAdjustStock}
+              onNavigateTab={setActiveTab}
+              loading={loading}
+            />
+          )}
+
+          {activeTab === "movements" && <MovementsView outletId={outletId} />}
+
+          {activeTab === "purchase" && (
+            <PurchaseView
+              items={inventoryItems}
+              outletId={outletId}
+              onRefresh={fetchInventory}
+              onNavigateTab={setActiveTab}
+            />
+          )}
+
+          {activeTab === "wastage" && (
+            <WastageView
+              items={inventoryItems}
+              outletId={outletId}
+              onRefreshInventory={fetchInventory}
+            />
+          )}
+
+          {activeTab === "reports" && <ReportsView outletId={outletId} />}
+
+          {activeTab === "settings" && (
+            <SettingsView
+              outletName={outletName}
+              outletId={outletId}
+              userName={userName}
+              userRole={userRole}
+              soundEnabled={soundEnabled}
+              onToggleSound={() => setSoundEnabled(!soundEnabled)}
+              onTestSound={playChimeTone}
+              refreshInterval={refreshInterval}
+              onChangeRefreshInterval={setRefreshInterval}
+            />
+          )}
+        </main>
       </div>
     </div>
   );

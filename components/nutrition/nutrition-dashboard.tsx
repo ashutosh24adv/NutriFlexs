@@ -32,12 +32,32 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MealType } from "@prisma/client";
+import dynamic from "next/dynamic";
 import { DailyNutritionSummary, MealDiarySection } from "@/services/nutrition.service";
-import { FoodSearchModal } from "@/components/nutrition/food-search-modal";
-import { CustomFoodModal } from "@/components/nutrition/custom-food-modal";
-import { EditLogModal } from "@/components/nutrition/edit-log-modal";
-import { NutritionGoalsModal } from "@/components/nutrition/nutrition-goals-modal";
-import { AIMealScannerModal } from "@/components/nutrition/ai-meal-scanner-modal";
+import { WaterIntakeCard } from "@/components/nutrition/water-intake-card";
+import { SugarTrackerCard } from "@/components/nutrition/sugar-tracker-card";
+
+// Lazy-load heavy dialog modals so initial dashboard page bundle stays lean & fast
+const FoodSearchModal = dynamic(
+  () => import("@/components/nutrition/food-search-modal").then((m) => m.FoodSearchModal),
+  { ssr: false }
+);
+const CustomFoodModal = dynamic(
+  () => import("@/components/nutrition/custom-food-modal").then((m) => m.CustomFoodModal),
+  { ssr: false }
+);
+const EditLogModal = dynamic(
+  () => import("@/components/nutrition/edit-log-modal").then((m) => m.EditLogModal),
+  { ssr: false }
+);
+const NutritionGoalsModal = dynamic(
+  () => import("@/components/nutrition/nutrition-goals-modal").then((m) => m.NutritionGoalsModal),
+  { ssr: false }
+);
+const AIMealScannerModal = dynamic(
+  () => import("@/components/nutrition/ai-meal-scanner-modal").then((m) => m.AIMealScannerModal),
+  { ssr: false }
+);
 import {
   getGuestDailyNutritionSummary,
   hasGuestDataToMigrate,
@@ -302,6 +322,26 @@ export function NutritionDashboard({ onRetakeOnboarding }: NutritionDashboardPro
     carbsProgressPercent: 0,
     remainingFat: null,
     fatProgressPercent: 0,
+    waterGoalMl: 3000,
+    sugarTarget: 35,
+    addedSugarTarget: 25,
+  };
+  const water = diary?.water || {
+    totalMl: 0,
+    waterGoalMl: goals.waterGoalMl || 3000,
+    progressPercent: 0,
+    remainingMl: goals.waterGoalMl || 3000,
+    entries: [],
+  };
+  const sugar = diary?.sugar || {
+    totalSugar: 0,
+    addedSugar: 0,
+    naturalSugar: 0,
+    sugarTarget: goals.sugarTarget || 35,
+    addedSugarTarget: goals.addedSugarTarget || 25,
+    sugarProgressPercent: 0,
+    addedSugarProgressPercent: 0,
+    hasAnySugarData: false,
   };
 
   return (
@@ -699,6 +739,21 @@ export function NutritionDashboard({ onRetakeOnboarding }: NutritionDashboardPro
         </Card>
       </div>
 
+      {/* Water Intake & Sugar Tracking Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <WaterIntakeCard
+          dateKey={currentDateKey}
+          water={water}
+          isAuthenticated={isAuthenticated}
+          onUpdate={() => fetchDiary(currentDateKey)}
+        />
+        <SugarTrackerCard
+          sugar={sugar}
+          isAuthenticated={isAuthenticated}
+          onUpdate={() => fetchDiary(currentDateKey)}
+        />
+      </div>
+
       {/* Action shortcuts banner */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-nutri-green-soft border border-nutri-green/20 rounded-2xl">
         <div className="flex items-center gap-2">
@@ -856,8 +911,13 @@ export function NutritionDashboard({ onRetakeOnboarding }: NutritionDashboardPro
                           <span className="font-heading font-extrabold text-xs sm:text-sm text-nutri-green block">
                             {item.calories} kcal
                           </span>
-                          <span className="text-[10px] text-nutri-muted font-medium">
+                          <span className="text-[10px] text-nutri-muted font-medium block">
                             P: {item.protein}g · C: {item.carbohydrates}g · F: {item.fat}g
+                          </span>
+                          <span className="text-[10px] font-semibold block text-amber-800">
+                            {item.hasSugarData && item.totalSugar !== null && item.totalSugar !== undefined
+                              ? `Sugar: ${item.totalSugar}g${item.addedSugar !== null && item.addedSugar !== undefined ? ` (${item.addedSugar}g added)` : ""}`
+                              : "Sugar: Not available"}
                           </span>
                         </div>
 
@@ -933,6 +993,9 @@ export function NutritionDashboard({ onRetakeOnboarding }: NutritionDashboardPro
           proteinGoal: goals.proteinGoal,
           carbohydrateGoal: goals.carbohydrateGoal,
           fatGoal: goals.fatGoal,
+          waterGoalMl: goals.waterGoalMl,
+          sugarTarget: goals.sugarTarget,
+          addedSugarTarget: goals.addedSugarTarget,
         }}
         isGuest={!isAuthenticated}
       />

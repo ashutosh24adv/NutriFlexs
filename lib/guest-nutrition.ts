@@ -6,6 +6,16 @@ export interface GuestNutritionGoal {
   proteinGoal: number | null;
   carbohydrateGoal: number | null;
   fatGoal: number | null;
+  waterGoalMl?: number | null;
+  sugarTarget?: number | null;
+  addedSugarTarget?: number | null;
+}
+
+export interface GuestWaterEntry {
+  id: string;
+  dateKey: string;
+  amountMl: number;
+  loggedAt: string;
 }
 
 export interface GuestFoodLogItem {
@@ -26,6 +36,9 @@ export interface GuestFoodLogItem {
   protein: number;
   carbohydrates: number;
   fat: number;
+  totalSugar?: number | null;
+  addedSugar?: number | null;
+  hasSugarData?: boolean;
   loggedAt: string;
   isAutoLoggedFromOrder: boolean;
   // Base nutrition reference for proportional scaling on edits
@@ -33,6 +46,8 @@ export interface GuestFoodLogItem {
   baseProtein?: number;
   baseCarbs?: number;
   baseFat?: number;
+  baseTotalSugar?: number | null;
+  baseAddedSugar?: number | null;
 }
 
 export interface GuestCustomFood {
@@ -44,6 +59,8 @@ export interface GuestCustomFood {
   protein: number;
   carbohydrates: number;
   fat: number;
+  totalSugar?: number | null;
+  addedSugar?: number | null;
   defaultServingSize: number;
   defaultServingUnit: string;
   servingWeightGrams: number;
@@ -57,6 +74,9 @@ const STORAGE_KEYS = {
   CUSTOM_FOODS: "nutriflexs_guest_custom_foods",
   FAVORITES: "nutriflexs_guest_favorites",
   SAVED_MEALS: "nutriflexs_guest_saved_meals",
+  WATER_ENTRIES: "nutriflexs_guest_water_entries",
+  WATER_GOAL: "nutriflexs_guest_water_goal",
+  SUGAR_GOAL: "nutriflexs_guest_sugar_goal",
   MIGRATION_DISMISSED: "nutriflexs_guest_migration_dismissed",
 };
 
@@ -209,6 +229,81 @@ export function addGuestCustomFood(
 }
 
 // -------------------------------------------------------------
+// WATER TRACKING
+// -------------------------------------------------------------
+
+export function getAllGuestWaterEntries(): GuestWaterEntry[] {
+  return safeGetItem<GuestWaterEntry[]>(STORAGE_KEYS.WATER_ENTRIES, []);
+}
+
+export function getGuestWaterEntriesForDate(dateKey: string): GuestWaterEntry[] {
+  const all = getAllGuestWaterEntries();
+  return all.filter((w) => w.dateKey === dateKey);
+}
+
+export function addGuestWaterEntry(dateKey: string, amountMl: number): GuestWaterEntry {
+  const all = getAllGuestWaterEntries();
+  const newEntry: GuestWaterEntry = {
+    id: `guest_water_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    dateKey,
+    amountMl,
+    loggedAt: new Date().toISOString(),
+  };
+  all.push(newEntry);
+  safeSetItem(STORAGE_KEYS.WATER_ENTRIES, all);
+  return newEntry;
+}
+
+export function deleteGuestWaterEntry(id: string): boolean {
+  const all = getAllGuestWaterEntries();
+  const filtered = all.filter((w) => w.id !== id);
+  if (filtered.length === all.length) return false;
+  safeSetItem(STORAGE_KEYS.WATER_ENTRIES, filtered);
+  return true;
+}
+
+export function getGuestWaterGoal(): number {
+  return safeGetItem<number>(STORAGE_KEYS.WATER_GOAL, 2500);
+}
+
+export function saveGuestWaterGoal(waterGoalMl: number): void {
+  safeSetItem(STORAGE_KEYS.WATER_GOAL, waterGoalMl);
+  const goals = getGuestGoals();
+  goals.waterGoalMl = waterGoalMl;
+  saveGuestGoals(goals);
+}
+
+// -------------------------------------------------------------
+// SUGAR GOALS
+// -------------------------------------------------------------
+
+export interface GuestSugarGoal {
+  sugarTarget: number;
+  addedSugarTarget: number;
+}
+
+export function getGuestSugarGoal(): GuestSugarGoal {
+  return safeGetItem<GuestSugarGoal>(STORAGE_KEYS.SUGAR_GOAL, {
+    sugarTarget: 35,
+    addedSugarTarget: 25,
+  });
+}
+
+export function saveGuestSugarGoal(updates: { sugarTarget?: number; addedSugarTarget?: number }): GuestSugarGoal {
+  const current = getGuestSugarGoal();
+  const updated: GuestSugarGoal = {
+    sugarTarget: updates.sugarTarget !== undefined ? updates.sugarTarget : current.sugarTarget,
+    addedSugarTarget: updates.addedSugarTarget !== undefined ? updates.addedSugarTarget : current.addedSugarTarget,
+  };
+  safeSetItem(STORAGE_KEYS.SUGAR_GOAL, updated);
+  const goals = getGuestGoals();
+  goals.sugarTarget = updated.sugarTarget;
+  goals.addedSugarTarget = updated.addedSugarTarget;
+  saveGuestGoals(goals);
+  return updated;
+}
+
+// -------------------------------------------------------------
 // DAILY SUMMARY BUILDER
 // -------------------------------------------------------------
 
@@ -250,12 +345,31 @@ export function getGuestDailyNutritionSummary(dateKey: string): DailyNutritionSu
     fat: 0,
   };
 
+  let dailyTotalSugarSum = 0;
+  let dailyAddedSugarSum = 0;
+  let hasAnySugarData = false;
+
   for (const log of logs) {
     const meal = meals[log.mealType] || meals[MealType.LUNCH];
     const roundedCals = Math.round(log.calories * 10) / 10;
     const roundedProt = Math.round(log.protein * 10) / 10;
     const roundedCarbs = Math.round(log.carbohydrates * 10) / 10;
     const roundedFat = Math.round(log.fat * 10) / 10;
+    const itemTotalSugar = log.totalSugar !== undefined && log.totalSugar !== null
+      ? Math.round(log.totalSugar * 10) / 10
+      : null;
+    const itemAddedSugar = log.addedSugar !== undefined && log.addedSugar !== null
+      ? Math.round(log.addedSugar * 10) / 10
+      : null;
+    const itemHasSugar = Boolean(log.hasSugarData || itemTotalSugar !== null);
+
+    if (itemHasSugar && itemTotalSugar !== null) {
+      hasAnySugarData = true;
+      dailyTotalSugarSum += itemTotalSugar;
+      if (itemAddedSugar !== null) {
+        dailyAddedSugarSum += itemAddedSugar;
+      }
+    }
 
     meal.items.push({
       id: log.id,
@@ -270,6 +384,9 @@ export function getGuestDailyNutritionSummary(dateKey: string): DailyNutritionSu
       protein: roundedProt,
       carbohydrates: roundedCarbs,
       fat: roundedFat,
+      totalSugar: itemTotalSugar,
+      addedSugar: itemAddedSugar,
+      hasSugarData: itemHasSugar,
       loggedAt: log.loggedAt,
       isAutoLoggedFromOrder: log.isAutoLoggedFromOrder,
     });
@@ -297,6 +414,23 @@ export function getGuestDailyNutritionSummary(dateKey: string): DailyNutritionSu
   dailyTotals.protein = Math.round(dailyTotals.protein * 10) / 10;
   dailyTotals.carbohydrates = Math.round(dailyTotals.carbohydrates * 10) / 10;
   dailyTotals.fat = Math.round(dailyTotals.fat * 10) / 10;
+
+  // Water calculations
+  const guestWaterEntries = getGuestWaterEntriesForDate(dateKey);
+  const totalWaterMl = guestWaterEntries.reduce((sum, w) => sum + w.amountMl, 0);
+  const waterGoalMl = goals.waterGoalMl || getGuestWaterGoal();
+  const waterProgressPercent = waterGoalMl > 0 ? Math.min(200, Math.round((totalWaterMl / waterGoalMl) * 100)) : 0;
+  const remainingWaterMl = Math.max(0, waterGoalMl - totalWaterMl);
+
+  // Sugar calculations
+  const guestSugarGoal = getGuestSugarGoal();
+  const sugarTarget = goals.sugarTarget || guestSugarGoal.sugarTarget;
+  const addedSugarTarget = goals.addedSugarTarget || guestSugarGoal.addedSugarTarget;
+  const roundedTotalSugar = Math.round(dailyTotalSugarSum * 10) / 10;
+  const roundedAddedSugar = Math.round(dailyAddedSugarSum * 10) / 10;
+  const naturalSugar = Math.max(0, Math.round((roundedTotalSugar - roundedAddedSugar) * 10) / 10);
+  const sugarProgressPercent = sugarTarget > 0 ? Math.min(200, Math.round((roundedTotalSugar / sugarTarget) * 100)) : 0;
+  const addedSugarProgressPercent = addedSugarTarget > 0 ? Math.min(200, Math.round((roundedAddedSugar / addedSugarTarget) * 100)) : 0;
 
   // Goals calculations
   const dailyCalorieGoal = goals.dailyCalorieGoal;
@@ -326,6 +460,27 @@ export function getGuestDailyNutritionSummary(dateKey: string): DailyNutritionSu
   return {
     dateKey,
     totals: dailyTotals,
+    sugar: {
+      totalSugar: roundedTotalSugar,
+      addedSugar: roundedAddedSugar,
+      naturalSugar,
+      sugarTarget,
+      addedSugarTarget,
+      sugarProgressPercent,
+      addedSugarProgressPercent,
+      hasAnySugarData,
+    },
+    water: {
+      totalMl: totalWaterMl,
+      waterGoalMl,
+      progressPercent: waterProgressPercent,
+      remainingMl: remainingWaterMl,
+      entries: guestWaterEntries.map((w) => ({
+        id: w.id,
+        amountMl: w.amountMl,
+        loggedAt: w.loggedAt,
+      })),
+    },
     goals: {
       dailyCalorieGoal,
       proteinGoal,
@@ -339,6 +494,9 @@ export function getGuestDailyNutritionSummary(dateKey: string): DailyNutritionSu
       carbsProgressPercent,
       remainingFat,
       fatProgressPercent,
+      waterGoalMl,
+      sugarTarget,
+      addedSugarTarget,
     },
     meals,
   };
@@ -354,14 +512,16 @@ export function hasGuestDataToMigrate(): boolean {
   const logs = getAllGuestLogs();
   const goals = getGuestGoals();
   const customFoods = getGuestCustomFoods();
+  const waterEntries = getAllGuestWaterEntries();
 
   const hasLogs = logs.length > 0;
   const hasGoals = Boolean(
-    goals.dailyCalorieGoal || goals.proteinGoal || goals.carbohydrateGoal || goals.fatGoal
+    goals.dailyCalorieGoal || goals.proteinGoal || goals.carbohydrateGoal || goals.fatGoal || goals.waterGoalMl || goals.sugarTarget
   );
   const hasCustom = customFoods.length > 0;
+  const hasWater = waterEntries.length > 0;
 
-  return hasLogs || hasGoals || hasCustom;
+  return hasLogs || hasGoals || hasCustom || hasWater;
 }
 
 export function getGuestDataForMigration() {
@@ -371,6 +531,7 @@ export function getGuestDataForMigration() {
     customFoods: getGuestCustomFoods(),
     favorites: getGuestFavorites(),
     savedMeals: getGuestSavedMeals(),
+    waterEntries: getAllGuestWaterEntries(),
   };
 }
 
@@ -382,6 +543,9 @@ export function clearGuestData(): void {
     window.localStorage.removeItem(STORAGE_KEYS.CUSTOM_FOODS);
     window.localStorage.removeItem(STORAGE_KEYS.FAVORITES);
     window.localStorage.removeItem(STORAGE_KEYS.SAVED_MEALS);
+    window.localStorage.removeItem(STORAGE_KEYS.WATER_ENTRIES);
+    window.localStorage.removeItem(STORAGE_KEYS.WATER_GOAL);
+    window.localStorage.removeItem(STORAGE_KEYS.SUGAR_GOAL);
     window.localStorage.removeItem(STORAGE_KEYS.MIGRATION_DISMISSED);
   } catch (e) {
     console.error("Failed to clear guest nutrition data", e);

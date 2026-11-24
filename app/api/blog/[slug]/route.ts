@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withDbRetry } from "@/lib/prisma";
+import { getCached, setCached } from "@/lib/cache";
 
 export async function GET(
   request: Request,
@@ -8,9 +9,21 @@ export async function GET(
   try {
     const { slug } = params;
 
-    const article = await prisma.blogPost.findUnique({
-      where: { slug },
-    });
+    const cacheKey = `blog_detail_${slug}`;
+    const cached = getCached<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: {
+          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+        },
+      });
+    }
+
+    const article = await withDbRetry(() =>
+      prisma.blogPost.findUnique({
+        where: { slug },
+      })
+    );
 
     if (!article || !article.isPublished) {
       return NextResponse.json(
@@ -20,67 +33,53 @@ export async function GET(
     }
 
     // Related articles (same category or recent, excluding current)
-    const relatedArticles = await prisma.blogPost.findMany({
-      where: {
-        isPublished: true,
-        slug: { not: slug },
-        category: article.category,
-      },
-      take: 2,
-      orderBy: { publishedAt: "desc" },
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        excerpt: true,
-        coverImage: true,
-        category: true,
-        publishedAt: true,
-        readTimeMinutes: true,
-      },
-    });
+    const [relatedArticles, recommendedProducts] = await withDbRetry(() =>
+      Promise.all([
+        prisma.blogPost.findMany({
+          where: {
+            isPublished: true,
+            slug: { not: slug },
+            category: article.category,
+          },
+          take: 2,
+          orderBy: { publishedAt: "desc" },
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            excerpt: true,
+            coverImage: true,
+            category: true,
+            publishedAt: true,
+            readTimeMinutes: true,
+          },
+        }),
+        prisma.product.findMany({
+          where: {
+            isAvailable: true,
+          },
+          take: 3,
+          include: {
+            category: true,
+          },
+          orderBy: { isFeatured: "desc" },
+        }),
+      ])
+    );
 
-    // If less than 2 related in same category, supplement with recent
-    let finalRelated = [...relatedArticles];
-    if (finalRelated.length < 2) {
-      const extra = await prisma.blogPost.findMany({
-        where: {
-          isPublished: true,
-          slug: { notIn: [slug, ...finalRelated.map((r) => r.slug)] },
-        },
-        take: 2 - finalRelated.length,
-        orderBy: { publishedAt: "desc" },
-        select: {
-          id: true,
-          title: true,
-          slug: true,
-          excerpt: true,
-          coverImage: true,
-          category: true,
-          publishedAt: true,
-          readTimeMinutes: true,
-        },
-      });
-      finalRelated = [...finalRelated, ...extra];
-    }
-
-    // Recommended NutriFlexs products (e.g. popular or featured items)
-    const recommendedProducts = await prisma.product.findMany({
-      where: {
-        isAvailable: true,
-      },
-      take: 3,
-      include: {
-        category: true,
-      },
-      orderBy: { isFeatured: "desc" },
-    });
-
-    return NextResponse.json({
+    const result = {
       success: true,
       article,
-      relatedArticles: finalRelated,
+      relatedArticles,
       recommendedProducts,
+    };
+
+    setCached(cacheKey, result, 300, ["blog"]);
+
+    return NextResponse.json(result, {
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+      },
     });
   } catch (error) {
     console.error("Error fetching article by slug:", error);
@@ -90,4 +89,3 @@ export async function GET(
     );
   }
 }
-

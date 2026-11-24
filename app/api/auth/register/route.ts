@@ -298,27 +298,59 @@ export async function POST(request: Request) {
 
     // CUSTOMER REGISTRATION (Public, strictly CUSTOMER role only)
     const defaultOutlet = await withDbRetry(() => prisma.outlet.findFirst());
+    const cleanCustomerRefCode = referralCode ? referralCode.toUpperCase().trim() : null;
 
     const newUser = await withDbRetry(() =>
-      prisma.user.create({
-        data: {
-          name: name.trim(),
-          email: normalizedEmail,
-          phone: phone ? phone.trim() : null,
-          passwordHash: hashedPassword,
-          role: Role.CUSTOMER, // Strict: never allows privileged role in public registration
-          selectedGymId: defaultOutlet?.gymId || null,
-          selectedOutletId: defaultOutlet?.id || null,
-          streakDays: 1,
-          proteinGoalGrams: 120,
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          selectedOutletId: true,
-        },
+      prisma.$transaction(async (tx) => {
+        const createdUser = await tx.user.create({
+          data: {
+            name: name.trim(),
+            email: normalizedEmail,
+            phone: phone ? phone.trim() : null,
+            passwordHash: hashedPassword,
+            role: Role.CUSTOMER, // Strict: never allows privileged role in public registration
+            selectedGymId: defaultOutlet?.gymId || null,
+            selectedOutletId: defaultOutlet?.id || null,
+            streakDays: 1,
+            proteinGoalGrams: 120,
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            selectedOutletId: true,
+          },
+        });
+
+        // Permanent referral attribution if customer registered with a valid trainer referral code
+        if (cleanCustomerRefCode) {
+          const trainer = await tx.trainer.findUnique({
+            where: { referralCode: cleanCustomerRefCode },
+          });
+          if (trainer) {
+            const existingAttribution = await tx.referral.findFirst({
+              where: { customerId: createdUser.id },
+            });
+            if (!existingAttribution) {
+              await tx.referral.create({
+                data: {
+                  trainerId: trainer.id,
+                  customerId: createdUser.id,
+                  codeUsed: trainer.referralCode,
+                  discountApplied: 0,
+                  status: "PENDING",
+                },
+              });
+              await tx.trainer.update({
+                where: { id: trainer.id },
+                data: { totalReferrals: { increment: 1 } },
+              });
+            }
+          }
+        }
+
+        return createdUser;
       })
     );
 

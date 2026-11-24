@@ -2,9 +2,9 @@
  * NutriFlexs Global Stylesheet
  * Integrates Centralized Design Tokens, Normalization, Typography, Utilities,
  * Components, Animations, and Tailwind CSS.
+ * (Fonts are self-hosted via next/font/google in app/layout.tsx for zero-layout-shift performance)
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&display=swap');
 @import '../styles/variables.css';
 @import '../styles/reset.css';
 @import '../styles/typography.css';
@@ -20,6 +20,7 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    background-color: #111111;
   }
 
   body {

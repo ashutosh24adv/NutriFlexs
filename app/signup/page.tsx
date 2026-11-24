@@ -45,6 +45,7 @@ function SignupForm() {
   const portalParam = searchParams.get("portal")?.toLowerCase() || null;
   const rawStaff = searchParams.get("staff") === "true";
   const rawCallbackUrl = searchParams.get("callbackUrl");
+  const refParam = searchParams.get("ref")?.toUpperCase().trim() || "";
   const inviteTokenParam =
     searchParams.get("token") ||
     searchParams.get("invite") ||
@@ -91,7 +92,7 @@ function SignupForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [inviteCode, setInviteCode] = useState(inviteTokenParam);
-  const [referralCode, setReferralCode] = useState("");
+  const [referralCode, setReferralCode] = useState(refParam);
   const [outletId, setOutletId] = useState("");
 
   useEffect(() => {
@@ -99,6 +100,12 @@ function SignupForm() {
       setInviteCode(inviteTokenParam);
     }
   }, [inviteTokenParam]);
+
+  useEffect(() => {
+    if (refParam) {
+      setReferralCode(refParam);
+    }
+  }, [refParam]);
 
   // Outlets for kitchen signup
   const [availableOutlets, setAvailableOutlets] = useState<
@@ -564,6 +571,22 @@ function SignupForm() {
                   <p className="text-[10px] text-nutri-secondary mt-1">
                     Clients use this code for discounts. Automatically generated if left blank.
                   </p>
+                </div>
+              )}
+
+              {/* Customer Trainer Referral Attribution Banner */}
+              {targetPortal === "customer" && refParam && (
+                <div className="p-3 rounded-xl bg-nutri-green-light/70 border border-nutri-green/25 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Tag className="w-4 h-4 text-nutri-green shrink-0" />
+                    <div className="text-xs text-nutri-charcoal">
+                      <span className="font-bold">Trainer Referral Applied: </span>
+                      <span className="font-mono font-extrabold text-nutri-green">{referralCode}</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-extrabold bg-nutri-green text-white px-2 py-0.5 rounded-full shrink-0">
+                    10% OFF
+                  </span>
                 </div>
               )}
 

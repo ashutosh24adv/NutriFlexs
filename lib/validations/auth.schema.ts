@@ -39,3 +39,29 @@ export const revokeStaffAccessCodeSchema = z.object({
 });
 
 export type RevokeStaffAccessCodeInput = z.infer<typeof revokeStaffAccessCodeSchema>;
+
+export const kitchenLoginSchema = z.object({
+  email: z.string().trim().min(1, "Email address or username is required").max(100),
+  password: z.string().min(1, "Password is required").max(128),
+  rememberMe: z.boolean().optional().default(false),
+  portal: z.string().optional().default("kitchen"),
+});
+
+export type KitchenLoginInput = z.infer<typeof kitchenLoginSchema>;
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email("Please enter a valid email address").toLowerCase(),
+});
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z.object({
+  token: z.string().trim().min(1, "Reset token is required"),
+  newPassword: z.string().min(6, "Password must be at least 6 characters").max(128),
+  confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters").max(128),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+});
+
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

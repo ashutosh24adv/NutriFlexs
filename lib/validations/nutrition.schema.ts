@@ -17,6 +17,8 @@ export const addFoodLogSchema = z.object({
   protein: z.number().min(0).max(2000).optional(),
   carbohydrates: z.number().min(0).max(2000).optional(),
   fat: z.number().min(0).max(2000).optional(),
+  totalSugar: z.number().min(0).max(1000).optional().nullable(),
+  addedSugar: z.number().min(0).max(1000).optional().nullable(),
 });
 
 export const updateFoodLogSchema = z.object({
@@ -29,6 +31,8 @@ export const updateFoodLogSchema = z.object({
   protein: z.number().min(0).max(2000).optional(),
   carbohydrates: z.number().min(0).max(2000).optional(),
   fat: z.number().min(0).max(2000).optional(),
+  totalSugar: z.number().min(0).max(1000).optional().nullable(),
+  addedSugar: z.number().min(0).max(1000).optional().nullable(),
 });
 
 export const createCustomFoodSchema = z.object({
@@ -39,6 +43,8 @@ export const createCustomFoodSchema = z.object({
   protein: z.number().min(0, "Protein cannot be negative").max(100),
   carbohydrates: z.number().min(0, "Carbohydrates cannot be negative").max(100),
   fat: z.number().min(0, "Fat cannot be negative").max(100),
+  totalSugar: z.number().min(0).max(100).optional().nullable(),
+  addedSugar: z.number().min(0).max(100).optional().nullable(),
   defaultServingSize: z.number().positive().default(1),
   defaultServingUnit: z.string().min(1).max(30).default("serving"),
   servingWeightGrams: z.number().positive().max(5000).default(100),
@@ -70,7 +76,59 @@ export const updateNutritionGoalSchema = z.object({
     .max(500, "Fat goal cannot exceed 500g")
     .nullable()
     .optional(),
+  waterGoalMl: z
+    .number()
+    .int()
+    .min(500, "Water goal must be at least 500 ml")
+    .max(15000, "Water goal cannot exceed 15,000 ml")
+    .nullable()
+    .optional(),
+  sugarTarget: z
+    .number()
+    .min(0, "Sugar target cannot be negative")
+    .max(500, "Sugar target cannot exceed 500g")
+    .nullable()
+    .optional(),
+  addedSugarTarget: z
+    .number()
+    .min(0, "Added sugar target cannot be negative")
+    .max(500, "Added sugar target cannot exceed 500g")
+    .nullable()
+    .optional(),
 });
+
+export const logWaterSchema = z.object({
+  dateKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD format"),
+  amountMl: z
+    .number()
+    .int()
+    .min(1, "Water amount must be at least 1 ml")
+    .max(10000, "Single water entry cannot exceed 10,000 ml"),
+});
+
+export const updateWaterGoalSchema = z.object({
+  waterGoalMl: z
+    .number()
+    .int()
+    .min(500, "Water goal must be at least 500 ml")
+    .max(15000, "Water goal cannot exceed 15,000 ml"),
+});
+
+export const updateSugarGoalSchema = z.object({
+  sugarTarget: z
+    .number()
+    .min(0, "Sugar target cannot be negative")
+    .max(500, "Sugar target cannot exceed 500g"),
+  addedSugarTarget: z
+    .number()
+    .min(0, "Added sugar target cannot be negative")
+    .max(500, "Added sugar target cannot exceed 500g")
+    .optional(),
+});
+
+export type LogWaterInput = z.infer<typeof logWaterSchema>;
+export type UpdateWaterGoalInput = z.infer<typeof updateWaterGoalSchema>;
+export type UpdateSugarGoalInput = z.infer<typeof updateSugarGoalSchema>;
 
 export type AddFoodLogInput = z.infer<typeof addFoodLogSchema>;
 export type UpdateFoodLogInput = z.infer<typeof updateFoodLogSchema>;

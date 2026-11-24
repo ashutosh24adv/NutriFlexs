@@ -49,11 +49,19 @@ export default function GymDiscoveryPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [selectionError, setSelectionError] = useState<string | null>(null);
 
-  // Debounced server search & city filter query
+  // Fast client-side filter when searching or city filtering
+  // If search query is empty and not distance-sorting, city filtering is instant in-memory
   useEffect(() => {
-    // If no search and no city filter and no distance sort, default to allGyms
-    if (!searchQuery.trim() && selectedCity === "all" && !isSortedByDistance) {
-      setSearchResults(null);
+    // If no search and no distance sort, handle instant in-memory without hitting the network
+    if (!searchQuery.trim() && !isSortedByDistance) {
+      if (selectedCity === "all") {
+        setSearchResults(null);
+      } else {
+        const filtered = allGyms.filter(
+          (g) => g.city.toLowerCase() === selectedCity.toLowerCase()
+        );
+        setSearchResults(filtered);
+      }
       setIsSearching(false);
       return;
     }
@@ -93,7 +101,7 @@ export default function GymDiscoveryPage() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [searchQuery, selectedCity, isSortedByDistance, userCoords]);
+  }, [searchQuery, selectedCity, isSortedByDistance, userCoords, allGyms]);
 
   // Handle location discovery
   const handleUseLocation = async () => {

@@ -131,32 +131,48 @@ function MenuContent() {
 
   const normalizedUserGoal = userGoal ? normalizeDietGoal(userGoal) : null;
 
-  const filteredProducts = products.filter((p) => {
-    if (activeCategory !== "all") {
-      const prodCatSlug = (p.categorySlug || p.category?.slug || "").toLowerCase();
-      if (prodCatSlug !== activeCategory) {
-        return false;
+  const goalCounts = React.useMemo(() => {
+    let loss = 0;
+    let gain = 0;
+    let maint = 0;
+    for (const p of products) {
+      if (Array.isArray(p.dietGoals)) {
+        if (p.dietGoals.includes("WEIGHT_LOSS")) loss++;
+        if (p.dietGoals.includes("WEIGHT_GAIN")) gain++;
+        if (p.dietGoals.includes("WEIGHT_MAINTENANCE")) maint++;
       }
     }
-    if (selectedDietGoal !== "all") {
-      const itemGoals = Array.isArray(p.dietGoals) ? p.dietGoals : [];
-      if (!itemGoals.includes(selectedDietGoal)) {
-        return false;
+    return { loss, gain, maint };
+  }, [products]);
+
+  const filteredProducts = React.useMemo(() => {
+    return products.filter((p) => {
+      if (activeCategory !== "all") {
+        const prodCatSlug = (p.categorySlug || p.category?.slug || "").toLowerCase();
+        if (prodCatSlug !== activeCategory) {
+          return false;
+        }
       }
-    }
-    if (isVegetarian && !p.isVeg) return false;
-    if (filterHighProtein && p.protein < 25) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const nameMatch = p.name.toLowerCase().includes(q);
-      const descMatch = p.description.toLowerCase().includes(q);
-      const ingMatch = p.ingredients?.some((ingObj: any) =>
-        (ingObj.ingredient?.name || ingObj).toLowerCase().includes(q)
-      );
-      if (!nameMatch && !descMatch && !ingMatch) return false;
-    }
-    return true;
-  });
+      if (selectedDietGoal !== "all") {
+        const itemGoals = Array.isArray(p.dietGoals) ? p.dietGoals : [];
+        if (!itemGoals.includes(selectedDietGoal)) {
+          return false;
+        }
+      }
+      if (isVegetarian && !p.isVeg) return false;
+      if (filterHighProtein && p.protein < 25) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const nameMatch = p.name.toLowerCase().includes(q);
+        const descMatch = p.description.toLowerCase().includes(q);
+        const ingMatch = p.ingredients?.some((ingObj: any) =>
+          (ingObj.ingredient?.name || ingObj).toLowerCase().includes(q)
+        );
+        if (!nameMatch && !descMatch && !ingMatch) return false;
+      }
+      return true;
+    });
+  }, [products, activeCategory, selectedDietGoal, isVegetarian, filterHighProtein, searchQuery]);
 
   return (
     <div className="space-y-6 max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16">
@@ -303,7 +319,7 @@ function MenuContent() {
             <TrendingDown className="w-3.5 h-3.5" />
             <span>Weight Loss</span>
             <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-[#2F7D16]/10 text-[#2F7D16]">
-              {products.filter((p) => p.dietGoals?.includes("WEIGHT_LOSS")).length}
+              {goalCounts.loss}
             </span>
           </button>
 
@@ -318,7 +334,7 @@ function MenuContent() {
             <TrendingUp className="w-3.5 h-3.5" />
             <span>Weight Gain</span>
             <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-[#C25E00]/10 text-[#C25E00]">
-              {products.filter((p) => p.dietGoals?.includes("WEIGHT_GAIN")).length}
+              {goalCounts.gain}
             </span>
           </button>
 
@@ -333,7 +349,7 @@ function MenuContent() {
             <Scale className="w-3.5 h-3.5" />
             <span>Weight Maintenance</span>
             <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-slate-200 text-slate-700">
-              {products.filter((p) => p.dietGoals?.includes("WEIGHT_MAINTENANCE")).length}
+              {goalCounts.maint}
             </span>
           </button>
         </div>

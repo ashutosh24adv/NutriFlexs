@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { activateTrainerReferralOnSubscription } from "./referral.service";
 import { SubscriptionPlanType, SubscriptionStatus, PaymentStatus } from "@prisma/client";
 import { createRazorpayOrder, verifyRazorpaySignature } from "@/lib/razorpay";
 import {
@@ -406,6 +407,12 @@ export async function verifyAndActivateSubscription(params: {
 
     return newSubscription;
   });
+
+  try {
+    await activateTrainerReferralOnSubscription(userId);
+  } catch (refErr) {
+    console.error("[Subscription] Non-fatal referral activation error:", refErr);
+  }
 
   return {
     success: true,

@@ -75,6 +75,13 @@ export function checkRateLimit({
 }
 
 /**
+ * Resets rate limit records for a key upon successful action.
+ */
+export function resetRateLimit(key: string): void {
+  memoryStore.delete(key);
+}
+
+/**
  * Extracts a client IP from Next.js request headers.
  */
 export function getClientIp(request: Request): string {

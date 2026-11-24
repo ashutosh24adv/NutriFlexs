@@ -4,7 +4,7 @@ import { NutriFlexsLogo } from "@/components/ui/logo";
 
 export function PublicFooter() {
   return (
-    <footer className="bg-nutri-charcoal text-white pt-12 pb-8 border-t border-nutri-border">
+    <footer className="w-full bg-[#111111] text-white pt-12 pb-8 border-t border-nutri-border">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div className="flex flex-col md:flex-row items-start justify-between gap-8 border-b border-white/10 pb-8">
           <div className="max-w-sm space-y-3">

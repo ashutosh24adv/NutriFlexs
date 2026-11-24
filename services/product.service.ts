@@ -17,7 +17,7 @@ if (process.env.NODE_ENV !== "production") {
   globalForCatalogCache.catalogMemoryCache = memoryCache;
 }
 
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+const CACHE_TTL_MS = 300 * 1000; // 300 seconds (5 minutes) cache for catalog data
 
 function getFromCache<T>(key: string): T | null {
   const entry = memoryCache.get(key);

@@ -1,4 +1,5 @@
-import { prisma } from "@/lib/prisma";
+import { prisma, withDbRetry } from "@/lib/prisma";
+import { getCached, setCached, invalidateCacheByTag } from "@/lib/cache";
 
 /**
  * Calculates geographic great-circle distance between two coordinates using the Haversine formula.
@@ -115,14 +116,22 @@ export interface NearbyGymResult {
  * Returns distinct cities where active partner gyms exist in Neon PostgreSQL.
  */
 export async function getDistinctGymCities(): Promise<string[]> {
-  const cities = await prisma.gym.findMany({
-    where: { isActive: true },
-    select: { city: true },
-    distinct: ["city"],
-    orderBy: { city: "asc" },
-  });
+  const cacheKey = "gym_distinct_cities";
+  const cached = getCached<string[]>(cacheKey);
+  if (cached) return cached;
 
-  return cities.map((c) => c.city).filter(Boolean);
+  const cities = await withDbRetry(() =>
+    prisma.gym.findMany({
+      where: { isActive: true },
+      select: { city: true },
+      distinct: ["city"],
+      orderBy: { city: "asc" },
+    })
+  );
+
+  const result = cities.map((c) => c.city).filter(Boolean);
+  setCached(cacheKey, result, 600, ["gyms"]);
+  return result;
 }
 
 /**
@@ -137,6 +146,14 @@ export async function getAllActiveGyms(params?: {
   includeInactive?: boolean;
 }): Promise<{ gyms: GymDetail[]; cities: string[]; total: number }> {
   const { search, city, lat, lng, includeInactive = false } = params || {};
+
+  const isCacheable = !search && !lat && !lng && !includeInactive;
+  const cacheKey = `active_gyms_${city ? city.toLowerCase() : "all"}`;
+
+  if (isCacheable) {
+    const cached = getCached<{ gyms: GymDetail[]; cities: string[]; total: number }>(cacheKey);
+    if (cached) return cached;
+  }
 
   const where: any = {};
 
@@ -288,11 +305,21 @@ export async function getAllActiveGyms(params?: {
     mappedGyms.sort((a, b) => (a.distanceKm ?? 99999) - (b.distanceKm ?? 99999));
   }
 
-  return {
+  const finalResult = {
     gyms: mappedGyms,
     cities: ["all", ...distinctCities],
     total: mappedGyms.length,
   };
+
+  if (isCacheable) {
+    setCached(cacheKey, finalResult, 300, ["gyms"]);
+  }
+
+  return finalResult;
+}
+
+export function invalidateGymCache() {
+  invalidateCacheByTag("gyms");
 }
 
 /**

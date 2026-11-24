@@ -16,6 +16,9 @@ interface NutritionGoalsModalProps {
     proteinGoal: number | null;
     carbohydrateGoal: number | null;
     fatGoal: number | null;
+    waterGoalMl?: number | null;
+    sugarTarget?: number | null;
+    addedSugarTarget?: number | null;
   };
 }
 
@@ -31,6 +34,9 @@ export function NutritionGoalsModal({
   const [proteinGoal, setProteinGoal] = useState<string>("");
   const [carbGoal, setCarbGoal] = useState<string>("");
   const [fatGoal, setFatGoal] = useState<string>("");
+  const [waterGoal, setWaterGoal] = useState<string>("");
+  const [sugarTarget, setSugarTarget] = useState<string>("");
+  const [addedSugarTarget, setAddedSugarTarget] = useState<string>("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +46,9 @@ export function NutritionGoalsModal({
     setProteinGoal(currentGoals.proteinGoal ? String(currentGoals.proteinGoal) : "");
     setCarbGoal(currentGoals.carbohydrateGoal ? String(currentGoals.carbohydrateGoal) : "");
     setFatGoal(currentGoals.fatGoal ? String(currentGoals.fatGoal) : "");
+    setWaterGoal(currentGoals.waterGoalMl ? String(currentGoals.waterGoalMl) : "3000");
+    setSugarTarget(currentGoals.sugarTarget ? String(currentGoals.sugarTarget) : "35");
+    setAddedSugarTarget(currentGoals.addedSugarTarget ? String(currentGoals.addedSugarTarget) : "25");
     setError(null);
   }, [currentGoals, isOpen]);
 
@@ -53,6 +62,9 @@ export function NutritionGoalsModal({
     const prot = proteinGoal.trim() ? parseFloat(proteinGoal.trim()) : null;
     const carbs = carbGoal.trim() ? parseFloat(carbGoal.trim()) : null;
     const fat = fatGoal.trim() ? parseFloat(fatGoal.trim()) : null;
+    const water = waterGoal.trim() ? parseInt(waterGoal.trim(), 10) : null;
+    const sugar = sugarTarget.trim() ? parseFloat(sugarTarget.trim()) : null;
+    const addedSugar = addedSugarTarget.trim() ? parseFloat(addedSugarTarget.trim()) : null;
 
     if (cals !== null && (isNaN(cals) || cals < 500 || cals > 10000)) {
       setError("Daily calorie target should be between 500 and 10,000 kcal.");
@@ -70,6 +82,18 @@ export function NutritionGoalsModal({
       setError("Fat target should be between 0 and 500g.");
       return;
     }
+    if (water !== null && (isNaN(water) || water < 500 || water > 10000)) {
+      setError("Water goal should be between 500 and 10,000 ml.");
+      return;
+    }
+    if (sugar !== null && (isNaN(sugar) || sugar < 5 || sugar > 200)) {
+      setError("Sugar target should be between 5 and 200g.");
+      return;
+    }
+    if (addedSugar !== null && (isNaN(addedSugar) || addedSugar < 0 || addedSugar > 100)) {
+      setError("Added sugar target should be between 0 and 100g.");
+      return;
+    }
 
     setLoading(true);
 
@@ -80,6 +104,9 @@ export function NutritionGoalsModal({
           proteinGoal: prot,
           carbohydrateGoal: carbs,
           fatGoal: fat,
+          waterGoalMl: water,
+          sugarTarget: sugar,
+          addedSugarTarget: addedSugar,
         });
         onGoalsUpdated();
         if (typeof window !== "undefined") {
@@ -97,6 +124,9 @@ export function NutritionGoalsModal({
           proteinGoal: prot,
           carbohydrateGoal: carbs,
           fatGoal: fat,
+          waterGoalMl: water,
+          sugarTarget: sugar,
+          addedSugarTarget: addedSugar,
         }),
       });
 
@@ -262,6 +292,59 @@ export function NutritionGoalsModal({
                 placeholder="e.g. 60"
                 className="w-full bg-nutri-bg border border-nutri-border rounded-xl px-2.5 py-2 text-xs font-bold text-nutri-charcoal focus:outline-none focus:border-nutri-green"
               />
+            </div>
+          </div>
+
+          {/* Hydration & Sugar Targets */}
+          <div className="pt-2 border-t border-nutri-border-light space-y-3">
+            <div>
+              <label className="text-[11px] font-bold text-blue-700 uppercase tracking-wider block mb-1">
+                Daily Water Intake Target (ml)
+              </label>
+              <input
+                type="number"
+                step="100"
+                min="500"
+                max="10000"
+                value={waterGoal}
+                onChange={(e) => setWaterGoal(e.target.value)}
+                placeholder="e.g. 3000 (3 Litres)"
+                className="w-full bg-nutri-bg border border-nutri-border rounded-xl px-3 py-2 text-xs font-bold text-nutri-charcoal focus:outline-none focus:border-blue-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-[10px] font-bold text-amber-900 uppercase tracking-wider block mb-1">
+                  Total Sugar Limit (g)
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="5"
+                  max="200"
+                  value={sugarTarget}
+                  onChange={(e) => setSugarTarget(e.target.value)}
+                  placeholder="e.g. 35"
+                  className="w-full bg-nutri-bg border border-nutri-border rounded-xl px-2.5 py-2 text-xs font-bold text-nutri-charcoal focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-orange-900 uppercase tracking-wider block mb-1">
+                  Added Sugar Limit (g)
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  value={addedSugarTarget}
+                  onChange={(e) => setAddedSugarTarget(e.target.value)}
+                  placeholder="e.g. 25"
+                  className="w-full bg-nutri-bg border border-nutri-border rounded-xl px-2.5 py-2 text-xs font-bold text-nutri-charcoal focus:outline-none focus:border-orange-500"
+                />
+              </div>
             </div>
           </div>
 

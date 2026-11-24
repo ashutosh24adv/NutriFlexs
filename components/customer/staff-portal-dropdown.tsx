@@ -27,7 +27,7 @@ export const STAFF_PORTALS: StaffPortalItem[] = [
     name: "Kitchen Display Kiosk",
     tagline: "Order fulfillment & queue",
     icon: ChefHat,
-    loginHref: "/login?portal=kitchen&callbackUrl=%2Fkitchen&staff=true",
+    loginHref: "/kitchen/login",
     signupHref: "/signup?portal=kitchen&callbackUrl=%2Fkitchen&staff=true",
     borderColor: "border-amber-200/80 hover:border-amber-300",
     bgTint: "bg-amber-50/70",

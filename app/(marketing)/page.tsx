@@ -205,11 +205,12 @@ export default function MarketingLandingPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 items-stretch">
               {/* Visual Card 1: Food Ordering Experience */}
               <div className="relative rounded-3xl overflow-hidden shadow-float border border-nutri-border bg-white flex flex-col justify-between group hover:border-nutri-green/40 transition-all h-full">
-                <div className="relative w-full h-56 sm:h-60 lg:h-64 bg-nutri-bg overflow-hidden shrink-0">
+                <div className="relative w-full h-56 sm:h-60 lg:h-64 aspect-[16/11] bg-nutri-bg overflow-hidden shrink-0" style={{ position: "relative" }}>
                   <Image
                     src="/images/products/grilled-chicken-quinoa-bowl.webp"
                     alt="NutriFlexs High Protein Bowl"
                     fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 420px"
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                     priority
                   />

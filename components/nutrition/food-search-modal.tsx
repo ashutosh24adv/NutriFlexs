@@ -69,13 +69,23 @@ export interface FoodItem {
   name: string;
   description?: string | null;
   category: string;
+  subCategory?: string | null;
+  cuisine?: string | null;
+  brand?: string | null;
   caloriesPer100g: number;
   protein: number;
   carbohydrates: number;
   fat: number;
+  fiber?: number | null;
+  sugar?: number | null;
+  sodium?: number | null;
+  saturatedFat?: number | null;
   defaultServingSize: number;
   defaultServingUnit: string;
   servingWeightGrams?: number | null;
+  servingUnits?: Array<{ unit: string; label: string; grams: number }> | null;
+  dataSource?: string | null;
+  isVerified?: boolean;
   isCustom?: boolean;
   productId?: string;
   isNutriFlexsProduct?: boolean;
@@ -584,18 +594,27 @@ export function FoodSearchModal({
       return ["medium_bowl", "small_bowl", "large_bowl", "cup", "g"];
     }
 
-    const def = selectedFood.defaultServingUnit || "g";
     const set = new Set<string>();
+
+    // If food has structured servingUnits array from database, include all supported units
+    if (selectedFood.servingUnits && Array.isArray(selectedFood.servingUnits)) {
+      selectedFood.servingUnits.forEach((su: any) => {
+        if (su.unit) set.add(su.unit);
+      });
+    }
+
+    const def = selectedFood.defaultServingUnit || "g";
     set.add(def);
     set.add("g");
     set.add("serving");
 
-    if (["bowl", "cup", "glass", "plate", "piece", "slice", "tbsp", "scoop", "packet", "pack"].includes(def.toLowerCase())) {
+    if (["bowl", "cup", "glass", "plate", "piece", "slice", "tbsp", "scoop", "packet", "pack", "katori", "bar", "can"].includes(def.toLowerCase())) {
       set.add(def.toLowerCase());
     }
 
     if (selectedFood.category?.includes("Rice") || selectedFood.category?.includes("Dal") || selectedFood.category?.includes("Vegetable")) {
       set.add("bowl");
+      set.add("katori");
     }
     if (selectedFood.category?.includes("Dairy") || selectedFood.category?.includes("Beverage")) {
       set.add("glass");
@@ -616,15 +635,26 @@ export function FoodSearchModal({
 
   const getPortionLabel = (u: string) => {
     if (!selectedVariant) {
+      // Check custom servingUnits array first
+      if (selectedFood?.servingUnits && Array.isArray(selectedFood.servingUnits)) {
+        const match = selectedFood.servingUnits.find((su: any) => su.unit === u || su.unit?.toLowerCase() === u.toLowerCase());
+        if (match && match.label) return match.label;
+      }
+
       if (u === "g") return "Grams (g)";
       if (u === "ml") return "Milliliters (ml)";
       if (u === "serving") return `Standard Serving (${selectedFood?.servingWeightGrams || 100}g)`;
       if (u === "packet" || u === "pack") return `Packet / Pack (${selectedFood?.servingWeightGrams || 35}g)`;
       if (u === "piece") return `Piece (${selectedFood?.servingWeightGrams || 50}g)`;
-      if (u === "bowl") return `Bowl (${selectedFood?.servingWeightGrams || 150}g)`;
+      if (u === "bowl" || u === "katori") return `Medium Bowl / Katori (${selectedFood?.servingWeightGrams || 150}g)`;
+      if (u === "small_bowl") return "Small Katori (~100g)";
+      if (u === "large_bowl") return "Large Bowl (~250g)";
       if (u === "cup") return "Cup (~200g)";
       if (u === "glass") return "Glass (~250ml)";
       if (u === "plate") return "Plate";
+      if (u === "scoop") return `Scoop (${selectedFood?.servingWeightGrams || 32}g)`;
+      if (u === "tbsp") return "Tablespoon (~15g)";
+      if (u === "tsp") return "Teaspoon (~5g)";
       return u;
     }
     const conv = (selectedVariant.servingConversions as any) || {};
@@ -1140,6 +1170,21 @@ export function FoodSearchModal({
                                 <span className="font-heading font-extrabold text-xs sm:text-sm text-[#111111] leading-tight">
                                   {food.name}
                                 </span>
+                                {food.brand && (
+                                  <span className="text-[9px] font-bold bg-amber-50 text-amber-900 px-1.5 py-0.2 rounded-full border border-amber-200/60">
+                                    {food.brand}
+                                  </span>
+                                )}
+                                {food.cuisine && food.cuisine !== "Global" && (
+                                  <span className="text-[9px] font-medium bg-emerald-50 text-emerald-800 px-1.5 py-0.2 rounded-full border border-emerald-100">
+                                    {food.cuisine}
+                                  </span>
+                                )}
+                                {food.isVerified && (
+                                  <span className="text-[9px] font-bold text-[#2F7D16] flex items-center gap-0.5" title="Verified Nutritional Data">
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-[#2F7D16]" />
+                                  </span>
+                                )}
                                 {food.isNutriFlexsProduct && (
                                   <span className="text-[9px] font-extrabold bg-[#2F7D16] text-white px-1.5 py-0.2 rounded-full">
                                     Kiosk
@@ -1178,12 +1223,18 @@ export function FoodSearchModal({
                               </div>
 
                               {/* 4. Key Macronutrients */}
-                              <div className="text-[11px] font-medium text-[#4B5563] flex items-center gap-1.5 pt-0.5">
+                              <div className="text-[11px] font-medium text-[#4B5563] flex items-center gap-1.5 pt-0.5 flex-wrap">
                                 <span className="text-[#111111] font-semibold">Protein {food.protein}g</span>
                                 <span>·</span>
                                 <span>Carbs {food.carbohydrates}g</span>
                                 <span>·</span>
                                 <span>Fat {food.fat}g</span>
+                                {food.fiber ? (
+                                  <>
+                                    <span>·</span>
+                                    <span>Fiber {food.fiber}g</span>
+                                  </>
+                                ) : null}
                               </div>
                             </div>
 

@@ -2,6 +2,7 @@ import {
   prisma,
   withDbRetry,
 } from "@/lib/prisma";
+import { getCached, setCached, invalidateCacheByTag } from "@/lib/cache";
 import {
   ConsultationStatus,
   ConsultationType,
@@ -21,6 +22,10 @@ export interface DietitianFilterOptions {
 }
 
 export async function getVerifiedDietitians(options?: DietitianFilterOptions) {
+  const cacheKey = `dietitians_${JSON.stringify(options || {})}`;
+  const cached = getCached<any[]>(cacheKey);
+  if (cached) return cached;
+
   const where: Prisma.DietitianProfileWhereInput = {
     isVerified: true,
     verificationStatus: DietitianVerificationStatus.APPROVED,
@@ -59,7 +64,7 @@ export async function getVerifiedDietitians(options?: DietitianFilterOptions) {
     };
   }
 
-  return await withDbRetry(() =>
+  const results = await withDbRetry(() =>
     prisma.dietitianProfile.findMany({
       where,
       include: {
@@ -75,6 +80,13 @@ export async function getVerifiedDietitians(options?: DietitianFilterOptions) {
       orderBy: [{ rating: "desc" }, { experienceYears: "desc" }],
     })
   );
+
+  setCached(cacheKey, results, 120, ["dietitians"]);
+  return results;
+}
+
+export function invalidateDietitianCache() {
+  invalidateCacheByTag("dietitians");
 }
 
 export async function getDietitianById(id: string) {

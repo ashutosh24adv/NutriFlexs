@@ -29,6 +29,8 @@ export function CustomFoodModal({
   const [protein, setProtein] = useState<string>("");
   const [carbs, setCarbs] = useState<string>("");
   const [fat, setFat] = useState<string>("");
+  const [totalSugar, setTotalSugar] = useState<string>("");
+  const [addedSugar, setAddedSugar] = useState<string>("");
   const [servingSize, setServingSize] = useState<string>("1");
   const [servingUnit, setServingUnit] = useState<string>("serving");
   const [addToDiaryNow, setAddToDiaryNow] = useState(true);
@@ -47,6 +49,8 @@ export function CustomFoodModal({
     const protNum = parseFloat(protein) || 0;
     const carbNum = parseFloat(carbs) || 0;
     const fatNum = parseFloat(fat) || 0;
+    const sugarNum = totalSugar.trim() !== "" ? parseFloat(totalSugar) : null;
+    const addedSugarNum = addedSugar.trim() !== "" ? parseFloat(addedSugar) : null;
     const servSize = parseFloat(servingSize) || 1;
 
     if (!name.trim()) {
@@ -59,6 +63,14 @@ export function CustomFoodModal({
     }
     if (protNum < 0 || carbNum < 0 || fatNum < 0) {
       setError("Macronutrient grams cannot be negative.");
+      return;
+    }
+    if (sugarNum !== null && sugarNum < 0) {
+      setError("Total sugar cannot be negative.");
+      return;
+    }
+    if (addedSugarNum !== null && addedSugarNum < 0) {
+      setError("Added sugar cannot be negative.");
       return;
     }
 
@@ -74,6 +86,8 @@ export function CustomFoodModal({
           protein: protNum,
           carbohydrates: carbNum,
           fat: fatNum,
+          totalSugar: sugarNum,
+          addedSugar: addedSugarNum,
           defaultServingSize: servSize,
           defaultServingUnit: servingUnit.trim() || "serving",
           servingWeightGrams: 100,
@@ -91,6 +105,9 @@ export function CustomFoodModal({
             protein: protNum,
             carbohydrates: carbNum,
             fat: fatNum,
+            totalSugar: sugarNum,
+            addedSugar: addedSugarNum,
+            hasSugarData: sugarNum !== null,
           });
         }
 
@@ -114,6 +131,8 @@ export function CustomFoodModal({
           protein: protNum,
           carbohydrates: carbNum,
           fat: fatNum,
+          totalSugar: sugarNum,
+          addedSugar: addedSugarNum,
           defaultServingSize: servSize,
           defaultServingUnit: servingUnit.trim() || "serving",
           servingWeightGrams: 100,
@@ -143,6 +162,8 @@ export function CustomFoodModal({
             protein: protNum,
             carbohydrates: carbNum,
             fat: fatNum,
+            totalSugar: sugarNum,
+            addedSugar: addedSugarNum,
           }),
         });
       }
@@ -304,6 +325,38 @@ export function CustomFoodModal({
                   onChange={(e) => setFat(e.target.value)}
                   placeholder="e.g. 8"
                   className="w-full bg-white border border-nutri-border rounded-xl px-2.5 py-1.5 text-xs font-bold text-nutri-charcoal focus:outline-none focus:border-nutri-green"
+                />
+              </div>
+            </div>
+
+            {/* Sugar breakdown (optional) */}
+            <div className="pt-2 border-t border-nutri-green/15 grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-[10px] font-bold text-amber-900 block mb-0.5">
+                  Total Sugar (g) (Optional)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  value={totalSugar}
+                  onChange={(e) => setTotalSugar(e.target.value)}
+                  placeholder="e.g. 4.5"
+                  className="w-full bg-white border border-nutri-border rounded-xl px-2.5 py-1.5 text-xs font-bold text-nutri-charcoal focus:outline-none focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-orange-900 block mb-0.5">
+                  Added Sugar (g) (Optional)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  value={addedSugar}
+                  onChange={(e) => setAddedSugar(e.target.value)}
+                  placeholder="e.g. 0 or 2"
+                  className="w-full bg-white border border-nutri-border rounded-xl px-2.5 py-1.5 text-xs font-bold text-nutri-charcoal focus:outline-none focus:border-orange-500"
                 />
               </div>
             </div>

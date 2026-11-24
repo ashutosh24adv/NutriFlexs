@@ -24,10 +24,19 @@ export async function GET(req: NextRequest) {
       limit,
     });
 
-    return NextResponse.json({
-      success: true,
-      ...result,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        ...result,
+      },
+      {
+        headers: !userId
+          ? {
+              "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+            }
+          : undefined,
+      }
+    );
   } catch (error: any) {
     console.error("Error searching food library:", error);
     return NextResponse.json(

@@ -1,8 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import Image from "next/image";
-import Link from "next/link";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { NutriFlexsLogo } from "@/components/ui/logo";
 import {
@@ -22,19 +20,27 @@ import {
   Bell,
   Clock,
   Utensils,
-  ChevronRight,
   Shield,
-  Layers,
   Info,
   Loader2,
   Smile,
+  Edit3,
+  Check,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
+  QuestionId,
   OnboardingData,
+  getActiveFlow,
+  pruneIrrelevantAnswers,
+  validateQuestionNode,
+  getQuestionCountBeforeSummary,
+  normalizeGoal,
+} from "@/lib/onboarding-engine";
+import {
   CalculatedNutritionTargets,
   calculateNutritionTargets,
   calculateAge,
@@ -47,92 +53,181 @@ interface NutritionOnboardingProps {
   onExit?: () => void;
 }
 
-const TOTAL_QUESTION_STEPS = 14;
+const PROTEIN_OPTIONS_BY_DIET: Record<string, string[]> = {
+  vegetarian: [
+    "Paneer",
+    "Tofu",
+    "Dal & Legumes",
+    "Soya Chunks",
+    "Curd / Greek Yogurt",
+    "Whey / Plant Protein Powder",
+    "Nuts & Seeds",
+  ],
+  vegan: [
+    "Tofu & Tempeh",
+    "Lentils & Chickpeas",
+    "Soya Chunks",
+    "Seitan",
+    "Pea / Soy Protein Powder",
+    "Quinoa, Nuts & Seeds",
+  ],
+  eggetarian: [
+    "Whole Eggs",
+    "Egg Whites",
+    "Paneer",
+    "Milk & Curd",
+    "Dal & Legumes",
+    "Whey Protein",
+  ],
+  non_vegetarian: [
+    "Chicken Breast",
+    "Fish & Seafood",
+    "Eggs",
+    "Paneer / Dairy",
+    "Dal & Legumes",
+    "Whey Protein",
+  ],
+};
+
+const ALLERGY_OPTIONS = [
+  "Lactose / Dairy",
+  "Gluten / Wheat",
+  "Peanuts / Tree Nuts",
+  "Soy",
+  "Eggs",
+  "Shellfish / Seafood",
+];
 
 export function NutritionOnboarding({
-  initialStep = 1,
   initialData = null,
   onComplete,
   onExit,
 }: NutritionOnboardingProps) {
   const router = useRouter();
 
-  // Current Step: 1-14 are questions, 15 is Summary, 16 is Hold, 17 is Notification, 18 is Rollover, 19 is Benefits
-  const [currentStep, setCurrentStep] = useState<number>(initialStep || 1);
-  const [savingProgress, setSavingProgress] = useState(false);
+  // Initialize formData strictly from saved initialData (no fake silent defaults!)
+  const [formData, setFormData] = useState<OnboardingData>(() => ({
+    currentNodeId: initialData?.currentNodeId || null,
+    gender: initialData?.gender || initialData?.sex || null,
+    sex: initialData?.gender || initialData?.sex || null,
+    birthDate: initialData?.birthDate || null,
+    birthDateSkipped: initialData?.birthDateSkipped || false,
+    heightCm: initialData?.heightCm || null,
+    heightUnit: initialData?.heightUnit || "cm",
+    heightSkipped: initialData?.heightSkipped || false,
+    primaryGoal: initialData?.primaryGoal || null,
+    weightKg: initialData?.weightKg || null,
+    weightUnit: initialData?.weightUnit || "kg",
+    desiredGoalTarget: initialData?.desiredGoalTarget || { targetWeightKg: null },
+    preferredPace: initialData?.preferredPace || null,
+    desiredTimelineWeeks: initialData?.desiredTimelineWeeks || null,
+    muscleFocus: initialData?.muscleFocus || null,
+    maintainFocus: initialData?.maintainFocus || null,
+    fitnessObjective: initialData?.fitnessObjective || null,
+    activityLevel: initialData?.activityLevel || null,
+    gymAccess: initialData?.gymAccess || null,
+    challenges: initialData?.challenges || [],
+    challengesOther: initialData?.challengesOther || "",
+    workoutFrequency: initialData?.workoutFrequency || null,
+    planningToStartExercise: initialData?.planningToStartExercise || null,
+    starterActivityType: initialData?.starterActivityType || null,
+    workoutType: initialData?.workoutType || null,
+    workoutDuration: initialData?.workoutDuration || null,
+    workoutIntensity: initialData?.workoutIntensity || null,
+    restRecoveryDays: initialData?.restRecoveryDays || null,
+    dietPreference: initialData?.dietPreference || null,
+    proteinSources: initialData?.proteinSources || [],
+    hasAllergies: initialData?.hasAllergies || null,
+    allergyDetails: initialData?.allergyDetails || [],
+    allergyOtherText: initialData?.allergyOtherText || "",
+    dietitianConsultation: initialData?.dietitianConsultation || null,
+    followingDietPlan: initialData?.followingDietPlan || null,
+    shareExistingTargets: initialData?.shareExistingTargets || null,
+    existingCalorieTarget: initialData?.existingCalorieTarget || null,
+    existingProteinTarget: initialData?.existingProteinTarget || null,
+    wantPersonalizedGuidance: initialData?.wantPersonalizedGuidance || null,
+    customCalorieTarget: initialData?.customCalorieTarget || null,
+    customProteinTarget: initialData?.customProteinTarget || null,
+    customCarbsTarget: initialData?.customCarbsTarget || null,
+    customFatTarget: initialData?.customFatTarget || null,
+    desiredOutcomes: initialData?.desiredOutcomes || [],
+    calorieRolloverEnabled: initialData?.calorieRolloverEnabled || false,
+    notificationsEnabled: initialData?.notificationsEnabled || false,
+  }));
+
+  // Compute active conditional flow dynamically from current answers
+  const activeFlow = useMemo(() => getActiveFlow(formData), [formData]);
+
+  // Determine initial node ID safely from saved progress
+  const [currentNodeId, setCurrentNodeId] = useState<QuestionId>(() => {
+    const initialFlow = getActiveFlow(formData);
+    if (initialData?.currentNodeId && initialFlow.includes(initialData.currentNodeId)) {
+      return initialData.currentNodeId;
+    }
+    return initialFlow[0];
+  });
+
+  // Ensure currentNodeId stays valid if activeFlow shrinks due to changing earlier answer
+  const currentIndex = activeFlow.indexOf(currentNodeId);
+  const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+  const activeNodeId = activeFlow[safeIndex];
+
+  // Dual-unit UI states (no forced fake values)
+  const [feet, setFeet] = useState<string>(() => {
+    if (!initialData?.heightCm) return "";
+    return String(Math.floor(initialData.heightCm / 2.54 / 12));
+  });
+  const [inches, setInches] = useState<string>(() => {
+    if (!initialData?.heightCm) return "";
+    return String(Math.round((initialData.heightCm / 2.54) % 12));
+  });
+  const [weightLbs, setWeightLbs] = useState<string>(() => {
+    if (!initialData?.weightKg) return "";
+    return String(Math.round(initialData.weightKg * 2.20462));
+  });
+  const [targetWeightLbs, setTargetWeightLbs] = useState<string>(() => {
+    if (!initialData?.desiredGoalTarget?.targetWeightKg) return "";
+    return String(Math.round(initialData.desiredGoalTarget.targetWeightKg * 2.20462));
+  });
+
+  // Editable targets state on Summary screen
+  const [editingTargets, setEditingTargets] = useState(false);
+
+  // Navigation & submission locks
   const [isNavigating, setIsNavigating] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [stepError, setStepError] = useState<string | null>(null);
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
+  const isSubmittingRef = useRef(false);
 
-  // Form State
-  const [formData, setFormData] = useState<OnboardingData>({
-    gender: initialData?.gender || initialData?.sex || null,
-    sex: initialData?.gender || initialData?.sex || null,
-    birthDate: initialData?.birthDate || "1998-05-15",
-    heightCm: initialData?.heightCm || 172,
-    heightUnit: initialData?.heightUnit || "cm",
-    weightKg: initialData?.weightKg || 68,
-    weightUnit: initialData?.weightUnit || "kg",
-    workoutFrequency: initialData?.workoutFrequency || "3_4_sessions",
-    dietitianConsultation: initialData?.dietitianConsultation || "no",
-    primaryGoal: initialData?.primaryGoal || "improve_fitness",
-    desiredGoalTarget: initialData?.desiredGoalTarget || { targetWeightKg: 65, habitsTarget: "Hit daily protein goal consistently" },
-    desiredTimelineWeeks: initialData?.desiredTimelineWeeks || 12,
-    preferredPace: initialData?.preferredPace || "moderate",
-    challenges: initialData?.challenges || ["Difficulty tracking calories"],
-    challengesOther: initialData?.challengesOther || "",
-    dietPreference: initialData?.dietPreference || "non_vegetarian",
-    desiredOutcomes: initialData?.desiredOutcomes || [
-      "Understand my daily calorie intake",
-      "Eat more protein",
-      "Track Indian homemade meals",
-    ],
-    calorieRolloverEnabled: initialData?.calorieRolloverEnabled || false,
-    notificationsEnabled: initialData?.notificationsEnabled || false,
-  });
-
-  // Dual unit height temporary state for ft/in
-  const [feet, setFeet] = useState(() => {
-    const totalInches = (initialData?.heightCm || 172) / 2.54;
-    return Math.floor(totalInches / 12);
-  });
-  const [inches, setInches] = useState(() => {
-    const totalInches = (initialData?.heightCm || 172) / 2.54;
-    return Math.round(totalInches % 12);
-  });
-
-  // Dual unit weight temporary state for lbs
-  const [weightLbs, setWeightLbs] = useState(() => {
-    return Math.round((initialData?.weightKg || 68) * 2.20462);
-  });
-
-  // Calculated estimates
-  const [calculatedTargets, setCalculatedTargets] = useState<CalculatedNutritionTargets>(() =>
-    calculateNutritionTargets(formData)
+  const calculatedTargets: CalculatedNutritionTargets = useMemo(
+    () => calculateNutritionTargets(formData),
+    [formData]
   );
 
-  // Hold-to-continue interaction state
-  const [holdProgress, setHoldProgress] = useState(0);
-  const [isHolding, setIsHolding] = useState(false);
-  const holdIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const isNavigatingRef = useRef(false);
+  // Helper to update formData, recalculate active flow, and prune irrelevant answers
+  const updateAnswers = (patch: Partial<OnboardingData>) => {
+    setStepError(null);
+    setFormData((prev) => {
+      const merged: OnboardingData = { ...prev, ...patch };
+      const nextFlow = getActiveFlow(merged);
+      return pruneIrrelevantAnswers(merged, nextFlow);
+    });
+  };
 
-  // Keep targets synchronized with answers
-  useEffect(() => {
-    const updated = calculateNutritionTargets(formData);
-    setCalculatedTargets(updated);
-  }, [formData]);
-
-  // Save partial progress to server
-  const persistProgress = async (stepToSave: number, updatedData: OnboardingData) => {
+  // Persist partial progress to PostgreSQL
+  const persistProgress = async (
+    nextNodeId: QuestionId,
+    nextIdx: number,
+    dataToSave: OnboardingData
+  ) => {
     try {
       await fetch("/api/nutrition/onboarding/progress", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          step: stepToSave,
-          data: updatedData,
+          step: nextIdx + 1,
+          data: { ...dataToSave, currentNodeId: nextNodeId },
         }),
       });
     } catch (err) {
@@ -140,1959 +235,1855 @@ export function NutritionOnboarding({
     }
   };
 
-  const getStepValidationError = (step: number): string | null => {
-    switch (step) {
-      case 1:
-        if (!formData.gender && !formData.sex) {
-          return "Please select your gender or choose 'Prefer not to say' to continue.";
-        }
-        return null;
-      case 2:
-        if (!formData.birthDate) {
-          return "Please enter your date of birth.";
-        }
-        const age = calculateAge(formData.birthDate);
-        if (age < 14 || age > 100) {
-          return "Please enter a valid birth date (age between 14 and 100 years).";
-        }
-        return null;
-      case 3:
-        if (!formData.heightCm || isNaN(formData.heightCm) || formData.heightCm < 60 || formData.heightCm > 260) {
-          return "Please enter a valid height between 60 cm and 260 cm.";
-        }
-        return null;
-      case 4:
-        if (!formData.weightKg || isNaN(formData.weightKg) || formData.weightKg < 25 || formData.weightKg > 350) {
-          return "Please enter a valid weight between 25 kg and 350 kg.";
-        }
-        return null;
-      case 5:
-        if (!formData.workoutFrequency) {
-          return "Please select your weekly workout frequency.";
-        }
-        return null;
-      case 6:
-        if (!formData.dietitianConsultation) {
-          return "Please select an option or click Skip.";
-        }
-        return null;
-      case 7:
-        if (!formData.primaryGoal) {
-          return "Please select your primary nutrition goal.";
-        }
-        return null;
-      case 8:
-        if (
-          formData.primaryGoal === "lose_weight" ||
-          formData.primaryGoal === "build_muscle" ||
-          (formData.primaryGoal as string) === "gain_weight_build_muscle"
-        ) {
-          const tw = formData.desiredGoalTarget?.targetWeightKg;
-          if (tw === undefined || tw === null || isNaN(tw) || tw < 25 || tw > 350) {
-            return "Please enter a valid target weight between 25 kg and 350 kg.";
-          }
-          return null;
-        }
-        if (formData.primaryGoal === "improve_fitness" || formData.primaryGoal === "healthier_habits") {
-          if (!formData.desiredGoalTarget?.habitsTarget && !formData.desiredGoalTarget?.fitnessTarget) {
-            return "Please select your primary daily focus habit.";
-          }
-          return null;
-        }
-        return null;
-      case 9:
-        return null; // Feasibility review step
-      case 10:
-        if (!formData.desiredTimelineWeeks) {
-          return "Please select your target timeline.";
-        }
-        return null;
-      case 11:
-        if (!formData.preferredPace) {
-          return "Please select your preferred progression pace.";
-        }
-        return null;
-      case 12:
-        if ((!formData.challenges || formData.challenges.length === 0) && !formData.challengesOther) {
-          return "Please select at least one challenge or click Skip.";
-        }
-        return null;
-      case 13:
-        if (!formData.dietPreference) {
-          return "Please select your dietary preference.";
-        }
-        return null;
-      case 14:
-        if (!formData.desiredOutcomes || formData.desiredOutcomes.length === 0) {
-          return "Please select at least one outcome you'd like to achieve.";
-        }
-        return null;
-      default:
-        return null;
-    }
-  };
-
-  const isStepValid = (step: number): boolean => {
-    return getStepValidationError(step) === null;
-  };
-
-  const handleNext = () => {
-    if (isNavigatingRef.current) return;
-
-    const error = getStepValidationError(currentStep);
+  const handleNext = async () => {
+    if (isNavigating || completing) return;
+    const error = validateQuestionNode(activeNodeId, formData);
     if (error) {
       setStepError(error);
       return;
     }
 
     setStepError(null);
-    isNavigatingRef.current = true;
+    const nextIdx = safeIndex + 1;
+    if (nextIdx >= activeFlow.length) return;
+
+    const nextNodeId = activeFlow[nextIdx];
     setIsNavigating(true);
-
-    const nextStep = currentStep + 1;
-    setCurrentStep(nextStep);
-
-    // Save in background
-    persistProgress(nextStep, formData);
-
-    setTimeout(() => {
-      isNavigatingRef.current = false;
-      setIsNavigating(false);
-    }, 250);
-  };
-
-  const handleSkip = () => {
-    if (isNavigatingRef.current) return;
-    setStepError(null);
-    isNavigatingRef.current = true;
-    setIsNavigating(true);
-
-    const nextStep = currentStep + 1;
-    setCurrentStep(nextStep);
-
-    persistProgress(nextStep, formData);
-
-    setTimeout(() => {
-      isNavigatingRef.current = false;
-      setIsNavigating(false);
-    }, 250);
+    setCurrentNodeId(nextNodeId);
+    await persistProgress(nextNodeId, nextIdx, formData);
+    setIsNavigating(false);
   };
 
   const handleBack = () => {
-    if (isNavigatingRef.current) return;
+    if (safeIndex <= 0 || isNavigating || completing) return;
     setStepError(null);
-
-    if (currentStep > 1) {
-      isNavigatingRef.current = true;
-      setIsNavigating(true);
-
-      const prevStep = currentStep - 1;
-      setCurrentStep(prevStep);
-
-      persistProgress(prevStep, formData);
-
-      setTimeout(() => {
-        isNavigatingRef.current = false;
-        setIsNavigating(false);
-      }, 250);
-    } else if (onExit) {
-      onExit();
-    }
+    const prevNodeId = activeFlow[safeIndex - 1];
+    setCurrentNodeId(prevNodeId);
+    persistProgress(prevNodeId, safeIndex - 1, formData);
   };
 
-  const handleSaveAndExit = async () => {
+  const handleFinalize = async () => {
+    if (isSubmittingRef.current || completing) return;
+    isSubmittingRef.current = true;
+    setCompleting(true);
+    setFinalizeError(null);
+
     try {
-      setSavingProgress(true);
-      await fetch("/api/nutrition/onboarding/progress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          step: currentStep,
-          data: formData,
-        }),
-      });
-    } catch (err) {
-      console.warn("Failed to persist onboarding on save & exit:", err);
-    } finally {
-      setSavingProgress(false);
-      if (onExit) {
-        onExit();
-      } else {
-        router.push("/nutrition");
-      }
-    }
-  };
-
-  const updateField = <K extends keyof OnboardingData>(field: K, value: OnboardingData[K]) => {
-    setStepError(null);
-    setFormData((prev) => {
-      const updated = { ...prev, [field]: value };
-      if (field === "gender") {
-        (updated as any).sex = value;
-      } else if (field === "sex") {
-        (updated as any).gender = value;
-      }
-      return updated;
-    });
-  };
-
-  const handlePrimaryGoalChange = (newGoal: any) => {
-    setStepError(null);
-    setFormData((prev) => {
-      const currentWeight = prev.weightKg || 68;
-      let newTarget = { ...(prev.desiredGoalTarget || {}) };
-
-      if (newGoal === "lose_weight") {
-        if (!newTarget.targetWeightKg || newTarget.targetWeightKg >= currentWeight) {
-          newTarget.targetWeightKg = Math.max(25, Math.round(currentWeight - 4));
-        }
-      } else if (newGoal === "build_muscle" || newGoal === "gain_weight_build_muscle") {
-        if (!newTarget.targetWeightKg || newTarget.targetWeightKg <= currentWeight) {
-          newTarget.targetWeightKg = Math.min(350, Math.round(currentWeight + 3));
-        }
-        newTarget.muscleTarget = newTarget.muscleTarget || "Build lean muscle & increase strength";
-      } else if (newGoal === "maintain") {
-        newTarget.targetWeightKg = currentWeight;
-      } else {
-        newTarget.habitsTarget = newTarget.habitsTarget || "Hit daily protein goal consistently";
-      }
-
-      return {
-        ...prev,
-        primaryGoal: newGoal,
-        desiredGoalTarget: newTarget,
+      const payload: OnboardingData = {
+        ...formData,
+        currentNodeId: "completion_ready",
       };
-    });
-  };
-
-  // Unit converters
-  const handleHeightUnitChange = (newUnit: "cm" | "ft") => {
-    if (newUnit === formData.heightUnit) return;
-    if (newUnit === "ft") {
-      const totalInches = (formData.heightCm || 170) / 2.54;
-      setFeet(Math.floor(totalInches / 12));
-      setInches(Math.round(totalInches % 12));
-    } else {
-      const cm = Math.round((feet * 12 + inches) * 2.54);
-      updateField("heightCm", cm);
-    }
-    updateField("heightUnit", newUnit);
-  };
-
-  const handleWeightUnitChange = (newUnit: "kg" | "lbs") => {
-    if (newUnit === formData.weightUnit) return;
-    if (newUnit === "lbs") {
-      setWeightLbs(Math.round((formData.weightKg || 70) * 2.20462));
-    } else {
-      const kg = Math.round(weightLbs / 2.20462);
-      updateField("weightKg", kg);
-    }
-    updateField("weightUnit", newUnit);
-  };
-
-  // Hold-to-continue handler
-  const startHold = () => {
-    setIsHolding(true);
-    setHoldProgress(0);
-    const start = Date.now();
-    const duration = 1400; // 1.4 seconds smooth hold
-
-    holdIntervalRef.current = setInterval(() => {
-      const elapsed = Date.now() - start;
-      const progress = Math.min(100, (elapsed / duration) * 100);
-      setHoldProgress(progress);
-
-      if (progress >= 100) {
-        clearInterval(holdIntervalRef.current!);
-        setIsHolding(false);
-        finalizeOnboarding();
-      }
-    }, 25);
-  };
-
-  const cancelHold = () => {
-    if (holdIntervalRef.current) {
-      clearInterval(holdIntervalRef.current);
-    }
-    setIsHolding(false);
-    setHoldProgress(0);
-  };
-
-  // Finalize onboarding on server
-  const finalizeOnboarding = async () => {
-    try {
-      setCompleting(true);
-      setFinalizeError(null);
       const res = await fetch("/api/nutrition/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
-
       const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to save final nutrition targets");
+      if (!data.success) {
+        throw new Error(data.error || "Failed to save your nutrition plan.");
       }
 
-      // Proceed to post-onboarding introduction screens
-      setCurrentStep(17); // Notifications step
+      if (onComplete) {
+        onComplete();
+      } else {
+        router.refresh();
+        router.replace("/nutrition");
+      }
     } catch (err: any) {
-      console.error("Onboarding finalization error:", err);
-      setFinalizeError(err.message || "Failed to save your nutrition profile. Please try again.");
-    } finally {
+      console.error("Onboarding completion error:", err);
+      setFinalizeError(err.message || "Network error saving your plan. Please retry.");
       setCompleting(false);
+      isSubmittingRef.current = false;
     }
   };
 
-  // Notification request
-  const requestNotificationPermission = async () => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission === "granted") {
-          updateField("notificationsEnabled", true);
-        }
-      } catch (e) {
-        console.warn("Notification permission error:", e);
-      }
-    }
-    handleNext(); // Move to rollover step
-  };
-
-  const finishAllAndEnterTracker = () => {
-    if (onComplete) {
-      onComplete();
-    } else {
-      router.push("/nutrition");
-    }
-  };
-
-  // Progress Bar percentage
+  // Progress Bar calculation reflecting active conditional flow
+  const totalQuestionsBeforeSummary = getQuestionCountBeforeSummary(activeFlow);
   const progressPercent = Math.min(
     100,
-    currentStep <= TOTAL_QUESTION_STEPS
-      ? Math.round((currentStep / TOTAL_QUESTION_STEPS) * 100)
-      : 100
+    Math.round(((safeIndex + 1) / activeFlow.length) * 100)
+  );
+  const isPostSummary = safeIndex >= totalQuestionsBeforeSummary;
+
+  const toggleArrayItem = (
+    field: "challenges" | "proteinSources" | "allergyDetails" | "desiredOutcomes",
+    item: string
+  ) => {
+    const current = (formData[field] as string[]) || [];
+    const exists = current.includes(item);
+    const updated = exists ? current.filter((x) => x !== item) : [...current, item];
+    updateAnswers({ [field]: updated });
+  };
+
+  // Option Card helper
+  const OptionButton = ({
+    selected,
+    onClick,
+    title,
+    subtitle,
+    icon: Icon,
+  }: {
+    selected: boolean;
+    onClick: () => void;
+    title: string;
+    subtitle?: string;
+    icon?: any;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "w-full text-left p-3.5 sm:p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between gap-3",
+        selected
+          ? "border-[#2F7D16] bg-[#EAF4E3] shadow-xs"
+          : "border-[#E5E7E2] bg-white hover:border-[#2F7D16]/40 hover:bg-[#F7FAF4]"
+      )}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        {Icon && (
+          <div
+            className={cn(
+              "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
+              selected ? "bg-[#2F7D16] text-white" : "bg-[#F3F7EE] text-[#2F7D16]"
+            )}
+          >
+            <Icon className="w-4 h-4" />
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="font-heading font-bold text-sm text-nutri-charcoal">{title}</div>
+          {subtitle && (
+            <div className="text-xs text-nutri-secondary mt-0.5 leading-snug">{subtitle}</div>
+          )}
+        </div>
+      </div>
+      <div
+        className={cn(
+          "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0",
+          selected ? "border-[#2F7D16] bg-[#2F7D16] text-white" : "border-neutral-300"
+        )}
+      >
+        {selected && <Check className="w-3 h-3 stroke-[3]" />}
+      </div>
+    </button>
   );
 
+  const normalizedGoal = normalizeGoal(formData.primaryGoal);
+
   return (
-    <div className="h-full w-full bg-white rounded-2xl sm:rounded-3xl border border-nutri-border shadow-float flex flex-col justify-between overflow-hidden text-nutri-charcoal selection:bg-nutri-green/20">
-      {/* 1. TOP BRAND HEADER & PROGRESS BAR (Compact: ~52px) */}
-      <header className="shrink-0 bg-white border-b border-nutri-border z-20">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 h-12 sm:h-13 flex items-center justify-between">
-          <div className="flex items-center">
-            <NutriFlexsLogo size="sm" showTagline={true} />
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            {currentStep <= TOTAL_QUESTION_STEPS && (
-              <span className="text-[11px] font-bold text-nutri-muted bg-nutri-bg px-2 py-0.5 rounded-md">
-                Step {currentStep} of {TOTAL_QUESTION_STEPS}
-              </span>
-            )}
-
-            <button
-              type="button"
-              disabled={savingProgress || isNavigating}
-              onClick={handleSaveAndExit}
-              className="text-xs font-bold text-nutri-secondary hover:text-nutri-charcoal px-2.5 py-1 rounded-lg hover:bg-nutri-bg transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+    <div className="flex flex-col h-full bg-white rounded-3xl border border-[#E5E7E2] shadow-lg overflow-hidden">
+      {/* Top Header & Dynamic Progress */}
+      <div className="px-4 sm:px-6 pt-4 pb-3 border-b border-[#E5E7E2] bg-[#F7FAF4] shrink-0 space-y-3">
+        <div className="flex items-center justify-between">
+          <NutriFlexsLogo size="sm" />
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className="text-[11px] font-bold border-[#2F7D16]/25 bg-[#EAF4E3] text-[#2F7D16]"
             >
-              {savingProgress ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin text-nutri-green" />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <span>Save &amp; Exit</span>
-              )}
-            </button>
+              {isPostSummary
+                ? "Finalizing Plan"
+                : `Step ${safeIndex + 1} of ${activeFlow.length}`}
+            </Badge>
+            {onExit && (
+              <button
+                type="button"
+                onClick={onExit}
+                className="text-xs font-semibold text-nutri-secondary hover:text-nutri-charcoal px-2 py-1 rounded-lg hover:bg-white transition-colors cursor-pointer"
+              >
+                Save &amp; Exit
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Linear Progress Bar */}
-        {currentStep <= TOTAL_QUESTION_STEPS && (
-          <div className="w-full bg-nutri-border h-1.5 overflow-hidden">
-            <div
-              className="bg-nutri-green h-full transition-all duration-300 ease-out"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-        )}
-      </header>
+        {/* Progress Bar */}
+        <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-[#E5E7E2]">
+          <div
+            className="h-full bg-[#2F7D16] rounded-full transition-all duration-300"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
 
-      {/* 2. MAIN ONBOARDING QUESTION CONTENT (Scrolls only if viewport is tiny, otherwise fits fully) */}
-      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-3.5 sm:py-5 flex flex-col justify-center max-w-2xl w-full mx-auto">
-        {/* =========================================================================
-            STEP 1: GENDER (3 Options -> 3 Column Grid on sm+)
-        ========================================================================= */}
-        {currentStep === 1 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="space-y-1 sm:space-y-1.5">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 1 · GENDER
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                What is your gender?
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                Gender influences resting metabolic rate and baseline caloric expenditure formulas. You can skip this question if you prefer.
-              </p>
+      {/* Focused Single-Question Body */}
+      <div className="flex-1 overflow-y-auto p-5 sm:p-8 flex flex-col justify-center">
+        <div className="max-w-xl mx-auto w-full space-y-5">
+          {stepError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs font-semibold text-rose-800 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{stepError}</span>
             </div>
+          )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-              {[
-                { value: "male", label: "Male", desc: "Standard male resting energy baseline", icon: "👨" },
-                { value: "female", label: "Female", desc: "Standard female resting energy baseline", icon: "👩" },
-                { value: "prefer_not_to_say", label: "Prefer not to say", desc: "Balanced gender-neutral energy baseline", icon: "✨" },
-              ].map((opt) => {
-                const isSelected = formData.gender === opt.value || formData.sex === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => updateField("gender", opt.value as any)}
-                    className={cn(
-                      "w-full p-3 sm:p-3.5 rounded-2xl border text-left transition-all flex sm:flex-col sm:justify-between items-center sm:items-start justify-between cursor-pointer gap-2",
-                      isSelected
-                        ? "bg-nutri-green-light border-nutri-green shadow-2xs ring-1 ring-nutri-green"
-                        : "bg-white border-nutri-border hover:border-nutri-green/50 hover:bg-nutri-bg/50"
-                    )}
-                  >
-                    <div className="flex items-center sm:justify-between w-full gap-2">
-                      <span className="text-xl p-1.5 rounded-xl bg-nutri-bg shrink-0">{opt.icon}</span>
-                      <div
-                        className={cn(
-                          "w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ml-auto sm:ml-0",
-                          isSelected ? "border-nutri-green bg-nutri-green text-white" : "border-nutri-border"
-                        )}
-                      >
-                        {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
-                      </div>
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-extrabold text-xs sm:text-sm text-nutri-charcoal">{opt.label}</h3>
-                      <p className="text-[10px] sm:text-[11px] text-nutri-muted mt-0.5 line-clamp-2">{opt.desc}</p>
-                    </div>
-                  </button>
-                );
-              })}
+          {/* 1. GENDER */}
+          {activeNodeId === "gender" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  What is your gender?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  Used only to select the appropriate metabolic baseline formula.
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.gender === "male"}
+                  onClick={() => updateAnswers({ gender: "male", sex: "male" })}
+                  title="Male"
+                />
+                <OptionButton
+                  selected={formData.gender === "female"}
+                  onClick={() => updateAnswers({ gender: "female", sex: "female" })}
+                  title="Female"
+                />
+                <OptionButton
+                  selected={formData.gender === "prefer_not_to_say"}
+                  onClick={() =>
+                    updateAnswers({
+                      gender: "prefer_not_to_say",
+                      sex: "prefer_not_to_say",
+                    })
+                  }
+                  title="Prefer not to say"
+                  subtitle="Uses a balanced gender-neutral metabolic estimate"
+                />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* =========================================================================
-            STEP 2: DATE OF BIRTH
-        ========================================================================= */}
-        {currentStep === 2 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="space-y-1 sm:space-y-1.5">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 2 · METABOLIC AGE
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                When were you born?
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                Age affects basal energy consumption and daily protein synthesis requirements. We derive age securely on the server.
-              </p>
-            </div>
-
-            <Card className="p-4 sm:p-5 rounded-2xl border border-nutri-border bg-white shadow-2xs space-y-3">
-              <label htmlFor="birthdate-input" className="block text-[11px] font-bold text-nutri-charcoal uppercase tracking-wider">
-                Select Your Date of Birth
-              </label>
-              <div className="relative">
+          {/* 2. BIRTH DATE */}
+          {activeNodeId === "birth_date" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  When were you born?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  Resting energy expenditure changes gradually with age.
+                </p>
+              </div>
+              <div className="space-y-3">
                 <input
-                  id="birthdate-input"
                   type="date"
                   value={formData.birthDate || ""}
                   max={new Date().toISOString().split("T")[0]}
-                  min="1930-01-01"
-                  onChange={(e) => updateField("birthDate", e.target.value)}
-                  className="w-full h-11 bg-nutri-bg border border-nutri-border focus:border-nutri-green focus:bg-white rounded-xl px-3.5 text-sm font-bold text-nutri-charcoal outline-hidden transition-all"
+                  onChange={(e) =>
+                    updateAnswers({ birthDate: e.target.value, birthDateSkipped: false })
+                  }
+                  className="w-full p-3.5 text-sm font-bold rounded-2xl border-2 border-[#E5E7E2] focus:border-[#2F7D16] focus:outline-none bg-[#F7FAF4]"
                 />
+                {formData.birthDate && calculateAge(formData.birthDate) && (
+                  <p className="text-xs font-bold text-[#2F7D16]">
+                    Age: {calculateAge(formData.birthDate)} years
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateAnswers({
+                      birthDate: null,
+                      birthDateSkipped: !formData.birthDateSkipped,
+                    })
+                  }
+                  className={cn(
+                    "w-full p-3 rounded-2xl border text-xs font-bold transition-colors cursor-pointer",
+                    formData.birthDateSkipped
+                      ? "bg-[#EAF4E3] border-[#2F7D16] text-[#2F7D16]"
+                      : "bg-white border-[#E5E7E2] text-nutri-secondary hover:bg-[#F7FAF4]"
+                  )}
+                >
+                  Prefer not to say
+                </button>
               </div>
-
-              {formData.birthDate && (
-                <div className="p-2.5 bg-nutri-green-light border border-nutri-border-light rounded-xl text-xs font-medium text-nutri-charcoal flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-nutri-green shrink-0" />
-                  <span>Calculated age: <strong>{calculateAge(formData.birthDate)} years old</strong></span>
-                </div>
-              )}
-            </Card>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 3: HEIGHT
-        ========================================================================= */}
-        {currentStep === 3 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="space-y-1 sm:space-y-1.5">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 3 · STATURE
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                How tall are you?
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                Your height is used alongside weight to evaluate body surface area and basal energy expenditure.
-              </p>
             </div>
+          )}
 
-            <Card className="p-4 sm:p-5 rounded-2xl border border-nutri-border bg-white shadow-2xs space-y-3">
-              {/* Unit Toggle */}
-              <div className="flex justify-end">
-                <div className="inline-flex bg-nutri-bg p-1 rounded-xl border border-nutri-border text-[11px] font-bold">
-                  <button
-                    type="button"
-                    onClick={() => handleHeightUnitChange("cm")}
-                    className={cn(
-                      "px-3 py-1 rounded-lg transition-all cursor-pointer",
-                      formData.heightUnit === "cm" ? "bg-white text-nutri-charcoal shadow-2xs" : "text-nutri-muted"
-                    )}
-                  >
-                    Centimetres (cm)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleHeightUnitChange("ft")}
-                    className={cn(
-                      "px-3 py-1 rounded-lg transition-all cursor-pointer",
-                      formData.heightUnit === "ft" ? "bg-white text-nutri-charcoal shadow-2xs" : "text-nutri-muted"
-                    )}
-                  >
-                    Feet &amp; Inches (ft/in)
-                  </button>
+          {/* 3. HEIGHT */}
+          {activeNodeId === "height" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                    How tall are you?
+                  </h1>
+                  <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                    Helps calculate your resting metabolic rate and BMI context.
+                  </p>
+                </div>
+                <div className="flex rounded-xl bg-[#F3F7EE] p-1 border border-[#E5E7E2]">
+                  {(["cm", "ft"] as const).map((unit) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      onClick={() => updateAnswers({ heightUnit: unit })}
+                      className={cn(
+                        "px-3 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer",
+                        formData.heightUnit === unit
+                          ? "bg-[#2F7D16] text-white"
+                          : "text-nutri-secondary"
+                      )}
+                    >
+                      {unit === "cm" ? "cm" : "ft/in"}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               {formData.heightUnit === "cm" ? (
-                <div className="space-y-1.5">
-                  <label htmlFor="height-cm" className="block text-[11px] font-bold text-nutri-charcoal uppercase tracking-wider">
-                    Height in Centimetres
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="height-cm"
-                      type="number"
-                      min="90"
-                      max="250"
-                      value={formData.heightCm || ""}
-                      onChange={(e) => updateField("heightCm", Number(e.target.value))}
-                      placeholder="172"
-                      className="w-full h-11 bg-nutri-bg border border-nutri-border focus:border-nutri-green focus:bg-white rounded-xl px-3.5 text-base font-extrabold text-nutri-charcoal outline-hidden transition-all pr-12"
-                    />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-nutri-muted">
-                      cm
-                    </span>
-                  </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={90}
+                    max={250}
+                    placeholder="e.g. 172"
+                    value={formData.heightCm || ""}
+                    onChange={(e) => {
+                      const val = e.target.value ? parseFloat(e.target.value) : null;
+                      updateAnswers({ heightCm: val, heightSkipped: false });
+                    }}
+                    className="w-full p-3.5 pr-12 text-base font-bold rounded-2xl border-2 border-[#E5E7E2] focus:border-[#2F7D16] focus:outline-none bg-[#F7FAF4]"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-nutri-muted">
+                    cm
+                  </span>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-[11px] font-bold text-nutri-charcoal uppercase tracking-wider">
-                      Feet
-                    </label>
+                  <div className="relative">
                     <input
                       type="number"
-                      min="3"
-                      max="8"
+                      min={3}
+                      max={8}
+                      placeholder="Feet (e.g. 5)"
                       value={feet}
                       onChange={(e) => {
-                        const newFt = Number(e.target.value);
-                        setFeet(newFt);
-                        updateField("heightCm", Math.round((newFt * 12 + inches) * 2.54));
+                        setFeet(e.target.value);
+                        const ft = parseFloat(e.target.value) || 0;
+                        const inc = parseFloat(inches) || 0;
+                        const cm = Math.round((ft * 12 + inc) * 2.54);
+                        updateAnswers({ heightCm: cm > 0 ? cm : null, heightSkipped: false });
                       }}
-                      className="w-full h-11 bg-nutri-bg border border-nutri-border focus:border-nutri-green focus:bg-white rounded-xl px-3.5 text-base font-extrabold text-nutri-charcoal outline-hidden transition-all"
+                      className="w-full p-3.5 pr-10 text-base font-bold rounded-2xl border-2 border-[#E5E7E2] focus:border-[#2F7D16] focus:outline-none bg-[#F7FAF4]"
                     />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-nutri-muted">
+                      ft
+                    </span>
                   </div>
-                  <div className="space-y-1">
-                    <label className="block text-[11px] font-bold text-nutri-charcoal uppercase tracking-wider">
-                      Inches
-                    </label>
+                  <div className="relative">
                     <input
                       type="number"
-                      min="0"
-                      max="11"
+                      min={0}
+                      max={11}
+                      placeholder="Inches (e.g. 8)"
                       value={inches}
                       onChange={(e) => {
-                        const newIn = Number(e.target.value);
-                        setInches(newIn);
-                        updateField("heightCm", Math.round((feet * 12 + newIn) * 2.54));
+                        setInches(e.target.value);
+                        const ft = parseFloat(feet) || 0;
+                        const inc = parseFloat(e.target.value) || 0;
+                        const cm = Math.round((ft * 12 + inc) * 2.54);
+                        updateAnswers({ heightCm: cm > 0 ? cm : null, heightSkipped: false });
                       }}
-                      className="w-full h-11 bg-nutri-bg border border-nutri-border focus:border-nutri-green focus:bg-white rounded-xl px-3.5 text-base font-extrabold text-nutri-charcoal outline-hidden transition-all"
+                      className="w-full p-3.5 pr-10 text-base font-bold rounded-2xl border-2 border-[#E5E7E2] focus:border-[#2F7D16] focus:outline-none bg-[#F7FAF4]"
                     />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-nutri-muted">
+                      in
+                    </span>
                   </div>
                 </div>
               )}
-            </Card>
-          </div>
-        )}
 
-        {/* =========================================================================
-            STEP 4: CURRENT WEIGHT
-        ========================================================================= */}
-        {currentStep === 4 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="space-y-1 sm:space-y-1.5">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 4 · BODY MASS
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                What&apos;s your current weight?
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                Body weight changes naturally week to week. You can adjust this anytime in your profile settings.
-              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  updateAnswers({
+                    heightCm: null,
+                    heightSkipped: !formData.heightSkipped,
+                  })
+                }
+                className={cn(
+                  "w-full p-3 rounded-2xl border text-xs font-bold transition-colors cursor-pointer",
+                  formData.heightSkipped
+                    ? "bg-[#EAF4E3] border-[#2F7D16] text-[#2F7D16]"
+                    : "bg-white border-[#E5E7E2] text-nutri-secondary hover:bg-[#F7FAF4]"
+                )}
+              >
+                Prefer not to say
+              </button>
             </div>
+          )}
 
-            <Card className="p-4 sm:p-5 rounded-2xl border border-nutri-border bg-white shadow-2xs space-y-3">
-              <div className="flex justify-end">
-                <div className="inline-flex bg-nutri-bg p-1 rounded-xl border border-nutri-border text-[11px] font-bold">
-                  <button
-                    type="button"
-                    onClick={() => handleWeightUnitChange("kg")}
-                    className={cn(
-                      "px-3 py-1 rounded-lg transition-all cursor-pointer",
-                      formData.weightUnit === "kg" ? "bg-white text-nutri-charcoal shadow-2xs" : "text-nutri-muted"
-                    )}
-                  >
-                    Kilograms (kg)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleWeightUnitChange("lbs")}
-                    className={cn(
-                      "px-3 py-1 rounded-lg transition-all cursor-pointer",
-                      formData.weightUnit === "lbs" ? "bg-white text-nutri-charcoal shadow-2xs" : "text-nutri-muted"
-                    )}
-                  >
-                    Pounds (lbs)
-                  </button>
+          {/* 4. PRIMARY GOAL */}
+          {activeNodeId === "primary_goal" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  What is your main fitness &amp; nutrition goal?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  We will tailor the remaining questions specifically to your choice.
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={normalizedGoal === "lose_weight"}
+                  onClick={() => updateAnswers({ primaryGoal: "lose_weight" })}
+                  icon={Flame}
+                  title="Lose Weight"
+                  subtitle="Sustainable fat loss with lean muscle preservation"
+                />
+                <OptionButton
+                  selected={normalizedGoal === "gain_weight_build_muscle"}
+                  onClick={() =>
+                    updateAnswers({ primaryGoal: "gain_weight_build_muscle" })
+                  }
+                  icon={Dumbbell}
+                  title="Gain Weight & Build Muscle"
+                  subtitle="Lean hypertrophy, strength, and controlled caloric surplus"
+                />
+                <OptionButton
+                  selected={normalizedGoal === "maintain"}
+                  onClick={() => updateAnswers({ primaryGoal: "maintain" })}
+                  icon={Scale}
+                  title="Maintain Weight"
+                  subtitle="Stay consistent, fuel daily life, and balance nutrition"
+                />
+                <OptionButton
+                  selected={normalizedGoal === "improve_fitness"}
+                  onClick={() => updateAnswers({ primaryGoal: "improve_fitness" })}
+                  icon={TrendingUp}
+                  title="Improve Fitness & Body Composition"
+                  subtitle="Boost stamina, recomposition, and athletic energy"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 5. CURRENT WEIGHT */}
+          {activeNodeId === "current_weight" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                    What is your current weight?
+                  </h1>
+                  <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                    Used to estimate your daily energy and protein requirements.
+                  </p>
+                </div>
+                <div className="flex rounded-xl bg-[#F3F7EE] p-1 border border-[#E5E7E2]">
+                  {(["kg", "lbs"] as const).map((unit) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      onClick={() => updateAnswers({ weightUnit: unit })}
+                      className={cn(
+                        "px-3 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer",
+                        formData.weightUnit === unit
+                          ? "bg-[#2F7D16] text-white"
+                          : "text-nutri-secondary"
+                      )}
+                    >
+                      {unit}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               {formData.weightUnit === "kg" ? (
-                <div className="space-y-1.5">
-                  <label htmlFor="weight-kg" className="block text-[11px] font-bold text-nutri-charcoal uppercase tracking-wider">
-                    Weight in Kilograms
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="weight-kg"
-                      type="number"
-                      step="0.1"
-                      min="30"
-                      max="300"
-                      value={formData.weightKg || ""}
-                      onChange={(e) => updateField("weightKg", Number(e.target.value))}
-                      placeholder="68"
-                      className="w-full h-11 bg-nutri-bg border border-nutri-border focus:border-nutri-green focus:bg-white rounded-xl px-3.5 text-base font-extrabold text-nutri-charcoal outline-hidden transition-all pr-12"
-                    />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-nutri-muted">
-                      kg
-                    </span>
-                  </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min={25}
+                    max={350}
+                    placeholder="e.g. 70"
+                    value={formData.weightKg || ""}
+                    onChange={(e) => {
+                      const val = e.target.value ? parseFloat(e.target.value) : null;
+                      updateAnswers({ weightKg: val });
+                      if (val) setWeightLbs(String(Math.round(val * 2.20462)));
+                    }}
+                    className="w-full p-3.5 pr-12 text-base font-bold rounded-2xl border-2 border-[#E5E7E2] focus:border-[#2F7D16] focus:outline-none bg-[#F7FAF4]"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-nutri-muted">
+                    kg
+                  </span>
                 </div>
               ) : (
-                <div className="space-y-1.5">
-                  <label htmlFor="weight-lbs" className="block text-[11px] font-bold text-nutri-charcoal uppercase tracking-wider">
-                    Weight in Pounds
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="weight-lbs"
-                      type="number"
-                      step="0.5"
-                      min="60"
-                      max="650"
-                      value={weightLbs}
-                      onChange={(e) => {
-                        const lbs = Number(e.target.value);
-                        setWeightLbs(lbs);
-                        updateField("weightKg", Math.round(lbs / 2.20462));
-                      }}
-                      placeholder="150"
-                      className="w-full h-11 bg-nutri-bg border border-nutri-border focus:border-nutri-green focus:bg-white rounded-xl px-3.5 text-base font-extrabold text-nutri-charcoal outline-hidden transition-all pr-12"
-                    />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-nutri-muted">
-                      lbs
-                    </span>
-                  </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="1"
+                    min={55}
+                    max={770}
+                    placeholder="e.g. 154"
+                    value={weightLbs}
+                    onChange={(e) => {
+                      setWeightLbs(e.target.value);
+                      const lbs = parseFloat(e.target.value);
+                      updateAnswers({
+                        weightKg: lbs > 0 ? Number((lbs / 2.20462).toFixed(1)) : null,
+                      });
+                    }}
+                    className="w-full p-3.5 pr-12 text-base font-bold rounded-2xl border-2 border-[#E5E7E2] focus:border-[#2F7D16] focus:outline-none bg-[#F7FAF4]"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-nutri-muted">
+                    lbs
+                  </span>
                 </div>
               )}
-            </Card>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 5: WORKOUT FREQUENCY (5 Options -> Session-based wording)
-        ========================================================================= */}
-        {currentStep === 5 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="space-y-1 sm:space-y-1.5">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 5 · ACTIVITY
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                How many times do you work out?
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                Choose the workout sessions per week that best match your routine. This scales your Total Daily Energy Expenditure (TDEE).
-              </p>
             </div>
+          )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-              {[
-                {
-                  value: "0_sessions",
-                  legacyValue: "none",
-                  label: "0 sessions per week",
-                  desc: "Sedentary routine or starting fresh",
-                  icon: "🛋️",
-                },
-                {
-                  value: "1_2_sessions",
-                  legacyValue: "1_2_sessions",
-                  label: "1–2 sessions per week",
-                  desc: "Light exercise or active walks",
-                  icon: "🚶",
-                },
-                {
-                  value: "3_4_sessions",
-                  legacyValue: "0_4_days",
-                  label: "3–4 sessions per week",
-                  desc: "Consistent moderate training sessions",
-                  icon: "🏃",
-                },
-                {
-                  value: "5_6_sessions",
-                  legacyValue: "4_6_days",
-                  label: "5–6 sessions per week",
-                  desc: "Regular gym workouts or sports training",
-                  icon: "🏋️",
-                },
-                {
-                  value: "7_plus_sessions",
-                  legacyValue: "7_plus_days",
-                  label: "7+ sessions per week",
-                  desc: "High volume or multi-session weekly training",
-                  icon: "⚡",
-                },
-              ].map((opt, idx) => {
-                const isSelected =
-                  formData.workoutFrequency === opt.value ||
-                  formData.workoutFrequency === opt.legacyValue;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => updateField("workoutFrequency", opt.value as any)}
-                    className={cn(
-                      "w-full p-2.5 sm:p-3 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer gap-2.5",
-                      idx === 4 ? "sm:col-span-2" : "",
-                      isSelected
-                        ? "bg-nutri-green-light border-nutri-green shadow-2xs ring-1 ring-nutri-green"
-                        : "bg-white border-nutri-border hover:border-nutri-green/50 hover:bg-nutri-bg/50"
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-xl p-1.5 rounded-xl bg-nutri-bg shrink-0">{opt.icon}</span>
-                      <div className="min-w-0">
-                        <h3 className="font-extrabold text-xs sm:text-sm text-nutri-charcoal truncate">{opt.label}</h3>
-                        <p className="text-[10px] sm:text-[11px] text-nutri-muted truncate mt-0.5">{opt.desc}</p>
-                      </div>
-                    </div>
-                    <div
-                      className={cn(
-                        "w-4 h-4 rounded-full border flex items-center justify-center shrink-0",
-                        isSelected ? "border-nutri-green bg-nutri-green text-white" : "border-nutri-border"
-                      )}
-                    >
-                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 6: REGISTERED DIETITIAN CONSULTATION (4 Options -> 2 Column Grid)
-        ========================================================================= */}
-        {currentStep === 6 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="space-y-1 sm:space-y-1.5">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 6 · PROFESSIONAL GUIDANCE
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                Have you ever consulted a registered dietitian?
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                This optional background question helps us tailor the depth of educational guidance we provide.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-              {[
-                { value: "yes", label: "Yes, in the past", desc: "Familiar with calorie counts & macros", icon: "📋" },
-                { value: "no", label: "No, never", desc: "New to structured meal logging", icon: "🌱" },
-                { value: "currently", label: "Currently consulting one", desc: "Following a professional protocol", icon: "🩺" },
-                { value: "prefer_not_to_say", label: "Prefer not to say", desc: "Keep health history private", icon: "🔒" },
-              ].map((opt) => {
-                const isSelected = formData.dietitianConsultation === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => updateField("dietitianConsultation", opt.value as any)}
-                    className={cn(
-                      "w-full p-2.5 sm:p-3 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer gap-2.5",
-                      isSelected
-                        ? "bg-nutri-green-light border-nutri-green shadow-2xs ring-1 ring-nutri-green"
-                        : "bg-white border-nutri-border hover:border-nutri-green/50 hover:bg-nutri-bg/50"
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-xl p-1.5 rounded-xl bg-nutri-bg shrink-0">{opt.icon}</span>
-                      <div className="min-w-0">
-                        <h3 className="font-extrabold text-xs sm:text-sm text-nutri-charcoal truncate">{opt.label}</h3>
-                        <p className="text-[10px] sm:text-[11px] text-nutri-muted truncate mt-0.5">{opt.desc}</p>
-                      </div>
-                    </div>
-                    <div
-                      className={cn(
-                        "w-4 h-4 rounded-full border flex items-center justify-center shrink-0",
-                        isSelected ? "border-nutri-green bg-nutri-green text-white" : "border-nutri-border"
-                      )}
-                    >
-                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 7: PRIMARY GOAL (Target)
-        ========================================================================= */}
-        {currentStep === 7 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="space-y-1 sm:space-y-1.5">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 7 · PRIMARY FOCUS
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                What is your target?
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                Select your main nutrition goal. NutriFlexs will calculate an appropriate daily energy and macro profile.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-              {[
-                {
-                  value: "lose_weight",
-                  label: "Lose Weight",
-                  desc: "Safe fat loss while keeping muscle",
-                  icon: "🔥",
-                },
-                {
-                  value: "maintain",
-                  label: "Maintain Current Weight",
-                  desc: "Optimal daily balance without changes",
-                  icon: "⚖️",
-                },
-                {
-                  value: "improve_fitness",
-                  label: "Improve Fitness & Body Composition",
-                  desc: "Build endurance, tone, and feel energetic",
-                  icon: "⚡",
-                },
-                {
-                  value: "build_muscle",
-                  label: "Gain Weight & Build Muscle",
-                  desc: "Increase muscle mass with a controlled calorie surplus and adequate protein intake.",
-                  icon: "💪",
-                },
-                {
-                  value: "healthier_habits",
-                  label: "Develop Healthy Habits",
-                  desc: "Balance macros and track Indian home meals cleanly",
-                  icon: "🥗",
-                },
-              ].map((opt, idx) => {
-                const isSelected =
-                  formData.primaryGoal === opt.value ||
-                  (opt.value === "build_muscle" && (formData.primaryGoal as string) === "gain_weight_build_muscle");
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => handlePrimaryGoalChange(opt.value as any)}
-                    className={cn(
-                      "w-full p-2.5 sm:p-3 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer gap-2.5",
-                      idx === 4 ? "sm:col-span-2" : "",
-                      isSelected
-                        ? "bg-nutri-green-light border-nutri-green shadow-2xs ring-1 ring-nutri-green"
-                        : "bg-white border-nutri-border hover:border-nutri-green/50 hover:bg-nutri-bg/50"
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-xl p-1.5 rounded-xl bg-nutri-bg shrink-0">{opt.icon}</span>
-                      <div className="min-w-0">
-                        <h3 className="font-extrabold text-xs sm:text-sm text-nutri-charcoal truncate">{opt.label}</h3>
-                        <p className="text-[10px] sm:text-[11px] text-nutri-muted truncate mt-0.5">{opt.desc}</p>
-                      </div>
-                    </div>
-                    <div
-                      className={cn(
-                        "w-4 h-4 rounded-full border flex items-center justify-center shrink-0",
-                        isSelected ? "border-nutri-green bg-nutri-green text-white" : "border-nutri-border"
-                      )}
-                    >
-                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 8: DESIRED GOAL TARGET (Contextualized)
-        ========================================================================= */}
-        {currentStep === 8 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="space-y-1 sm:space-y-1.5">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                {formData.primaryGoal === "lose_weight"
-                  ? "STEP 8 · WEIGHT LOSS TARGET"
-                  : formData.primaryGoal === "build_muscle" || (formData.primaryGoal as string) === "gain_weight_build_muscle"
-                  ? "STEP 8 · MUSCLE BUILDING TARGET"
-                  : formData.primaryGoal === "maintain"
-                  ? "STEP 8 · WEIGHT MAINTENANCE"
-                  : "STEP 8 · FOCUS HABIT"}
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                {formData.primaryGoal === "lose_weight"
-                  ? "What is your target weight?"
-                  : formData.primaryGoal === "build_muscle" || (formData.primaryGoal as string) === "gain_weight_build_muscle"
-                  ? "What is your target weight for muscle gain?"
-                  : formData.primaryGoal === "maintain"
-                  ? "Confirm your maintenance target"
-                  : "What habit milestone matters most?"}
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                {formData.primaryGoal === "build_muscle" || (formData.primaryGoal as string) === "gain_weight_build_muscle"
-                  ? "Building lean muscle requires a controlled calorie surplus and sufficient protein. Set your target weight."
-                  : formData.primaryGoal === "lose_weight"
-                  ? "Specific milestones keep your daily tracking meaningful. We will calculate a safe, sustainable calorie deficit."
-                  : formData.primaryGoal === "maintain"
-                  ? "Keep your weight stable while improving energy, stamina, and workout recovery."
-                  : "Specific milestones keep your daily tracking meaningful. You can adjust this anytime."}
-              </p>
-            </div>
-
-            <Card className="p-4 sm:p-5 rounded-2xl border border-nutri-border bg-white shadow-2xs space-y-3">
-              {formData.primaryGoal === "lose_weight" ||
-              formData.primaryGoal === "build_muscle" ||
-              (formData.primaryGoal as string) === "gain_weight_build_muscle" ? (
-                <div className="space-y-2.5">
-                  <label htmlFor="target-weight" className="block text-[11px] font-bold text-nutri-charcoal uppercase tracking-wider">
-                    {formData.primaryGoal === "lose_weight" ? "Target Weight (kg)" : "Target Weight for Muscle Gain (kg)"}
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="target-weight"
-                      type="number"
-                      step="any"
-                      min="25"
-                      max="350"
-                      value={formData.desiredGoalTarget?.targetWeightKg ?? ""}
-                      onChange={(e) => {
-                        setStepError(null);
-                        const val = e.target.value === "" ? null : Number(e.target.value);
-                        updateField("desiredGoalTarget", {
+          {/* 6. TARGET WEIGHT */}
+          {activeNodeId === "target_weight" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  What is your desired target weight?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  {formData.weightKg
+                    ? `Current weight: ${formData.weightKg} kg.`
+                    : "Enter a realistic weight you feel healthy and strong at."}
+                </p>
+              </div>
+              {formData.weightUnit === "kg" ? (
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min={25}
+                    max={350}
+                    placeholder={
+                      normalizedGoal === "lose_weight" ? "e.g. 64" : "e.g. 76"
+                    }
+                    value={formData.desiredGoalTarget?.targetWeightKg || ""}
+                    onChange={(e) => {
+                      const val = e.target.value ? parseFloat(e.target.value) : null;
+                      updateAnswers({
+                        desiredGoalTarget: {
                           ...formData.desiredGoalTarget,
                           targetWeightKg: val,
-                        });
-                      }}
-                      placeholder={
-                        formData.primaryGoal === "lose_weight"
-                          ? `${Math.max(30, (formData.weightKg || 68) - 4)}`
-                          : `${(formData.weightKg || 68) + 3}`
-                      }
-                      className="w-full h-11 bg-nutri-bg border border-nutri-border focus:border-nutri-green focus:bg-white rounded-xl px-3.5 text-base font-extrabold text-nutri-charcoal outline-hidden transition-all pr-12"
-                    />
-                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-nutri-muted">
-                      kg
-                    </span>
-                  </div>
-
-                  {formData.weightKg && formData.desiredGoalTarget?.targetWeightKg && (
-                    <div className="p-2.5 bg-nutri-green-light rounded-xl text-xs font-medium text-nutri-charcoal flex items-center justify-between border border-nutri-border-light">
-                      <span>Current: <strong>{formData.weightKg} kg</strong></span>
-                      <span>
-                        Delta:{" "}
-                        <strong>
-                          {Math.abs(formData.weightKg - formData.desiredGoalTarget.targetWeightKg).toFixed(1)} kg
-                        </strong>{" "}
-                        {formData.desiredGoalTarget.targetWeightKg < formData.weightKg
-                          ? "to lose"
-                          : formData.desiredGoalTarget.targetWeightKg > formData.weightKg
-                          ? "to gain"
-                          : "maintenance"}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ) : formData.primaryGoal === "maintain" ? (
-                <div className="p-3.5 bg-nutri-bg rounded-xl border border-nutri-border space-y-1.5">
-                  <p className="font-bold text-xs sm:text-sm text-nutri-charcoal">Steady Maintenance Strategy</p>
-                  <p className="text-xs text-nutri-muted leading-relaxed">
-                    We will calculate balanced daily calories to keep you right around <strong>{formData.weightKg || 68} kg</strong>, accounting for daily metabolic fluctuations.
-                  </p>
+                        },
+                      });
+                      if (val) setTargetWeightLbs(String(Math.round(val * 2.20462)));
+                    }}
+                    className="w-full p-3.5 pr-12 text-base font-bold rounded-2xl border-2 border-[#E5E7E2] focus:border-[#2F7D16] focus:outline-none bg-[#F7FAF4]"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-nutri-muted">
+                    kg
+                  </span>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <label className="block text-[11px] font-bold text-nutri-charcoal uppercase tracking-wider">
-                    Primary Daily Focus
-                  </label>
-                  <div className="grid grid-cols-1 gap-2">
-                    {[
-                      "Hit daily protein goal consistently",
-                      "Log lunch & dinner Indian curries accurately",
-                      "Avoid afternoon energy crashes & sugar spikes",
-                      "Tone up and build functional strength",
-                    ].map((habit) => (
-                      <button
-                        key={habit}
-                        type="button"
-                        onClick={() => {
-                          setStepError(null);
-                          updateField("desiredGoalTarget", {
-                            ...formData.desiredGoalTarget,
-                            habitsTarget: habit,
-                          });
-                        }}
-                        className={cn(
-                          "p-2.5 rounded-xl border text-xs font-bold text-left transition-all cursor-pointer",
-                          formData.desiredGoalTarget?.habitsTarget === habit
-                            ? "bg-nutri-green-light border-nutri-green text-nutri-green"
-                            : "bg-nutri-bg border-nutri-border text-nutri-charcoal hover:bg-white"
-                        )}
-                      >
-                        {habit}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 9: GOAL FEASIBILITY (Compact 2-Column Review Grid)
-        ========================================================================= */}
-        {currentStep === 9 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="space-y-1 sm:space-y-1.5">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 9 · TRANSPARENT FEASIBILITY
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                Let&apos;s check whether your goal is realistic.
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                We believe in honest, evidence-based nutrition. We never promise overnight transformations or dangerous deficits.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-              {/* BMI Card */}
-              {calculatedTargets.bmi && (
-                <Card className="p-3.5 sm:p-4 rounded-2xl border border-nutri-border bg-white shadow-2xs space-y-1.5 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-bold text-nutri-muted uppercase tracking-wider">Body Mass Index</span>
-                      <Badge variant="gold" className="text-[10px] font-extrabold py-0.5">
-                        {calculatedTargets.bmiCategory}
-                      </Badge>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-extrabold text-nutri-charcoal font-heading">
-                        {calculatedTargets.bmi}
-                      </span>
-                      <span className="text-xs text-nutri-muted">kg/m²</span>
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-nutri-muted leading-tight pt-1">
-                    *BMI is an approximate weight-to-height ratio baseline.
-                  </p>
-                </Card>
-              )}
-
-              {/* Feasibility Assessment Card */}
-              <Card
-                className={cn(
-                  "p-3.5 sm:p-4 rounded-2xl border shadow-2xs space-y-2 flex flex-col justify-between",
-                  calculatedTargets.isSafeGoal
-                    ? "bg-nutri-green-light/70 border-nutri-green/30 text-nutri-charcoal"
-                    : "bg-amber-50 border-amber-300 text-amber-900"
-                )}
-              >
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    {calculatedTargets.isSafeGoal ? (
-                      <CheckCircle2 className="w-4 h-4 text-nutri-green shrink-0" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                    )}
-                    <h3 className="font-extrabold text-xs sm:text-sm">
-                      {calculatedTargets.isSafeGoal ? "Sustainable Goal" : "Pace Adjustment Recommended"}
-                    </h3>
-                  </div>
-                  <p className="text-[11px] leading-snug line-clamp-2">
-                    {calculatedTargets.feasibilityAssessment.safetyNote}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-black/10 text-[11px]">
-                  <div>
-                    <span className="text-[9px] uppercase font-bold text-black/60 block">Projected Pace</span>
-                    <span className="font-extrabold">~{calculatedTargets.feasibilityAssessment.weeklyChangeKg} kg/wk</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] uppercase font-bold text-black/60 block">Recommended</span>
-                    <span className="font-extrabold">{calculatedTargets.feasibilityAssessment.recommendedTimelineWeeks} Weeks</span>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 10: DESIRED TIMELINE (3 Options -> 3 Column Grid)
-        ========================================================================= */}
-        {currentStep === 10 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="space-y-1 sm:space-y-1.5">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 10 · TIMEFRAME
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                When would you like to achieve your goal?
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                Setting a target duration anchors your consistency. Safe, steady progress yields lasting habits.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-              {[
-                { weeks: 8, label: "8 Weeks", sublabel: "Short-term momentum & habit building" },
-                { weeks: 12, label: "12 Weeks (Recommended)", sublabel: "Optimal duration for body recomposition" },
-                { weeks: 24, label: "24 Weeks", sublabel: "Long-term sustainable transformation" },
-              ].map((opt) => {
-                const isSelected = formData.desiredTimelineWeeks === opt.weeks;
-                return (
-                  <button
-                    key={opt.weeks}
-                    type="button"
-                    onClick={() => updateField("desiredTimelineWeeks", opt.weeks)}
-                    className={cn(
-                      "w-full p-3 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer gap-2",
-                      isSelected
-                        ? "bg-nutri-green-light border-nutri-green shadow-2xs ring-1 ring-nutri-green"
-                        : "bg-white border-nutri-border hover:border-nutri-green/50 hover:bg-nutri-bg/50"
-                    )}
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <h3 className="font-extrabold text-xs sm:text-sm text-nutri-charcoal">{opt.label}</h3>
-                      <div
-                        className={cn(
-                          "w-4 h-4 rounded-full border flex items-center justify-center shrink-0",
-                          isSelected ? "border-nutri-green bg-nutri-green text-white" : "border-nutri-border"
-                        )}
-                      >
-                        {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
-                      </div>
-                    </div>
-                    <p className="text-[10px] sm:text-[11px] text-nutri-muted line-clamp-2">{opt.sublabel}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 11: PREFERRED PACE (3 Options -> 3 Column Grid)
-        ========================================================================= */}
-        {currentStep === 11 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="space-y-1 sm:space-y-1.5">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 11 · PROGRESSION SPEED
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                How quickly would you like to progress?
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                Even with aggressive preferences, we enforce strict physiological safety floors to prevent nutritional deficiencies.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-              {(formData.primaryGoal === "build_muscle" || (formData.primaryGoal as string) === "gain_weight_build_muscle"
-                ? [
-                    { value: "slow", label: "Slow & steady", desc: "Lean surplus (~200 kcal). Minimizes fat gain while building muscle." },
-                    { value: "moderate", label: "Moderate (Recommended)", desc: "Optimal hypertrophy surplus (~350 kcal) with high protein." },
-                    { value: "fast", label: "Fast & focused", desc: "High calorie surplus (~500 kcal) for aggressive muscle gain." },
-                  ]
-                : formData.primaryGoal === "maintain" || formData.primaryGoal === "improve_fitness" || formData.primaryGoal === "healthier_habits"
-                ? [
-                    { value: "slow", label: "Gentle rhythm", desc: "Small sustainable adjustments with zero disruption to your lifestyle." },
-                    { value: "moderate", label: "Steady (Recommended)", desc: "Balanced daily energy targets with optimal recovery and tone." },
-                    { value: "fast", label: "Active focus", desc: "Targeted macro tracking with consistent protein milestones." },
-                  ]
-                : [
-                    { value: "slow", label: "Slow & steady", desc: "Gentle ~250 kcal adjustment. Minimal hunger, maximum consistency." },
-                    { value: "moderate", label: "Moderate (Recommended)", desc: "Standard ~400 kcal deficit. Balanced and effective." },
-                    { value: "fast", label: "Fast & focused", desc: "Safe ~550 kcal deficit with strict safe calorie floors." },
-                  ]
-              ).map((opt) => {
-                const isSelected = formData.preferredPace === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => updateField("preferredPace", opt.value as any)}
-                    className={cn(
-                      "w-full p-3 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer gap-2",
-                      isSelected
-                        ? "bg-nutri-green-light border-nutri-green shadow-2xs ring-1 ring-nutri-green"
-                        : "bg-white border-nutri-border hover:border-nutri-green/50 hover:bg-nutri-bg/50"
-                    )}
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <h3 className="font-extrabold text-xs sm:text-sm text-nutri-charcoal">{opt.label}</h3>
-                      <div
-                        className={cn(
-                          "w-4 h-4 rounded-full border flex items-center justify-center shrink-0",
-                          isSelected ? "border-nutri-green bg-nutri-green text-white" : "border-nutri-border"
-                        )}
-                      >
-                        {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
-                      </div>
-                    </div>
-                    <p className="text-[10px] sm:text-[11px] text-nutri-muted line-clamp-2">{opt.desc}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 12: CHALLENGES (8 Options -> 2 Column Grid)
-        ========================================================================= */}
-        {currentStep === 12 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="space-y-1 sm:space-y-1.5">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 12 · OBSTACLES
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                What&apos;s stopping you from reaching your goal?
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                Select all that apply. Knowing your sticking points helps us simplify your daily diary workflow.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-              {[
-                "Lack of consistency",
-                "Lack of time",
-                "Difficulty tracking calories",
-                "Unhealthy food habits",
-                "Difficulty maintaining a diet",
-                "Lack of motivation",
-                "Unclear nutrition information",
-                "Other",
-              ].map((item) => {
-                const currentChallenges = formData.challenges || [];
-                const isSelected = currentChallenges.includes(item);
-                return (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => {
-                      const updated = isSelected
-                        ? currentChallenges.filter((c) => c !== item)
-                        : [...currentChallenges, item];
-                      updateField("challenges", updated);
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="1"
+                    min={55}
+                    max={770}
+                    placeholder="Target weight in lbs"
+                    value={targetWeightLbs}
+                    onChange={(e) => {
+                      setTargetWeightLbs(e.target.value);
+                      const lbs = parseFloat(e.target.value);
+                      updateAnswers({
+                        desiredGoalTarget: {
+                          ...formData.desiredGoalTarget,
+                          targetWeightKg:
+                            lbs > 0 ? Number((lbs / 2.20462).toFixed(1)) : null,
+                        },
+                      });
                     }}
-                    className={cn(
-                      "p-2.5 sm:p-3 rounded-xl border text-left text-xs font-bold transition-all flex items-center justify-between cursor-pointer gap-2",
-                      isSelected
-                        ? "bg-nutri-green-light border-nutri-green text-nutri-charcoal shadow-2xs ring-1 ring-nutri-green"
-                        : "bg-white border-nutri-border text-nutri-secondary hover:bg-nutri-bg"
-                    )}
-                  >
-                    <span className="truncate">{item}</span>
-                    <div
-                      className={cn(
-                        "w-4 h-4 rounded-md border flex items-center justify-center shrink-0",
-                        isSelected ? "bg-nutri-green border-nutri-green text-white" : "border-nutri-border"
-                      )}
-                    >
-                      {isSelected && <CheckCircle2 className="w-3 h-3" />}
-                    </div>
-                  </button>
-                );
-              })}
+                    className="w-full p-3.5 pr-12 text-base font-bold rounded-2xl border-2 border-[#E5E7E2] focus:border-[#2F7D16] focus:outline-none bg-[#F7FAF4]"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-nutri-muted">
+                    lbs
+                  </span>
+                </div>
+              )}
             </div>
+          )}
 
-            {formData.challenges?.includes("Other") && (
-              <div className="pt-1">
-                <input
-                  type="text"
-                  placeholder="Tell us more about what you find challenging..."
-                  value={formData.challengesOther || ""}
-                  onChange={(e) => updateField("challengesOther", e.target.value)}
-                  className="w-full h-10 bg-white border border-nutri-border rounded-xl px-3 text-xs text-nutri-charcoal focus:border-nutri-green outline-hidden"
+          {/* 7. WEIGHT LOSS PACE */}
+          {activeNodeId === "weight_loss_pace" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  What is your preferred weight-loss pace?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  Steady, conservative deficits protect muscle mass and prevent burnout.
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.preferredPace === "slow"}
+                  onClick={() => updateAnswers({ preferredPace: "slow" })}
+                  title="Slow & Sustainable (~0.25–0.4 kg / week)"
+                  subtitle="Mild calorie deficit, minimal hunger, easy to maintain"
+                />
+                <OptionButton
+                  selected={formData.preferredPace === "moderate"}
+                  onClick={() => updateAnswers({ preferredPace: "moderate" })}
+                  title="Moderate & Balanced (~0.5 kg / week)"
+                  subtitle="Evidence-based standard pace for steady fat loss"
+                />
+                <OptionButton
+                  selected={formData.preferredPace === "fast"}
+                  onClick={() => updateAnswers({ preferredPace: "fast" })}
+                  title="Focused Safe Pace (~0.7 kg / week)"
+                  subtitle="Structured deficit capped at safe physiological limits"
                 />
               </div>
-            )}
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 13: DIET PREFERENCES (5 Options -> 2 Column Grid)
-        ========================================================================= */}
-        {currentStep === 13 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="space-y-1 sm:space-y-1.5">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 13 · DIETARY PATTERN
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                Do you follow a specific diet?
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                This filters recipe suggestions and configures Vegetarian Mode on the food ordering menu.
-              </p>
             </div>
+          )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-              {[
-                { value: "vegetarian", label: "Vegetarian", desc: "Plant-based with dairy & legumes", icon: "🌿" },
-                { value: "eggetarian", label: "Eggetarian", desc: "Vegetarian diet + eggs & whites", icon: "🍳" },
-                { value: "vegan", label: "Vegan", desc: "100% plant-based, zero dairy", icon: "🌱" },
-                { value: "non_vegetarian", label: "Non-vegetarian", desc: "Chicken, fish, eggs, whole foods", icon: "🍗" },
-                { value: "no_specific", label: "No specific diet", desc: "Flexible omnivore diet", icon: "🍽️" },
-              ].map((opt, idx) => {
-                const isSelected = formData.dietPreference === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => updateField("dietPreference", opt.value as any)}
-                    className={cn(
-                      "w-full p-2.5 sm:p-3 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer gap-2.5",
-                      idx === 4 ? "sm:col-span-2" : "",
-                      isSelected
-                        ? "bg-nutri-green-light border-nutri-green shadow-2xs ring-1 ring-nutri-green"
-                        : "bg-white border-nutri-border hover:border-nutri-green/50 hover:bg-nutri-bg/50"
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-xl p-1.5 rounded-xl bg-nutri-bg shrink-0">{opt.icon}</span>
-                      <div className="min-w-0">
-                        <h3 className="font-extrabold text-xs sm:text-sm text-nutri-charcoal truncate">{opt.label}</h3>
-                        <p className="text-[10px] sm:text-[11px] text-nutri-muted truncate mt-0.5">{opt.desc}</p>
-                      </div>
-                    </div>
-                    <div
-                      className={cn(
-                        "w-4 h-4 rounded-full border flex items-center justify-center shrink-0",
-                        isSelected ? "border-nutri-green bg-nutri-green text-white" : "border-nutri-border"
-                      )}
-                    >
-                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 14: DESIRED OUTCOMES (10 Options -> 2 Column Grid)
-        ========================================================================= */}
-        {currentStep === 14 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="space-y-1 sm:space-y-1.5">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 14 · DESIRED OUTCOMES
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                What would you like to accomplish with NutriFlexs?
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                Select the key features that matter most for your dashboard layout.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-              {[
-                "Understand daily calorie intake",
-                "Eat more protein",
-                "Build muscle",
-                "Lose weight safely",
-                "Maintain my weight",
-                "Eat healthier",
-                "Improve my consistency",
-                "Understand my food habits",
-                "Track Indian homemade meals",
-                "Discover healthier food options",
-              ].map((outcome) => {
-                const currentOutcomes = formData.desiredOutcomes || [];
-                const isSelected = currentOutcomes.includes(outcome);
-                return (
-                  <button
-                    key={outcome}
-                    type="button"
-                    onClick={() => {
-                      const updated = isSelected
-                        ? currentOutcomes.filter((o) => o !== outcome)
-                        : [...currentOutcomes, outcome];
-                      updateField("desiredOutcomes", updated);
-                    }}
-                    className={cn(
-                      "p-2.5 sm:p-3 rounded-xl border text-left text-xs font-bold transition-all flex items-center justify-between cursor-pointer gap-2",
-                      isSelected
-                        ? "bg-nutri-green-light border-nutri-green text-nutri-charcoal shadow-2xs ring-1 ring-nutri-green"
-                        : "bg-white border-nutri-border text-nutri-secondary hover:bg-nutri-bg"
-                    )}
-                  >
-                    <span className="truncate">{outcome}</span>
-                    <div
-                      className={cn(
-                        "w-4 h-4 rounded-md border flex items-center justify-center shrink-0",
-                        isSelected ? "bg-nutri-green border-nutri-green text-white" : "border-nutri-border"
-                      )}
-                    >
-                      {isSelected && <CheckCircle2 className="w-3 h-3" />}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 15: THANK YOU & PLAN SUMMARY
-        ========================================================================= */}
-        {currentStep === 15 && (
-          <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-300">
-            <div className="text-center space-y-1 max-w-lg mx-auto">
-              <div className="w-10 h-10 rounded-2xl bg-nutri-green-light text-nutri-green mx-auto flex items-center justify-center text-xl shadow-2xs">
-                ✨
-              </div>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                Thank You for Sharing!
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                Your answers help us make your nutrition journey personal.
-              </p>
-            </div>
-
-            <Card className="p-4 sm:p-5 rounded-2xl border border-nutri-border bg-white shadow-float space-y-3.5">
-              <div className="flex items-center justify-between border-b border-nutri-border pb-2.5">
-                <div>
-                  <span className="text-[9px] font-bold text-nutri-green uppercase tracking-wider block">
-                    Personalized Baseline
-                  </span>
-                  <h3 className="font-extrabold text-sm text-nutri-charcoal">Daily Nutrition Blueprint</h3>
-                </div>
-                <Badge variant="green" className="text-[10px] font-bold">
-                  Science-Backed
-                </Badge>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <div className="p-2.5 bg-nutri-bg rounded-xl text-center space-y-0.5">
-                  <span className="text-[9px] font-bold text-nutri-muted uppercase">Daily Calories</span>
-                  <p className="text-lg font-extrabold text-nutri-charcoal font-heading">
-                    {calculatedTargets.dailyCalories}
-                  </p>
-                  <span className="text-[9px] text-nutri-secondary">kcal / day</span>
-                </div>
-
-                <div className="p-2.5 bg-nutri-green-light rounded-xl text-center space-y-0.5 border border-nutri-border-light">
-                  <span className="text-[9px] font-bold text-nutri-green uppercase">Daily Protein</span>
-                  <p className="text-lg font-extrabold text-nutri-green font-heading">
-                    {calculatedTargets.proteinGrams}g
-                  </p>
-                  <span className="text-[9px] text-nutri-green font-semibold">~1.9g / kg</span>
-                </div>
-
-                <div className="p-2.5 bg-amber-50 rounded-xl text-center space-y-0.5 border border-amber-100">
-                  <span className="text-[9px] font-bold text-amber-700 uppercase">Carbohydrates</span>
-                  <p className="text-lg font-extrabold text-amber-900 font-heading">
-                    {calculatedTargets.carbsGrams}g
-                  </p>
-                  <span className="text-[9px] text-amber-700">energy balance</span>
-                </div>
-
-                <div className="p-2.5 bg-indigo-50 rounded-xl text-center space-y-0.5 border border-indigo-100">
-                  <span className="text-[9px] font-bold text-indigo-700 uppercase">Fats</span>
-                  <p className="text-lg font-extrabold text-indigo-900 font-heading">
-                    {calculatedTargets.fatGrams}g
-                  </p>
-                  <span className="text-[9px] text-indigo-700">hormone health</span>
-                </div>
-              </div>
-
-              <div className="p-3 bg-nutri-bg rounded-xl border border-nutri-border text-[11px] text-nutri-muted leading-relaxed space-y-0.5">
-                <p className="font-bold text-nutri-charcoal flex items-center gap-1.5">
-                  <Info className="w-3.5 h-3.5 text-nutri-green" /> How we estimated this
-                </p>
-                <p>
-                  Calculated using Mifflin-St Jeor based on {formData.weightKg} kg, {formData.heightCm} cm, and your activity level. You can adjust targets anytime in settings.
+          {/* 8. MUSCLE FOCUS (Gain Weight & Build Muscle) */}
+          {activeNodeId === "muscle_focus" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  What is your primary focus?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  Determines how we balance your caloric surplus and protein target.
                 </p>
               </div>
-
-              <div className="pt-2 flex items-center justify-between gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setCurrentStep(14)}
-                  className="w-1/3 py-2.5 text-xs font-bold border-nutri-border text-nutri-secondary hover:text-nutri-charcoal cursor-pointer rounded-xl"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back
-                </Button>
-                <Button
-                  size="md"
-                  onClick={() => setCurrentStep(16)}
-                  className="flex-1 bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-3 rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <span>Build My Nutrition Dashboard</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.muscleFocus === "muscle_building"}
+                  onClick={() => updateAnswers({ muscleFocus: "muscle_building" })}
+                  icon={Dumbbell}
+                  title="Lean Muscle Building"
+                  subtitle="Maximize hypertrophy with minimal fat gain"
+                />
+                <OptionButton
+                  selected={formData.muscleFocus === "overall_weight_gain"}
+                  onClick={() => updateAnswers({ muscleFocus: "overall_weight_gain" })}
+                  icon={TrendingUp}
+                  title="Overall Healthy Weight Gain"
+                  subtitle="Increase body weight steadily with nutrient-dense meals"
+                />
+                <OptionButton
+                  selected={formData.muscleFocus === "strength"}
+                  onClick={() => updateAnswers({ muscleFocus: "strength" })}
+                  icon={Flame}
+                  title="Strength & Power"
+                  subtitle="Fuel progressive overload and heavy compound lifts"
+                />
               </div>
-            </Card>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 16: HOLD-TO-CONTINUE ANIMATION
-        ========================================================================= */}
-        {currentStep === 16 && (
-          <div className="space-y-4 text-center max-w-sm mx-auto animate-in fade-in duration-300">
-            <div className="space-y-1">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                STEP 16 · FINALIZING
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                Hold to personalize your experience
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                Press and hold the circle below to sync your personalized goals.
-              </p>
             </div>
+          )}
 
-            {/* Interactive Hold Circle */}
-            <div className="py-3 flex flex-col items-center justify-center">
-              <div
-                role="button"
-                tabIndex={0}
-                onMouseDown={startHold}
-                onMouseUp={cancelHold}
-                onMouseLeave={cancelHold}
-                onTouchStart={startHold}
-                onTouchEnd={cancelHold}
-                className={cn(
-                  "relative w-28 h-28 rounded-full flex flex-col items-center justify-center select-none cursor-pointer transition-transform duration-150 active:scale-95",
-                  isHolding ? "shadow-float" : "shadow-xs"
-                )}
-              >
-                {/* SVG Progress Ring */}
-                <svg className="absolute inset-0 w-full h-full -rotate-90">
-                  <circle
-                    cx="56"
-                    cy="56"
-                    r="48"
-                    className="text-nutri-border stroke-current"
-                    strokeWidth="6"
-                    fill="transparent"
-                  />
-                  <circle
-                    cx="56"
-                    cy="56"
-                    r="48"
-                    className="text-nutri-green stroke-current transition-all duration-75"
-                    strokeWidth="6"
-                    strokeDasharray={301.6}
-                    strokeDashoffset={301.6 - (301.6 * holdProgress) / 100}
-                    strokeLinecap="round"
-                    fill="transparent"
-                  />
-                </svg>
-
-                <div className="relative z-10 text-center space-y-0.5">
-                  {completing ? (
-                    <Loader2 className="w-6 h-6 text-nutri-green animate-spin mx-auto" />
-                  ) : (
-                    <Sparkles
-                      className={cn(
-                        "w-6 h-6 mx-auto transition-colors",
-                        isHolding ? "text-nutri-green scale-110" : "text-nutri-muted"
-                      )}
-                    />
-                  )}
-                  <span className="text-[10px] font-extrabold text-nutri-charcoal uppercase tracking-wider block">
-                    {isHolding ? `${Math.round(holdProgress)}%` : "Hold Here"}
-                  </span>
-                </div>
+          {/* 9. MAINTAIN FOCUS */}
+          {activeNodeId === "maintain_focus" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  What matters most while maintaining?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  Helps us fine-tune your protein and daily calorie balance.
+                </p>
               </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.maintainFocus === "maintain_weight"}
+                  onClick={() => updateAnswers({ maintainFocus: "maintain_weight" })}
+                  icon={Scale}
+                  title="Maintain Current Weight"
+                  subtitle="Keep energy balanced and stay consistent day-to-day"
+                />
+                <OptionButton
+                  selected={formData.maintainFocus === "improve_body_composition"}
+                  onClick={() =>
+                    updateAnswers({ maintainFocus: "improve_body_composition" })
+                  }
+                  icon={Sparkles}
+                  title="Improve Body Composition"
+                  subtitle="Gradually tone up and build lean mass around the same weight"
+                />
+              </div>
+            </div>
+          )}
 
-              <p className="text-xs text-nutri-muted mt-2">
-                {isHolding ? "Saving your nutrition profile..." : "Touch & hold for 1.4 seconds"}
-              </p>
+          {/* 10. FITNESS OBJECTIVE (Improve Fitness branch) */}
+          {activeNodeId === "fitness_objective" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  What is your primary fitness objective?
+                </h1>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.fitnessObjective === "body_recomposition"}
+                  onClick={() =>
+                    updateAnswers({ fitnessObjective: "body_recomposition" })
+                  }
+                  title="Body Recomposition"
+                  subtitle="Reduce body fat while improving lean muscle tone"
+                />
+                <OptionButton
+                  selected={formData.fitnessObjective === "endurance_stamina"}
+                  onClick={() =>
+                    updateAnswers({ fitnessObjective: "endurance_stamina" })
+                  }
+                  title="Endurance & Stamina"
+                  subtitle="Improve cardiovascular capacity and sustained energy"
+                />
+                <OptionButton
+                  selected={formData.fitnessObjective === "athletic_performance"}
+                  onClick={() =>
+                    updateAnswers({ fitnessObjective: "athletic_performance" })
+                  }
+                  title="Athletic Performance"
+                  subtitle="Fuel sports, agility, and higher training output"
+                />
+                <OptionButton
+                  selected={formData.fitnessObjective === "general_energy"}
+                  onClick={() => updateAnswers({ fitnessObjective: "general_energy" })}
+                  title="General Energy & Wellness"
+                  subtitle="Feel stronger, healthier, and more consistent daily"
+                />
+              </div>
+            </div>
+          )}
 
-              {/* Error message if finalization fails */}
-              {finalizeError && (
-                <div className="mt-3 p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center justify-between gap-2 max-w-sm">
-                  <div className="flex items-center gap-1.5">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
-                    <span className="text-left font-medium">{finalizeError}</span>
-                  </div>
+          {/* 11. ACTIVITY LEVEL (Improve Fitness branch) */}
+          {activeNodeId === "activity_level" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  How active is your typical day outside of workouts?
+                </h1>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.activityLevel === "sedentary"}
+                  onClick={() => updateAnswers({ activityLevel: "sedentary" })}
+                  title="Mostly Seated / Desk Job"
+                  subtitle="Under 5,000 daily steps"
+                />
+                <OptionButton
+                  selected={formData.activityLevel === "lightly_active"}
+                  onClick={() => updateAnswers({ activityLevel: "lightly_active" })}
+                  title="Lightly Active"
+                  subtitle="5,000–7,500 daily steps, some standing or walking"
+                />
+                <OptionButton
+                  selected={formData.activityLevel === "moderately_active"}
+                  onClick={() => updateAnswers({ activityLevel: "moderately_active" })}
+                  title="Moderately Active"
+                  subtitle="7,500–10,000+ steps or active job"
+                />
+                <OptionButton
+                  selected={formData.activityLevel === "very_active"}
+                  onClick={() => updateAnswers({ activityLevel: "very_active" })}
+                  title="Very Active"
+                  subtitle="On your feet most of the day or physical labor"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 12. GOAL TIMELINE */}
+          {activeNodeId === "goal_timeline" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  How quickly would you like to achieve your goal?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  We will evaluate your timeline against conservative wellness guidance.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                {[4, 8, 12, 24].map((weeks) => (
                   <button
+                    key={weeks}
                     type="button"
-                    onClick={finalizeOnboarding}
-                    className="px-2 py-0.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-[10px] shrink-0"
+                    onClick={() => updateAnswers({ desiredTimelineWeeks: weeks })}
+                    className={cn(
+                      "p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer",
+                      formData.desiredTimelineWeeks === weeks
+                        ? "border-[#2F7D16] bg-[#EAF4E3]"
+                        : "border-[#E5E7E2] bg-white hover:bg-[#F7FAF4]"
+                    )}
                   >
-                    Retry
+                    <div className="font-heading font-extrabold text-sm text-nutri-charcoal">
+                      {weeks} Weeks
+                    </div>
+                    <div className="text-[11px] text-nutri-secondary">
+                      ~{Math.round(weeks / 4)} {weeks === 4 ? "month" : "months"}
+                    </div>
                   </button>
-                </div>
-              )}
-
-              {/* Prominent Tap Alternative & Back Button */}
-              <div className="pt-3 flex flex-col gap-2 w-full max-w-xs mx-auto">
-                <Button
-                  type="button"
-                  disabled={completing}
-                  onClick={finalizeOnboarding}
-                  className="w-full bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-2.5 rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2"
-                >
-                  {completing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Saving Profile...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Continue &amp; Save Plan</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </>
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={completing}
-                  onClick={() => setCurrentStep(15)}
-                  className="w-full text-xs font-bold border-nutri-border text-nutri-secondary hover:text-nutri-charcoal py-2 rounded-xl cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back to Summary
-                </Button>
+                ))}
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 17: NOTIFICATION PERMISSION
-        ========================================================================= */}
-        {currentStep === 17 && (
-          <div className="space-y-3.5 text-center max-w-sm mx-auto animate-in fade-in duration-300">
-            <div className="w-10 h-10 rounded-2xl bg-nutri-green-light text-nutri-green mx-auto flex items-center justify-center text-xl shadow-2xs">
-              <Bell className="w-5 h-5 text-nutri-green" />
-            </div>
-
-            <div className="space-y-1">
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                Stay on Track with Reminders
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                Get helpful prompts for logging meals and celebrating daily protein milestones.
-              </p>
-            </div>
-
-            <Card className="p-3.5 sm:p-4 rounded-2xl border border-nutri-border bg-white shadow-2xs space-y-2 text-left">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-nutri-green shrink-0" />
-                <span className="text-xs text-nutri-charcoal font-medium">Gentle meal reminder post-workout</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-nutri-green shrink-0" />
-                <span className="text-xs text-nutri-charcoal font-medium">Daily protein streak milestone celebrations</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-nutri-green shrink-0" />
-                <span className="text-xs text-nutri-charcoal font-medium">Zero spam or marketing alerts</span>
-              </div>
-            </Card>
-
-            <div className="space-y-2 pt-1">
-              <Button
-                size="md"
-                onClick={requestNotificationPermission}
-                className="w-full bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-2.5 rounded-xl shadow-xs cursor-pointer"
-              >
-                Enable Notifications
-              </Button>
-
-              <div className="flex items-center justify-between pt-1 px-1">
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(16)}
-                  className="text-xs font-bold text-nutri-secondary hover:text-nutri-charcoal cursor-pointer flex items-center gap-1"
-                >
-                  <ArrowLeft className="w-3 h-3" /> Back
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="text-xs font-bold text-nutri-muted hover:text-nutri-charcoal cursor-pointer"
-                >
-                  Maybe Later →
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 18: CALORIE ROLLOVER INTRODUCTION
-        ========================================================================= */}
-        {currentStep === 18 && (
-          <div className="space-y-3.5 max-w-lg mx-auto animate-in fade-in duration-300">
-            <div className="text-center space-y-1">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                FLEXIBILITY FEATURE
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                Your Nutrition Goals, With Flexibility
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                Life isn&apos;t identical every day. Roll over unused calories into a weekend buffer.
-              </p>
-            </div>
-
-            <Card className="p-4 sm:p-5 rounded-2xl border border-nutri-border bg-white shadow-2xs space-y-3">
-              <div className="p-3 bg-nutri-green-soft rounded-xl border border-nutri-border flex items-start gap-2.5">
-                <Sparkles className="w-4 h-4 text-nutri-green shrink-0 mt-0.5" />
-                <div className="text-xs space-y-0.5">
-                  <h4 className="font-extrabold text-nutri-charcoal">How Calorie Rollover Works</h4>
-                  <p className="text-nutri-secondary leading-relaxed">
-                    If you eat slightly under your daily goal on weekdays, bank up to 200 unused calories per day into a weekend feast allowance.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-1.5 text-xs text-nutri-muted">
-                <p className="font-bold text-nutri-charcoal">Important Safety Principles:</p>
-                <div className="flex items-start gap-1.5">
-                  <span className="text-nutri-green font-bold">•</span>
-                  <span>Rollover is 100% optional and can be toggled anytime in settings.</span>
-                </div>
-                <div className="flex items-start gap-1.5">
-                  <span className="text-nutri-green font-bold">•</span>
-                  <span>Never skip meals to hoard calories. Safe daily minimums are always enforced.</span>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-nutri-border flex items-center justify-between">
-                <span className="text-xs font-bold text-nutri-charcoal">
-                  Enable Calorie Rollover Buffer
+              <div className="relative">
+                <input
+                  type="number"
+                  min={1}
+                  max={104}
+                  placeholder="Or enter custom weeks (e.g. 16)"
+                  value={formData.desiredTimelineWeeks || ""}
+                  onChange={(e) =>
+                    updateAnswers({
+                      desiredTimelineWeeks: e.target.value
+                        ? parseInt(e.target.value, 10)
+                        : null,
+                    })
+                  }
+                  className="w-full p-3.5 pr-16 text-sm font-bold rounded-2xl border-2 border-[#E5E7E2] focus:border-[#2F7D16] focus:outline-none bg-[#F7FAF4]"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-nutri-muted">
+                  weeks
                 </span>
-                <input
-                  type="checkbox"
-                  checked={Boolean(formData.calorieRolloverEnabled)}
-                  onChange={(e) => updateField("calorieRolloverEnabled", e.target.checked)}
-                  className="w-4 h-4 text-nutri-green accent-nutri-green rounded-md cursor-pointer"
+              </div>
+            </div>
+          )}
+
+          {/* 13. GOAL REALISM CHECK */}
+          {activeNodeId === "goal_realism" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  Let&apos;s review your target &amp; timeline
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  Conservative assessment based on your current weight and target.
+                </p>
+              </div>
+
+              <div
+                className={cn(
+                  "p-4 rounded-2xl border-2 space-y-3",
+                  calculatedTargets.feasibilityAssessment.isRealistic
+                    ? "bg-[#EAF4E3] border-[#2F7D16]/40"
+                    : "bg-amber-50 border-amber-300"
+                )}
+              >
+                <div className="flex items-start gap-2.5">
+                  {calculatedTargets.feasibilityAssessment.isRealistic ? (
+                    <CheckCircle2 className="w-5 h-5 text-[#2F7D16] shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                  )}
+                  <div className="space-y-1">
+                    <h3 className="font-heading font-bold text-sm text-nutri-charcoal">
+                      {calculatedTargets.feasibilityAssessment.isRealistic
+                        ? "Realistic & Sustainable Pace"
+                        : "Aggressive Timeline Detected"}
+                    </h3>
+                    <p className="text-xs text-nutri-secondary leading-relaxed">
+                      Estimated average change:{" "}
+                      <strong>
+                        {calculatedTargets.feasibilityAssessment.weeklyChangeKg} kg/week
+                      </strong>{" "}
+                      over <strong>{formData.desiredTimelineWeeks || 12} weeks</strong>.
+                    </p>
+                    <p className="text-xs text-nutri-charcoal leading-relaxed pt-1">
+                      {calculatedTargets.feasibilityAssessment.safetyNote}
+                    </p>
+                  </div>
+                </div>
+
+                {!calculatedTargets.feasibilityAssessment.isRealistic && (
+                  <div className="pt-2 border-t border-amber-200 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() =>
+                        updateAnswers({
+                          desiredTimelineWeeks:
+                            calculatedTargets.feasibilityAssessment
+                              .recommendedTimelineWeeks,
+                        })
+                      }
+                      className="bg-[#2F7D16] hover:bg-[#24630F] text-white text-xs font-bold rounded-xl cursor-pointer"
+                    >
+                      Use Recommended Timeline (
+                      {calculatedTargets.feasibilityAssessment.recommendedTimelineWeeks}{" "}
+                      weeks)
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCurrentNodeId("target_weight")}
+                      className="text-xs font-bold rounded-xl border-amber-400 text-amber-900 bg-white cursor-pointer"
+                    >
+                      Revise Target Weight
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-[11px] text-nutri-muted">
+                Note: Individual progress varies with metabolism, adherence, sleep, and training. NutriFlexs provides safe calorie estimates, not guaranteed weight outcomes.
+              </p>
+            </div>
+          )}
+
+          {/* 14. CHALLENGES (Goal-Branched) */}
+          {(activeNodeId === "weight_challenges" ||
+            activeNodeId === "nutrition_challenges" ||
+            activeNodeId === "lifestyle_challenges") && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  {activeNodeId === "weight_challenges"
+                    ? "What makes weight management difficult for you?"
+                    : activeNodeId === "nutrition_challenges"
+                    ? "What are your main nutrition challenges?"
+                    : "What are your main lifestyle challenges?"}
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  Select all that apply (optional).
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(activeNodeId === "weight_challenges"
+                  ? [
+                      "Late-night cravings or snacking",
+                      "Estimating Indian home-cooked portions",
+                      "Busy schedule / eating out often",
+                      "Staying consistent on weekends",
+                      "Feeling hungry in a calorie deficit",
+                    ]
+                  : activeNodeId === "nutrition_challenges"
+                  ? [
+                      "Hitting daily protein targets",
+                      "Balancing carbs, fats, and sugar",
+                      "Meal planning for busy weekdays",
+                      "Tracking homemade meals accurately",
+                    ]
+                  : [
+                      "Low energy or afternoon fatigue",
+                      "Irregular meal timings",
+                      "Balancing work, sleep & workouts",
+                      "Eating enough protein around training",
+                    ]
+                ).map((item) => {
+                  const selected = (formData.challenges || []).includes(item);
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => toggleArrayItem("challenges", item)}
+                      className={cn(
+                        "p-3 rounded-2xl border-2 text-left text-xs font-bold transition-all cursor-pointer flex items-center justify-between gap-2",
+                        selected
+                          ? "border-[#2F7D16] bg-[#EAF4E3] text-[#2F7D16]"
+                          : "border-[#E5E7E2] bg-white text-nutri-charcoal hover:bg-[#F7FAF4]"
+                      )}
+                    >
+                      <span>{item}</span>
+                      {selected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 15. WORKOUT FREQUENCY */}
+          {activeNodeId === "workout_frequency" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  How many workout sessions do you complete per week?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  Count total structured sessions per week (even if you do two sessions in a day).
+                </p>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { id: "0_sessions", label: "0 sessions", sub: "Currently not exercising" },
+                  { id: "1_2_sessions", label: "1–2 sessions", sub: "Light weekly activity" },
+                  { id: "3_4_sessions", label: "3–4 sessions", sub: "Consistent weekly routine" },
+                  { id: "5_6_sessions", label: "5–6 sessions", sub: "High weekly training volume" },
+                  { id: "7_plus_sessions", label: "7+ sessions", sub: "Daily or two-a-day training" },
+                ].map((opt) => (
+                  <OptionButton
+                    key={opt.id}
+                    selected={formData.workoutFrequency === opt.id}
+                    onClick={() => updateAnswers({ workoutFrequency: opt.id as any })}
+                    title={opt.label}
+                    subtitle={opt.sub}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 16a. ZERO SESSIONS FOLLOW-UP: PLANNING TO START? */}
+          {activeNodeId === "planning_to_start_exercise" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  Are you planning to start exercising?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  No pressure — nutrition alone already makes a huge difference.
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.planningToStartExercise === "yes_soon"}
+                  onClick={() => updateAnswers({ planningToStartExercise: "yes_soon" })}
+                  title="Yes, I want to start soon"
+                />
+                <OptionButton
+                  selected={formData.planningToStartExercise === "maybe_later"}
+                  onClick={() => updateAnswers({ planningToStartExercise: "maybe_later" })}
+                  title="Maybe in a few weeks"
+                />
+                <OptionButton
+                  selected={formData.planningToStartExercise === "not_right_now"}
+                  onClick={() =>
+                    updateAnswers({ planningToStartExercise: "not_right_now" })
+                  }
+                  title="Not right now — focusing on diet first"
                 />
               </div>
-            </Card>
+            </div>
+          )}
 
-            <div className="pt-2 flex items-center justify-between gap-3">
+          {/* 16b. STARTER ACTIVITY TYPE */}
+          {activeNodeId === "starter_activity_type" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  What type of activity would you like to begin with?
+                </h1>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { id: "walking_cardio", title: "Daily Walking or Light Cardio" },
+                  { id: "home_workouts", title: "Beginner Home Workouts" },
+                  { id: "gym_strength", title: "Gym & Strength Training" },
+                  { id: "yoga_mobility", title: "Yoga & Mobility" },
+                  { id: "sports", title: "Recreational Sports" },
+                ].map((opt) => (
+                  <OptionButton
+                    key={opt.id}
+                    selected={formData.starterActivityType === opt.id}
+                    onClick={() => updateAnswers({ starterActivityType: opt.id as any })}
+                    title={opt.title}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 16c. WORKOUT TYPE (1-4 or 5+ sessions) */}
+          {activeNodeId === "workout_type" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  What type of workouts do you primarily perform?
+                </h1>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.workoutType === "strength_training"}
+                  onClick={() => updateAnswers({ workoutType: "strength_training" })}
+                  icon={Dumbbell}
+                  title="Strength Training / Lifting"
+                />
+                <OptionButton
+                  selected={formData.workoutType === "cardio"}
+                  onClick={() => updateAnswers({ workoutType: "cardio" })}
+                  icon={Activity}
+                  title="Cardio / Running / Cycling"
+                />
+                <OptionButton
+                  selected={formData.workoutType === "sports"}
+                  onClick={() => updateAnswers({ workoutType: "sports" })}
+                  icon={Flame}
+                  title="Sports & Functional Conditioning"
+                />
+                <OptionButton
+                  selected={formData.workoutType === "combination"}
+                  onClick={() => updateAnswers({ workoutType: "combination" })}
+                  icon={Sparkles}
+                  title="Combination (Strength + Cardio)"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 16d. WORKOUT DURATION (1-4 sessions) */}
+          {activeNodeId === "workout_duration" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  What is your average workout duration?
+                </h1>
+              </div>
+              <div className="space-y-2.5">
+                {[
+                  { id: "under_30", title: "Under 30 minutes" },
+                  { id: "30_45", title: "30–45 minutes" },
+                  { id: "45_60", title: "45–60 minutes" },
+                  { id: "60_plus", title: "60+ minutes" },
+                ].map((opt) => (
+                  <OptionButton
+                    key={opt.id}
+                    selected={formData.workoutDuration === opt.id}
+                    onClick={() => updateAnswers({ workoutDuration: opt.id as any })}
+                    title={opt.title}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 16e. WORKOUT INTENSITY (5+ sessions) */}
+          {activeNodeId === "workout_intensity" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  What is your typical workout intensity?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  High-volume training increases your energy and recovery requirements.
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.workoutIntensity === "moderate"}
+                  onClick={() => updateAnswers({ workoutIntensity: "moderate" })}
+                  title="Moderate"
+                  subtitle="Steady effort, able to hold brief conversation"
+                />
+                <OptionButton
+                  selected={formData.workoutIntensity === "high"}
+                  onClick={() => updateAnswers({ workoutIntensity: "high" })}
+                  title="High Intensity"
+                  subtitle="Challenging sets, progressive overload, or high heart rate"
+                />
+                <OptionButton
+                  selected={formData.workoutIntensity === "very_high_athlete"}
+                  onClick={() =>
+                    updateAnswers({ workoutIntensity: "very_high_athlete" })
+                  }
+                  title="Very High / Competitive Training"
+                  subtitle="Peak exertion, athlete-level volume"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 16f. REST & RECOVERY DAYS (5+ sessions) */}
+          {activeNodeId === "rest_recovery_days" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  Do you include rest or recovery days?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  Adequate recovery helps prevent fatigue and supports muscle repair.
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.restRecoveryDays === "yes_regularly"}
+                  onClick={() => updateAnswers({ restRecoveryDays: "yes_regularly" })}
+                  title="Yes, at least 1–2 structured rest/active recovery days"
+                />
+                <OptionButton
+                  selected={formData.restRecoveryDays === "occasionally"}
+                  onClick={() => updateAnswers({ restRecoveryDays: "occasionally" })}
+                  title="Occasionally, when I feel sore or tired"
+                />
+                <OptionButton
+                  selected={formData.restRecoveryDays === "no_rarely"}
+                  onClick={() => updateAnswers({ restRecoveryDays: "no_rarely" })}
+                  title="Rarely — I train almost every day"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 17. GYM ACCESS (Gain Weight & Build Muscle branch) */}
+          {activeNodeId === "gym_access" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  Where do you work out?
+                </h1>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.gymAccess === "commercial_gym"}
+                  onClick={() => updateAnswers({ gymAccess: "commercial_gym" })}
+                  title="Commercial Gym"
+                />
+                <OptionButton
+                  selected={formData.gymAccess === "home_gym"}
+                  onClick={() => updateAnswers({ gymAccess: "home_gym" })}
+                  title="Home Gym (Dumbbells / Barbells)"
+                />
+                <OptionButton
+                  selected={formData.gymAccess === "bodyweight_minimal"}
+                  onClick={() => updateAnswers({ gymAccess: "bodyweight_minimal" })}
+                  title="Bodyweight / Minimal Equipment at Home"
+                />
+                <OptionButton
+                  selected={formData.gymAccess === "both"}
+                  onClick={() => updateAnswers({ gymAccess: "both" })}
+                  title="Mix of Gym and Home"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 18. DIET PREFERENCE */}
+          {activeNodeId === "diet_preference" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  Do you follow a specific diet?
+                </h1>
+              </div>
+              <div className="space-y-2">
+                {[
+                  { id: "vegetarian", title: "Vegetarian", sub: "Plant foods + dairy, no meat/eggs" },
+                  { id: "vegan", title: "Vegan", sub: "100% plant-based, no dairy or animal products" },
+                  { id: "eggetarian", title: "Eggetarian", sub: "Vegetarian plus eggs" },
+                  { id: "non_vegetarian", title: "Non-vegetarian", sub: "Includes chicken, fish, eggs, and meat" },
+                  { id: "no_specific", title: "No specific diet", sub: "Flexible eating pattern" },
+                ].map((opt) => (
+                  <OptionButton
+                    key={opt.id}
+                    selected={formData.dietPreference === opt.id}
+                    onClick={() => updateAnswers({ dietPreference: opt.id as any })}
+                    title={opt.title}
+                    subtitle={opt.sub}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 19. PROTEIN SOURCES (Conditional on Diet Preference) */}
+          {activeNodeId === "protein_sources" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  {formData.dietPreference === "vegan"
+                    ? "What are your preferred plant-based protein sources?"
+                    : formData.dietPreference === "eggetarian"
+                    ? "What are your preferred egg & dairy protein sources?"
+                    : "What are your preferred protein sources?"}
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  Select the options you enjoy regularly.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(
+                  PROTEIN_OPTIONS_BY_DIET[formData.dietPreference || "vegetarian"] ||
+                  PROTEIN_OPTIONS_BY_DIET.vegetarian
+                ).map((source) => {
+                  const selected = (formData.proteinSources || []).includes(source);
+                  return (
+                    <button
+                      key={source}
+                      type="button"
+                      onClick={() => toggleArrayItem("proteinSources", source)}
+                      className={cn(
+                        "p-3 rounded-2xl border-2 text-left text-xs font-bold transition-all cursor-pointer flex items-center justify-between gap-2",
+                        selected
+                          ? "border-[#2F7D16] bg-[#EAF4E3] text-[#2F7D16]"
+                          : "border-[#E5E7E2] bg-white text-nutri-charcoal hover:bg-[#F7FAF4]"
+                      )}
+                    >
+                      <span>{source}</span>
+                      {selected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 20. FOOD ALLERGIES / RESTRICTIONS */}
+          {activeNodeId === "has_allergies" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  Do you have any food allergies or dietary restrictions?
+                </h1>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.hasAllergies === "yes"}
+                  onClick={() => updateAnswers({ hasAllergies: "yes" })}
+                  title="Yes, I have allergies or restrictions"
+                />
+                <OptionButton
+                  selected={formData.hasAllergies === "no"}
+                  onClick={() => updateAnswers({ hasAllergies: "no" })}
+                  title="No, I don't have food allergies"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 21. ALLERGY DETAILS (If Yes) */}
+          {activeNodeId === "allergy_details" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  Which foods or ingredients do you avoid?
+                </h1>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {ALLERGY_OPTIONS.map((item) => {
+                  const selected = (formData.allergyDetails || []).includes(item);
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => toggleArrayItem("allergyDetails", item)}
+                      className={cn(
+                        "p-3 rounded-2xl border-2 text-left text-xs font-bold transition-all cursor-pointer flex items-center justify-between gap-2",
+                        selected
+                          ? "border-[#2F7D16] bg-[#EAF4E3] text-[#2F7D16]"
+                          : "border-[#E5E7E2] bg-white text-nutri-charcoal hover:bg-[#F7FAF4]"
+                      )}
+                    >
+                      <span>{item}</span>
+                      {selected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                type="text"
+                placeholder="Any other allergy or restriction (optional)..."
+                value={formData.allergyOtherText || ""}
+                onChange={(e) => updateAnswers({ allergyOtherText: e.target.value })}
+                className="w-full p-3 text-xs font-medium rounded-2xl border-2 border-[#E5E7E2] focus:border-[#2F7D16] focus:outline-none bg-[#F7FAF4]"
+              />
+            </div>
+          )}
+
+          {/* 22. DIETITIAN CONSULTATION */}
+          {activeNodeId === "dietitian_consultation" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  Have you consulted a registered dietitian or qualified nutrition professional?
+                </h1>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.dietitianConsultation === "yes"}
+                  onClick={() => updateAnswers({ dietitianConsultation: "yes" })}
+                  title="Yes"
+                />
+                <OptionButton
+                  selected={formData.dietitianConsultation === "no"}
+                  onClick={() => updateAnswers({ dietitianConsultation: "no" })}
+                  title="No"
+                />
+                <OptionButton
+                  selected={formData.dietitianConsultation === "prefer_not_to_say"}
+                  onClick={() =>
+                    updateAnswers({ dietitianConsultation: "prefer_not_to_say" })
+                  }
+                  title="Prefer not to say"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 23a. FOLLOWING DIET PLAN (If Dietitian = Yes) */}
+          {activeNodeId === "following_diet_plan" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  Are you currently following a diet plan?
+                </h1>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.followingDietPlan === "yes"}
+                  onClick={() => updateAnswers({ followingDietPlan: "yes" })}
+                  title="Yes, I am currently following a plan"
+                />
+                <OptionButton
+                  selected={formData.followingDietPlan === "no"}
+                  onClick={() => updateAnswers({ followingDietPlan: "no" })}
+                  title="No, not currently"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 23b. SHARE EXISTING TARGETS (If Dietitian = Yes) */}
+          {activeNodeId === "share_existing_targets" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  Would you like to share your existing nutrition targets?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  Optional — if shared, we will apply them directly instead of overriding with estimates.
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.shareExistingTargets === "yes"}
+                  onClick={() => updateAnswers({ shareExistingTargets: "yes" })}
+                  title="Yes, enter my existing targets"
+                />
+                <OptionButton
+                  selected={formData.shareExistingTargets === "no"}
+                  onClick={() =>
+                    updateAnswers({
+                      shareExistingTargets: "no",
+                      existingCalorieTarget: null,
+                      existingProteinTarget: null,
+                    })
+                  }
+                  title="No, calculate general wellness estimates for me"
+                />
+              </div>
+
+              {formData.shareExistingTargets === "yes" && (
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div>
+                    <label className="text-[11px] font-bold text-nutri-secondary block mb-1">
+                      Daily Calories (kcal)
+                    </label>
+                    <input
+                      type="number"
+                      min={800}
+                      max={6000}
+                      placeholder="e.g. 2000"
+                      value={formData.existingCalorieTarget || ""}
+                      onChange={(e) =>
+                        updateAnswers({
+                          existingCalorieTarget: e.target.value
+                            ? parseInt(e.target.value, 10)
+                            : null,
+                        })
+                      }
+                      className="w-full p-2.5 text-sm font-bold rounded-xl border-2 border-[#E5E7E2] focus:border-[#2F7D16] focus:outline-none bg-[#F7FAF4]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-nutri-secondary block mb-1">
+                      Protein Target (g)
+                    </label>
+                    <input
+                      type="number"
+                      min={30}
+                      max={350}
+                      placeholder="e.g. 130"
+                      value={formData.existingProteinTarget || ""}
+                      onChange={(e) =>
+                        updateAnswers({
+                          existingProteinTarget: e.target.value
+                            ? parseInt(e.target.value, 10)
+                            : null,
+                        })
+                      }
+                      className="w-full p-2.5 text-sm font-bold rounded-xl border-2 border-[#E5E7E2] focus:border-[#2F7D16] focus:outline-none bg-[#F7FAF4]"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 23c. WANT PERSONALIZED GUIDANCE (If Dietitian = No) */}
+          {activeNodeId === "want_personalized_guidance" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  Would you like personalised nutrition guidance?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  You can use our AI Coach or connect with NutriFlexs fitness &amp; nutrition mentors anytime.
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.wantPersonalizedGuidance === "yes"}
+                  onClick={() => updateAnswers({ wantPersonalizedGuidance: "yes" })}
+                  title="Yes, guide me along the way"
+                />
+                <OptionButton
+                  selected={formData.wantPersonalizedGuidance === "not_now"}
+                  onClick={() => updateAnswers({ wantPersonalizedGuidance: "not_now" })}
+                  title="Not right now — just set up my tracker"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 24. DESIRED OUTCOMES */}
+          {activeNodeId === "desired_outcomes" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  What would you like to accomplish with NutriFlexs?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  Optional — select what matters most to you.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  "Understand my daily calorie intake",
+                  "Hit my daily protein goals",
+                  "Track Indian homemade meals",
+                  "Track water & sugar intake",
+                  "Stay consistent without strict dieting",
+                  "Order macro-friendly meals easily",
+                ].map((item) => {
+                  const selected = (formData.desiredOutcomes || []).includes(item);
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => toggleArrayItem("desiredOutcomes", item)}
+                      className={cn(
+                        "p-3 rounded-2xl border-2 text-left text-xs font-bold transition-all cursor-pointer flex items-center justify-between gap-2",
+                        selected
+                          ? "border-[#2F7D16] bg-[#EAF4E3] text-[#2F7D16]"
+                          : "border-[#E5E7E2] bg-white text-nutri-charcoal hover:bg-[#F7FAF4]"
+                      )}
+                    >
+                      <span>{item}</span>
+                      {selected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 25. SUMMARY TARGETS (Editable + Clear Disclaimer) */}
+          {activeNodeId === "summary_targets" && (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                    Your Personalized Nutrition Estimates
+                  </h1>
+                  <p className="text-xs text-nutri-secondary mt-1">
+                    {calculatedTargets.estimationBasis}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditingTargets(!editingTargets)}
+                  className="text-xs font-bold rounded-xl border-[#E5E7E2] shrink-0 cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5 mr-1" />
+                  {editingTargets ? "Done" : "Edit Targets"}
+                </Button>
+              </div>
+
+              {!calculatedTargets.hasCompleteMetrics && !editingTargets && (
+                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+                  <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <span>
+                    Because {calculatedTargets.missingMetrics.join(", ")} was skipped, we did not fabricate a BMR/TDEE estimate. Click <strong>Edit Targets</strong> to enter your preferred calorie &amp; macro goals, or skip setting targets for now.
+                  </span>
+                </div>
+              )}
+
+              {editingTargets ? (
+                <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-[#F7FAF4] border border-[#E5E7E2]">
+                  <div>
+                    <label className="text-[11px] font-bold text-nutri-secondary block mb-1">
+                      Daily Calories (kcal)
+                    </label>
+                    <input
+                      type="number"
+                      min={800}
+                      max={6000}
+                      value={
+                        formData.customCalorieTarget ??
+                        calculatedTargets.dailyCalories ??
+                        ""
+                      }
+                      onChange={(e) =>
+                        updateAnswers({
+                          customCalorieTarget: e.target.value
+                            ? parseInt(e.target.value, 10)
+                            : null,
+                        })
+                      }
+                      className="w-full p-2.5 text-sm font-bold rounded-xl border border-[#E5E7E2] bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-nutri-secondary block mb-1">
+                      Protein (g)
+                    </label>
+                    <input
+                      type="number"
+                      min={20}
+                      max={350}
+                      value={
+                        formData.customProteinTarget ??
+                        calculatedTargets.proteinGrams ??
+                        ""
+                      }
+                      onChange={(e) =>
+                        updateAnswers({
+                          customProteinTarget: e.target.value
+                            ? parseInt(e.target.value, 10)
+                            : null,
+                        })
+                      }
+                      className="w-full p-2.5 text-sm font-bold rounded-xl border border-[#E5E7E2] bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-nutri-secondary block mb-1">
+                      Carbs (g)
+                    </label>
+                    <input
+                      type="number"
+                      min={20}
+                      max={800}
+                      value={
+                        formData.customCarbsTarget ??
+                        calculatedTargets.carbsGrams ??
+                        ""
+                      }
+                      onChange={(e) =>
+                        updateAnswers({
+                          customCarbsTarget: e.target.value
+                            ? parseInt(e.target.value, 10)
+                            : null,
+                        })
+                      }
+                      className="w-full p-2.5 text-sm font-bold rounded-xl border border-[#E5E7E2] bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-nutri-secondary block mb-1">
+                      Fat (g)
+                    </label>
+                    <input
+                      type="number"
+                      min={15}
+                      max={250}
+                      value={
+                        formData.customFatTarget ?? calculatedTargets.fatGrams ?? ""
+                      }
+                      onChange={(e) =>
+                        updateAnswers({
+                          customFatTarget: e.target.value
+                            ? parseInt(e.target.value, 10)
+                            : null,
+                        })
+                      }
+                      className="w-full p-2.5 text-sm font-bold rounded-xl border border-[#E5E7E2] bg-white"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div className="p-3.5 rounded-2xl bg-[#EAF4E3] border border-[#2F7D16]/25 text-center">
+                    <span className="text-[10px] font-bold uppercase text-[#2F7D16] block">
+                      Calories
+                    </span>
+                    <span className="font-heading font-black text-xl text-nutri-charcoal">
+                      {calculatedTargets.dailyCalories ?? "—"}
+                    </span>
+                    <span className="text-[10px] text-nutri-secondary block">kcal/day</span>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-[#F7FAF4] border border-[#E5E7E2] text-center">
+                    <span className="text-[10px] font-bold uppercase text-nutri-secondary block">
+                      Protein
+                    </span>
+                    <span className="font-heading font-black text-xl text-nutri-charcoal">
+                      {calculatedTargets.proteinGrams ?? "—"}
+                    </span>
+                    <span className="text-[10px] text-nutri-secondary block">grams</span>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-[#F7FAF4] border border-[#E5E7E2] text-center">
+                    <span className="text-[10px] font-bold uppercase text-nutri-secondary block">
+                      Carbs
+                    </span>
+                    <span className="font-heading font-black text-xl text-nutri-charcoal">
+                      {calculatedTargets.carbsGrams ?? "—"}
+                    </span>
+                    <span className="text-[10px] text-nutri-secondary block">grams</span>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-[#F7FAF4] border border-[#E5E7E2] text-center">
+                    <span className="text-[10px] font-bold uppercase text-nutri-secondary block">
+                      Fats
+                    </span>
+                    <span className="font-heading font-black text-xl text-nutri-charcoal">
+                      {calculatedTargets.fatGrams ?? "—"}
+                    </span>
+                    <span className="text-[10px] text-nutri-secondary block">grams</span>
+                  </div>
+                </div>
+              )}
+
+              {calculatedTargets.bmi && (
+                <div className="text-xs text-nutri-secondary flex items-center justify-between px-3 py-2 rounded-xl bg-[#F7FAF4] border border-[#E5E7E2]">
+                  <span>Estimated BMI: <strong>{calculatedTargets.bmi}</strong> ({calculatedTargets.bmiCategory})</span>
+                  {calculatedTargets.tdee && (
+                    <span>Est. TDEE: <strong>{calculatedTargets.tdee} kcal</strong></span>
+                  )}
+                </div>
+              )}
+
+              <p className="text-[11px] text-nutri-muted leading-relaxed">
+                Disclaimer: These targets are general wellness estimates, not medical prescriptions. Consult a healthcare provider or registered dietitian for clinical nutrition needs.
+              </p>
+            </div>
+          )}
+
+          {/* 26. REMINDERS */}
+          {activeNodeId === "reminders_preference" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  Stay on track with gentle reminders?
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  Helpful nudges to log meals and hydration without stress.
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.notificationsEnabled === true}
+                  onClick={() => updateAnswers({ notificationsEnabled: true })}
+                  icon={Bell}
+                  title="Yes, enable tracking reminders"
+                />
+                <OptionButton
+                  selected={formData.notificationsEnabled === false}
+                  onClick={() => updateAnswers({ notificationsEnabled: false })}
+                  title="No thanks, I'll log on my own"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 27. ROLLOVER PREFERENCE */}
+          {activeNodeId === "rollover_preference" && (
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  Your Nutrition Goals, With Flexibility
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary mt-1">
+                  Optional calorie rollover carries unused calories gently to the next day so social meals stay stress-free.
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                <OptionButton
+                  selected={formData.calorieRolloverEnabled === true}
+                  onClick={() => updateAnswers({ calorieRolloverEnabled: true })}
+                  icon={Sparkles}
+                  title="Enable Calorie Rollover"
+                />
+                <OptionButton
+                  selected={formData.calorieRolloverEnabled === false}
+                  onClick={() => updateAnswers({ calorieRolloverEnabled: false })}
+                  title="Keep Daily Targets Fixed"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 28. COMPLETION READY */}
+          {activeNodeId === "completion_ready" && (
+            <div className="space-y-5 text-center py-4">
+              <div className="w-16 h-16 rounded-3xl bg-[#EAF4E3] text-[#2F7D16] flex items-center justify-center mx-auto border border-[#2F7D16]/20">
+                <CheckCircle2 className="w-9 h-9" />
+              </div>
+              <div className="space-y-2">
+                <h1 className="text-xl sm:text-2xl font-extrabold font-heading text-nutri-charcoal">
+                  Everything You Need for Healthier Living
+                </h1>
+                <p className="text-xs sm:text-sm text-nutri-secondary max-w-md mx-auto">
+                  Your personalized food diary, macro targets, water &amp; sugar tracking, and AI Coach are ready.
+                </p>
+              </div>
+
+              {finalizeError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs font-semibold text-rose-800">
+                  {finalizeError}
+                </div>
+              )}
+
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => setCurrentStep(17)}
-                className="w-1/3 py-2 text-xs font-bold border-nutri-border text-nutri-secondary hover:text-nutri-charcoal cursor-pointer rounded-xl"
+                disabled={completing}
+                onClick={handleFinalize}
+                className="w-full sm:w-auto px-8 py-3.5 bg-[#2F7D16] hover:bg-[#24630F] text-white font-extrabold text-sm rounded-2xl shadow-md cursor-pointer"
               >
-                <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back
-              </Button>
-              <Button
-                size="md"
-                onClick={handleNext}
-                className="flex-1 bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-2.5 rounded-xl shadow-xs cursor-pointer"
-              >
-                Continue to Overview →
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================================
-            STEP 19: BENEFITS OF NUTRIFLEXS & LAUNCH
-        ========================================================================= */}
-        {currentStep === 19 && (
-          <div className="space-y-3.5 max-w-lg mx-auto animate-in fade-in duration-300">
-            <div className="text-center space-y-1">
-              <Badge variant="green" className="text-[10px] font-bold px-2.5 py-0.5 tracking-wider">
-                ONE UNIFIED PLATFORM
-              </Badge>
-              <h1 className="text-lg sm:text-xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
-                Everything You Need for Healthier Living
-              </h1>
-              <p className="text-xs text-nutri-secondary leading-normal">
-                NutriFlexs connects gym-adjacent clean food with precision Indian calorie tracking.
-              </p>
-            </div>
-
-            {/* Dual Mode Cards */}
-            <div className="space-y-2.5">
-              <Card className="p-3 sm:p-3.5 rounded-xl border border-nutri-border bg-white shadow-2xs space-y-1">
-                <div className="flex items-center gap-1.5 text-nutri-green">
-                  <Utensils className="w-3.5 h-3.5" />
-                  <span className="font-extrabold text-[11px] uppercase tracking-wider">MODE 1 · ORDER FOOD</span>
-                </div>
-                <h3 className="font-bold text-xs sm:text-sm text-nutri-charcoal">Fresh Food Kiosks at Partner Gyms</h3>
-                <p className="text-[11px] text-nutri-muted leading-relaxed">
-                  High-protein meals and organic cold presses ready in 5 minutes after your workout.
-                </p>
-              </Card>
-
-              <Card className="p-3 sm:p-3.5 rounded-xl border border-nutri-border bg-white shadow-2xs space-y-1">
-                <div className="flex items-center gap-1.5 text-nutri-green">
-                  <Flame className="w-3.5 h-3.5" />
-                  <span className="font-extrabold text-[11px] uppercase tracking-wider">MODE 2 · TRACK NUTRITION</span>
-                </div>
-                <h3 className="font-bold text-xs sm:text-sm text-nutri-charcoal">Smart Indian Food Diary &amp; AI Scanning</h3>
-                <p className="text-[11px] text-nutri-muted leading-relaxed">
-                  Log home curries with gravy vs solid precision, scan plates with AI, and track calories effortlessly.
-                </p>
-              </Card>
-            </div>
-
-            <div className="text-center pt-1 space-y-2">
-              <div className="flex items-center justify-between gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setCurrentStep(18)}
-                  className="w-1/3 py-3 text-xs font-bold border-nutri-border text-nutri-secondary hover:text-nutri-charcoal cursor-pointer rounded-xl"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back
-                </Button>
-                <Button
-                  size="md"
-                  onClick={finishAllAndEnterTracker}
-                  className="flex-1 bg-nutri-green hover:bg-nutri-green-dark text-white font-extrabold text-xs sm:text-sm py-3 rounded-xl shadow-float cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <span>Enter NutriFlexs Tracker</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Dynamic Validation Error Alert */}
-        {stepError && (
-          <div className="mt-3.5 p-3 bg-red-50 border border-red-200/90 rounded-xl text-red-800 text-xs flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-200 shadow-2xs">
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-            <span className="font-bold">{stepError}</span>
-          </div>
-        )}
-      </main>
-
-      {/* 3. BOTTOM STICKY NAVIGATION BAR (Steps 1 to 14) (Compact: ~52px) */}
-      {currentStep <= TOTAL_QUESTION_STEPS && (
-        <footer className="shrink-0 bg-white border-t border-nutri-border py-2.5 sm:py-3 px-4 sm:px-6 z-20">
-          <div className="max-w-2xl mx-auto flex items-center justify-between">
-            <button
-              type="button"
-              onClick={handleBack}
-              disabled={currentStep === 1 || isNavigating}
-              className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-colors cursor-pointer",
-                currentStep === 1 || isNavigating
-                  ? "text-nutri-border cursor-not-allowed opacity-50"
-                  : "text-nutri-secondary hover:text-nutri-charcoal hover:bg-nutri-bg"
-              )}
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back</span>
-            </button>
-
-            <div className="flex items-center gap-2.5">
-              {/* Optional Skip button for non-mandatory questions */}
-              {(currentStep === 1 || currentStep === 6 || currentStep === 8 || currentStep === 12) && (
-                <button
-                  type="button"
-                  onClick={handleSkip}
-                  disabled={isNavigating}
-                  className="text-xs font-bold text-nutri-muted hover:text-nutri-charcoal px-2.5 py-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  Skip
-                </button>
-              )}
-
-              <Button
-                size="sm"
-                onClick={handleNext}
-                disabled={isNavigating}
-                className={cn(
-                  "font-extrabold text-xs px-5 py-2 rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer",
-                  "bg-nutri-green hover:bg-nutri-green-dark text-white",
-                  isNavigating && "opacity-75 cursor-wait"
-                )}
-              >
-                {isNavigating ? (
+                {completing ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Saving...</span>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Saving Your Plan...
                   </>
                 ) : (
                   <>
-                    <span>Continue</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    Launch My Nutrition Tracker
+                    <ArrowRight className="w-4 h-4 ml-2" />
                   </>
                 )}
               </Button>
             </div>
-          </div>
-        </footer>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom Navigation Footer */}
+      {activeNodeId !== "completion_ready" && (
+        <div className="px-4 sm:px-6 py-3.5 border-t border-[#E5E7E2] bg-[#F7FAF4] flex items-center justify-between gap-3 shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={safeIndex === 0 || isNavigating}
+            onClick={handleBack}
+            className="rounded-xl font-bold text-xs border-[#E5E7E2] text-nutri-charcoal disabled:opacity-40 cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back
+          </Button>
+
+          <Button
+            type="button"
+            disabled={isNavigating}
+            onClick={handleNext}
+            className="rounded-xl font-extrabold text-xs px-6 bg-[#2F7D16] hover:bg-[#24630F] text-white shadow-xs cursor-pointer"
+          >
+            {isNavigating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                Continue
+                <ArrowRight className="w-4 h-4 ml-1.5" />
+              </>
+            )}
+          </Button>
+        </div>
       )}
     </div>
   );
