@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma, withDbRetry } from "@/lib/prisma";
-import { Role } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 import { hashPassword } from "@/lib/password";
 import { validateAndConsumeStaffCode } from "@/lib/staff-access-codes";
 import { registerSchema } from "@/lib/validations/auth.schema";
@@ -157,7 +157,7 @@ export async function POST(request: Request) {
         candidateCode = `${candidateCode}-${Math.floor(100 + Math.random() * 900)}`;
       }
 
-      const result = await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const newUser = await tx.user.create({
           data: {
             name: name.trim(),
@@ -210,7 +210,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const result = await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const validation = await validateAndConsumeStaffCode({
           code: providedCode,
           requiredRole: Role.ADMIN,
@@ -251,7 +251,7 @@ export async function POST(request: Request) {
 
     // DIETITIAN REGISTRATION (Registers as unverified DIETITIAN pending Admin approval)
     if (normalizedPortal === "dietitian") {
-      const result = await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const newUser = await tx.user.create({
           data: {
             name: name.trim(),
@@ -301,7 +301,7 @@ export async function POST(request: Request) {
     const cleanCustomerRefCode = referralCode ? referralCode.toUpperCase().trim() : null;
 
     const newUser = await withDbRetry(() =>
-      prisma.$transaction(async (tx) => {
+      prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const createdUser = await tx.user.create({
           data: {
             name: name.trim(),
