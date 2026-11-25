@@ -98,13 +98,13 @@ export function WastageView({ items, outletId, onRefreshInventory }: WastageView
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Today's Wastage Events</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase">Today&apos;s Wastage Events</span>
           <p className="text-2xl font-black text-rose-400 mt-1">{summary.todayCount}</p>
           <p className="text-[10px] text-slate-400 mt-1">Logged today</p>
         </div>
 
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Today's Wastage Loss</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase">Today&apos;s Wastage Loss</span>
           <p className="text-2xl font-black text-rose-400 mt-1">{formatPrice(summary.todayCost)}</p>
           <p className="text-[10px] text-slate-400 mt-1">Direct material cost</p>
         </div>

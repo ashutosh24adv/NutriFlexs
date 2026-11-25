@@ -272,7 +272,7 @@ export default function AICoachPage() {
             <div className="bg-white border border-[#E5E7E2] rounded-2xl px-4 py-2 flex items-center gap-4 text-xs shadow-2xs">
               <div>
                 <span className="text-[10px] text-nutri-secondary font-bold block uppercase tracking-wider">
-                  Today's Calories
+                  Today&apos;s Calories
                 </span>
                 <span className="font-extrabold text-nutri-charcoal">
                   {todaySummary.caloriesConsumed} / {todaySummary.calorieTarget} kcal

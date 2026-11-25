@@ -755,7 +755,7 @@ export default function HealthCoachesPage() {
                 <span>Live Insight Preview</span>
               </div>
               <p className="text-white/90 leading-snug">
-                "You’ve crushed 92g of protein today! To hit your 120g target, grab our Lean Grilled Chicken Breast or High-Protein Paneer Bowl for 28g+ clean protein."
+                &ldquo;You’ve crushed 92g of protein today! To hit your 120g target, grab our Lean Grilled Chicken Breast or High-Protein Paneer Bowl for 28g+ clean protein.&rdquo;
               </p>
               <div className="pt-1 text-[10px] text-neutral-400 font-medium">
                 • Real food calculations • Zero guesses

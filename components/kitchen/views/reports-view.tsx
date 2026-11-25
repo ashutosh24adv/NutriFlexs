@@ -80,7 +80,7 @@ export function ReportsView({ outletId }: ReportsViewProps) {
       {/* Primary KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Today's Orders</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase">Today&apos;s Orders</span>
           <p className="text-2xl font-black text-white mt-1">{today.totalOrders}</p>
           <p className="text-[10px] text-emerald-400 mt-1 font-semibold">
             {today.completedOrders} completed ({Math.round((today.completedOrders / (today.totalOrders || 1)) * 100)}%)
@@ -88,7 +88,7 @@ export function ReportsView({ outletId }: ReportsViewProps) {
         </div>
 
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Today's Revenue</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase">Today&apos;s Revenue</span>
           <p className="text-2xl font-black text-emerald-400 mt-1">{formatPrice(today.revenue)}</p>
           <p className="text-[10px] text-slate-400 mt-1">From fulfilled kiosk orders</p>
         </div>
