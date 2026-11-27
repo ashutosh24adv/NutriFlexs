@@ -1,6 +1,7 @@
 import { prisma, withDbRetry } from "@/lib/prisma";
 import { OrderStatus, KitchenMovementType } from "@prisma/client";
 import { syncCompletedOrderToNutritionDiary } from "@/services/nutrition.service";
+import { reversePurchaseFuelPoints } from "@/services/rewards.service";
 
 export interface KitchenOrderCardDTO {
   id: string;
@@ -45,30 +46,47 @@ export async function getKitchenKdsOrders(outletId?: string) {
   const rawOrders = await withDbRetry(() =>
     prisma.order.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        totalAmount: true,
+        totalProtein: true,
+        totalCalories: true,
+        createdAt: true,
         user: { select: { id: true, name: true, phone: true } },
         outlet: { select: { id: true, name: true } },
         items: {
-          include: {
+          select: {
+            id: true,
+            quantity: true,
+            priceAtPurchase: true,
             product: {
-              include: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                protein: true,
+                calories: true,
+                imageUrl: true,
                 ingredients: {
-                  include: {
-                    ingredient: true,
+                  select: {
+                    amount: true,
+                    quantityRequired: true,
+                    unit: true,
+                    prepNotes: true,
+                    ingredient: {
+                      select: { name: true },
+                    },
                   },
                 },
               },
             },
           },
         },
-        inventoryReservations: {
-          include: {
-            ingredient: true,
-          },
-        },
       },
       orderBy: { createdAt: "desc" },
-      take: 100,
+      take: 60,
     })
   );
 
@@ -155,7 +173,7 @@ export async function updateKitchenOrderStatusWithInventory(params: {
 }) {
   const { orderId, newStatus, outletId, userId, reason } = params;
 
-  return await prisma.$transaction(
+  const txResult = await prisma.$transaction(
     async (tx) => {
     // 1. Fetch current order with its items & recipe ingredients
     const order = await tx.order.findUnique({
@@ -370,4 +388,14 @@ export async function updateKitchenOrderStatusWithInventory(params: {
       newStatus,
     };
   }, { maxWait: 15000, timeout: 30000 });
+
+  if (newStatus === OrderStatus.CANCELLED && !txResult.alreadyInStatus) {
+    try {
+      await reversePurchaseFuelPoints(orderId, reason || "Order cancelled by kitchen");
+    } catch {
+      // Non-blocking: order cancellation succeeded even if no FuelPoints were earned
+    }
+  }
+
+  return txResult;
 }

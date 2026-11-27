@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import {
   getAICoachContext,
   generateAICoachChatResponse,
@@ -52,6 +53,22 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const clientIp = getClientIp(req);
+    const rateLimit = checkRateLimit({
+      key: `ai-coach:${clientIp}`,
+      maxRequests: 20,
+      windowMs: 5 * 60 * 1000,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many AI Coach requests. Please wait a moment." },
+        {
+          status: 429,
+          headers: { "Retry-After": Math.ceil(rateLimit.resetMs / 1000).toString() },
+        }
+      );
+    }
+
     const body = await req.json();
     const { message, conversationId } = body;
 
@@ -67,8 +84,10 @@ export async function POST(req: NextRequest) {
 
     // 1. Authenticated User Flow (Full Database Context & Message Persistence)
     if (userId) {
-      const conv = await getOrCreateUserConversation(userId, conversationId);
-      const context = await getAICoachContext(userId);
+      const [conv, context] = await Promise.all([
+        getOrCreateUserConversation(userId, conversationId),
+        getAICoachContext(userId),
+      ]);
 
       // Save incoming user message
       await saveAIMessage(conv.id, "user", message.trim());

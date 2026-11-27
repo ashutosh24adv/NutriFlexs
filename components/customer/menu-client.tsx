@@ -1,0 +1,472 @@
+"use client";
+
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Search, Leaf, Zap, RefreshCw, X, MapPin, Target, TrendingDown, TrendingUp, Scale, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FoodCard } from "@/components/customer/food-card";
+import { useCart } from "@/components/customer/cart-context";
+import { useDietary } from "@/components/customer/dietary-context";
+import { useGym } from "@/components/customer/gym-context";
+import { normalizeDietGoal } from "@/components/customer/diet-goal-badge";
+
+const ProductModal = dynamic(
+  () => import("@/components/customer/product-modal").then((m) => m.ProductModal),
+  { ssr: false }
+);
+
+function DietaryAlertBanner() {
+  const { nonVegRemovedAlert, clearNonVegAlert } = useDietary();
+
+  if (!nonVegRemovedAlert) return null;
+
+  return (
+    <div className="fixed top-20 right-4 left-4 sm:left-auto sm:right-6 sm:w-96 z-50 animate-slide-down">
+      <div className="bg-nutri-green text-white p-3.5 sm:p-4 rounded-2xl shadow-xl border border-nutri-green-dark flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <div className="p-1 rounded-full bg-white/20 text-white shrink-0 mt-0.5">
+            <Leaf className="w-4 h-4 fill-white" />
+          </div>
+          <div>
+            <p className="text-xs font-bold font-heading">Vegetarian Mode Active</p>
+            <p className="text-[11px] text-white/95 mt-0.5 leading-snug">{nonVegRemovedAlert}</p>
+          </div>
+        </div>
+        <button
+          onClick={clearNonVegAlert}
+          className="p-1 text-white/80 hover:text-white rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+          aria-label="Dismiss alert"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+interface MenuClientProps {
+  initialProducts: any[];
+  initialCategories: any[];
+}
+
+export function MenuClient({ initialProducts, initialCategories }: MenuClientProps) {
+  const { addToCart } = useCart();
+  const { isVegetarian, toggleVegetarian, primaryNutritionGoal: userGoal } = useDietary();
+  const { selectedGym, selectedOutlet } = useGym();
+  const searchParams = useSearchParams();
+  const initialCategoryParam = searchParams.get("category");
+  const initialGoalParam = searchParams.get("goal") || searchParams.get("dietGoal");
+
+  const [activeCategory, setActiveCategory] = useState(initialCategoryParam ? initialCategoryParam.toLowerCase() : "all");
+  const [selectedDietGoal, setSelectedDietGoal] = useState<string>(
+    initialGoalParam ? (normalizeDietGoal(initialGoalParam) || "all") : "all"
+  );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [filterHighProtein, setFilterHighProtein] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+
+  const [products, setProducts] = useState<any[]>(initialProducts);
+  const [categories, setCategories] = useState<any[]>(
+    initialCategories.length > 0
+      ? [{ id: "all", slug: "all", name: "All Fuel" }, ...initialCategories]
+      : []
+  );
+  const [loadingProducts, setLoadingProducts] = useState(initialProducts.length === 0);
+  const [loadingCategories, setLoadingCategories] = useState(initialCategories.length === 0);
+  const [error, setError] = useState<string | null>(null);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (initialCategoryParam) {
+      setActiveCategory(initialCategoryParam.toLowerCase());
+    }
+  }, [initialCategoryParam]);
+
+  useEffect(() => {
+    if (initialGoalParam) {
+      const normalized = normalizeDietGoal(initialGoalParam);
+      if (normalized) setSelectedDietGoal(normalized);
+    }
+  }, [initialGoalParam]);
+
+  // Debounce search query (180ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 180);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Independent, cancellable fallback/retry fetchers (only triggered if SSR data was empty or user retries)
+  const fetchCategories = useCallback(async (signal?: AbortSignal) => {
+    setLoadingCategories(true);
+    try {
+      const res = await fetch("/api/categories", { signal });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.categories)) {
+        setCategories([{ id: "all", slug: "all", name: "All Fuel" }, ...data.categories]);
+      }
+    } catch (e: any) {
+      if (e?.name !== "AbortError") {
+        console.error("Failed to fetch categories:", e);
+      }
+    } finally {
+      setLoadingCategories(false);
+    }
+  }, []);
+
+  const fetchProducts = useCallback(async (signal?: AbortSignal) => {
+    setLoadingProducts(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/products", { signal });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.products)) {
+        setProducts(data.products);
+      } else {
+        setError(data.error || "Failed to load products");
+      }
+    } catch (e: any) {
+      if (e?.name !== "AbortError") {
+        setError("Network error loading menu from database. Please check your connection.");
+      }
+    } finally {
+      setLoadingProducts(false);
+    }
+  }, []);
+
+  const loadMenuData = useCallback(() => {
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    fetchCategories(controller.signal);
+    fetchProducts(controller.signal);
+  }, [fetchCategories, fetchProducts]);
+
+  // Only fetch on mount if Server Component did not already preload data
+  useEffect(() => {
+    const controller = new AbortController();
+    if (initialCategories.length === 0) {
+      fetchCategories(controller.signal);
+    }
+    if (initialProducts.length === 0) {
+      fetchProducts(controller.signal);
+    }
+    return () => controller.abort();
+  }, [initialCategories.length, initialProducts.length, fetchCategories, fetchProducts]);
+
+  const normalizedUserGoal = userGoal ? normalizeDietGoal(userGoal) : null;
+
+  const goalCounts = React.useMemo(() => {
+    let loss = 0;
+    let gain = 0;
+    let maint = 0;
+    for (const p of products) {
+      if (isVegetarian && !p.isVeg) continue;
+      if (Array.isArray(p.dietGoals)) {
+        if (p.dietGoals.includes("WEIGHT_LOSS")) loss++;
+        if (p.dietGoals.includes("WEIGHT_GAIN")) gain++;
+        if (p.dietGoals.includes("WEIGHT_MAINTENANCE")) maint++;
+      }
+    }
+    return { loss, gain, maint };
+  }, [products, isVegetarian]);
+
+  const filteredProducts = React.useMemo(() => {
+    return products.filter((p) => {
+      if (activeCategory !== "all") {
+        const prodCatSlug = (p.categorySlug || p.category?.slug || "").toLowerCase();
+        if (prodCatSlug !== activeCategory) {
+          return false;
+        }
+      }
+      if (selectedDietGoal !== "all") {
+        const itemGoals = Array.isArray(p.dietGoals) ? p.dietGoals : [];
+        if (!itemGoals.includes(selectedDietGoal)) {
+          return false;
+        }
+      }
+      if (isVegetarian && !p.isVeg) return false;
+      if (filterHighProtein && p.protein < 25) return false;
+      if (debouncedSearchQuery.trim()) {
+        const q = debouncedSearchQuery.toLowerCase();
+        const nameMatch = p.name.toLowerCase().includes(q);
+        const descMatch = p.description.toLowerCase().includes(q);
+        const ingMatch = p.ingredients?.some((ingObj: any) =>
+          (ingObj.ingredient?.name || ingObj).toLowerCase().includes(q)
+        );
+        if (!nameMatch && !descMatch && !ingMatch) return false;
+      }
+      return true;
+    });
+  }, [products, activeCategory, selectedDietGoal, isVegetarian, filterHighProtein, debouncedSearchQuery]);
+
+  return (
+    <div className="space-y-6 max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16">
+      <DietaryAlertBanner />
+
+      {/* Menu Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-nutri-border pb-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-nutri-charcoal tracking-tight">
+            NutriFlexs Fuel Menu 🥗
+          </h1>
+          <p className="text-xs sm:text-sm text-nutri-secondary mt-0.5">
+            Database-backed organic nutrition • Transparent macros • 5 min express pickup
+          </p>
+        </div>
+
+        {/* Search Input */}
+        <div className="relative w-full md:w-72">
+          <Search className="w-4 h-4 text-nutri-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search meals, bowls, juices..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-white border border-nutri-border rounded-full pl-9 pr-4 py-2 text-xs font-medium placeholder:text-nutri-muted text-nutri-charcoal focus:outline-none focus:border-nutri-green transition-colors"
+          />
+        </div>
+      </div>
+
+      {/* Active Pickup Location Strip */}
+      <div className="bg-white border border-nutri-border rounded-2xl px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs text-xs">
+        <div className="flex items-center gap-2 text-nutri-charcoal font-medium truncate">
+          <MapPin className="w-4 h-4 text-nutri-green shrink-0" />
+          <span>Pickup Location:</span>
+          <strong className="text-nutri-green font-bold truncate">
+            {selectedOutlet?.name || selectedGym?.name || "Indiranagar Cult Kiosk (50m from Gym)"}
+          </strong>
+          {selectedGym && (
+            <span className="text-nutri-secondary text-[11px] hidden md:inline">
+              ({selectedGym.name}, {selectedGym.city})
+            </span>
+          )}
+        </div>
+        <Link
+          href="/gyms"
+          className="text-nutri-green font-bold hover:underline shrink-0 text-xs flex items-center gap-1 cursor-pointer"
+        >
+          Change Gym / Kiosk →
+        </Link>
+      </div>
+
+      {/* Category Tabs & Quick Filter Pills */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* Dynamic Database Categories */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {loadingCategories ? (
+            <div className="flex items-center gap-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-8 w-24 rounded-full bg-[#EAF4E3]/70 animate-pulse shrink-0" />
+              ))}
+            </div>
+          ) : categories.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => fetchCategories()}
+              className="text-xs font-bold px-3 py-1.5 rounded-full bg-white border border-nutri-border text-nutri-secondary hover:text-nutri-green cursor-pointer"
+            >
+              Reload Categories
+            </button>
+          ) : (
+            categories.map((cat) => {
+              const catSlug = (cat.slug || cat.id).toLowerCase();
+              const isSelected = activeCategory === catSlug;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(catSlug)}
+                  className={`text-xs font-bold px-4 py-2 rounded-full transition-all shrink-0 cursor-pointer ${
+                    isSelected
+                      ? "bg-nutri-green text-white shadow-xs"
+                      : "bg-white text-nutri-secondary border border-nutri-border hover:border-nutri-green hover:text-nutri-charcoal"
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => toggleVegetarian()}
+            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 cursor-pointer ${
+              isVegetarian
+                ? "bg-nutri-green text-white border-nutri-green-deep shadow-xs"
+                : "bg-white border-nutri-border text-nutri-secondary hover:text-nutri-charcoal hover:border-nutri-green"
+            }`}
+            title={isVegetarian ? "Click to disable Vegetarian Mode" : "Click to enable Vegetarian Mode"}
+          >
+            <Leaf className={`w-3.5 h-3.5 ${isVegetarian ? "fill-white text-white" : "text-nutri-secondary"}`} />
+            <span>Veg {isVegetarian ? "ON" : "OFF"}</span>
+          </button>
+
+          <button
+            onClick={() => setFilterHighProtein(!filterHighProtein)}
+            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 cursor-pointer ${
+              filterHighProtein
+                ? "bg-nutri-green-light border-nutri-green text-nutri-green"
+                : "bg-white border-nutri-border text-nutri-secondary hover:text-nutri-charcoal"
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5 text-nutri-green" /> High Protein (25g+)
+          </button>
+        </div>
+      </div>
+
+      {/* Diet Goal Classification Filter Strip */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-nutri-bg/60 border border-nutri-border rounded-2xl p-2.5 sm:px-4 sm:py-2.5 shadow-2xs">
+        <div className="flex items-center gap-2">
+          <div className="p-1 rounded-full bg-nutri-green-light text-nutri-green shrink-0">
+            <Target className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-xs font-bold text-nutri-charcoal font-heading whitespace-nowrap">
+            Fitness Goal:
+          </span>
+          {normalizedUserGoal && (
+            <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-nutri-secondary bg-white px-2.5 py-0.5 rounded-full border border-nutri-border">
+              <Sparkles className="w-3 h-3 text-emerald-600 fill-emerald-600" />
+              <span>Tailored for: <strong className="text-nutri-green capitalize">{userGoal?.replace(/_/g, " ")}</strong></span>
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+          <button
+            onClick={() => setSelectedDietGoal("all")}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all shrink-0 cursor-pointer ${
+              selectedDietGoal === "all"
+                ? "bg-nutri-charcoal text-white border-nutri-charcoal font-bold shadow-xs"
+                : "bg-white text-nutri-secondary border-nutri-border hover:border-nutri-green hover:text-nutri-charcoal"
+            }`}
+          >
+            All Goals
+          </button>
+
+          <button
+            onClick={() => setSelectedDietGoal("WEIGHT_LOSS")}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedDietGoal === "WEIGHT_LOSS"
+                ? "bg-[#EAF4E3] text-[#2F7D16] border-[#2F7D16] font-bold shadow-xs ring-1 ring-[#2F7D16]/30"
+                : "bg-white text-nutri-secondary border-nutri-border hover:border-[#2F7D16] hover:text-[#2F7D16]"
+            }`}
+          >
+            <TrendingDown className="w-3.5 h-3.5" />
+            <span>Weight Loss</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-[#2F7D16]/10 text-[#2F7D16]">
+              {goalCounts.loss}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setSelectedDietGoal("WEIGHT_GAIN")}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedDietGoal === "WEIGHT_GAIN"
+                ? "bg-[#FFF6ED] text-[#C25E00] border-[#C25E00] font-bold shadow-xs ring-1 ring-[#C25E00]/30"
+                : "bg-white text-nutri-secondary border-nutri-border hover:border-[#C25E00] hover:text-[#C25E00]"
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>Weight Gain</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-[#C25E00]/10 text-[#C25E00]">
+              {goalCounts.gain}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setSelectedDietGoal("WEIGHT_MAINTENANCE")}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedDietGoal === "WEIGHT_MAINTENANCE"
+                ? "bg-[#F1F5F9] text-[#334155] border-[#64748B] font-bold shadow-xs ring-1 ring-[#64748B]/30"
+                : "bg-white text-nutri-secondary border-nutri-border hover:border-[#64748B] hover:text-[#334155]"
+            }`}
+          >
+            <Scale className="w-3.5 h-3.5" />
+            <span>Weight Maintenance</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-slate-200 text-slate-700">
+              {goalCounts.maint}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Products Grid */}
+      {loadingProducts ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <div
+              key={i}
+              className="bg-white rounded-3xl p-4 border border-nutri-border space-y-3 animate-pulse"
+            >
+              <div className="w-full h-40 rounded-2xl bg-[#EAF4E3]/60" />
+              <div className="h-4 w-3/4 rounded bg-slate-200/80" />
+              <div className="h-3 w-full rounded bg-slate-100" />
+              <div className="h-8 w-full rounded-full bg-slate-100 mt-2" />
+            </div>
+          ))}
+        </div>
+      ) : error ? (
+        <div className="py-14 px-6 max-w-md mx-auto text-center bg-white border border-nutri-border rounded-3xl shadow-sm space-y-4 my-8">
+          <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 text-amber-700 mx-auto flex items-center justify-center">
+            <RefreshCw className="w-5 h-5" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-base font-bold font-heading text-nutri-charcoal">
+              Menu Momentarily Unavailable
+            </h3>
+            <p className="text-xs text-nutri-secondary leading-relaxed">
+              {error}
+            </p>
+          </div>
+          <Button
+            onClick={loadMenuData}
+            className="bg-nutri-green text-white hover:bg-nutri-green-dark font-bold text-xs px-6 py-2.5 rounded-full inline-flex items-center gap-2 cursor-pointer shadow-xs transition-all"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Retry Menu
+          </Button>
+        </div>
+      ) : filteredProducts.length === 0 ? (
+        <div className="py-16 text-center bg-white border border-nutri-border rounded-2xl p-6">
+          <p className="text-sm font-bold text-nutri-charcoal">No menu items match your criteria</p>
+          <p className="text-xs text-nutri-secondary mt-1">Try clearing search or filters.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+          {filteredProducts.map((product) => {
+            const isRecommended = Boolean(
+              normalizedUserGoal && product.dietGoals?.includes(normalizedUserGoal)
+            );
+            return (
+              <FoodCard
+                key={product.id}
+                product={product}
+                isRecommended={isRecommended}
+                onAddToCart={(prod) => addToCart(prod, 1)}
+                onQuickView={(prod) => setSelectedProduct(prod)}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* Product Detail Modal */}
+      {selectedProduct && (
+        <ProductModal
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onAddToCart={(prod, qty) => addToCart(prod, qty)}
+        />
+      )}
+    </div>
+  );
+}

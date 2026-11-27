@@ -556,10 +556,13 @@ Return ONLY a valid JSON object without markdown fences, conforming to this exac
         const modelStartTime = Date.now();
         try {
           const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiApiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
             {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                "x-goog-api-key": geminiApiKey,
+              },
               body: JSON.stringify({
                 contents: [
                   {

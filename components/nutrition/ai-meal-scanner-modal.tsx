@@ -176,8 +176,38 @@ export function AIMealScannerModal({
           }),
         });
       } else {
+        // Compress oversized camera/gallery photos (>400KB) client-side to max 1280px JPEG for fast AI upload
+        let uploadFile: File = selectedImage!;
+        if (uploadFile.size > 400 * 1024 && typeof document !== "undefined") {
+          try {
+            const bitmap = await createImageBitmap(uploadFile);
+            const maxDim = 1280;
+            const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+            const targetW = Math.max(1, Math.round(bitmap.width * scale));
+            const targetH = Math.max(1, Math.round(bitmap.height * scale));
+            const canvas = document.createElement("canvas");
+            canvas.width = targetW;
+            canvas.height = targetH;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(bitmap, 0, 0, targetW, targetH);
+              const blob = await new Promise<Blob | null>((resolve) =>
+                canvas.toBlob(resolve, "image/jpeg", 0.82)
+              );
+              if (blob && blob.size < uploadFile.size) {
+                uploadFile = new File([blob], uploadFile.name.replace(/\.[^.]+$/, ".jpg"), {
+                  type: "image/jpeg",
+                });
+              }
+            }
+            bitmap.close();
+          } catch {
+            // Fallback to original file if canvas compression is unsupported
+          }
+        }
+
         const formData = new FormData();
-        formData.append("image", selectedImage!);
+        formData.append("image", uploadFile);
 
         res = await fetch("/api/nutrition/analyze-image", {
           method: "POST",

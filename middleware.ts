@@ -23,7 +23,9 @@ export async function middleware(req: NextRequest) {
 
   const isApiAdminPath = pathname.startsWith("/api/admin");
   const isApiCustomerOnlyPath =
-    pathname.startsWith("/api/nutrition") || pathname.startsWith("/api/diet-plans");
+    pathname.startsWith("/api/nutrition") ||
+    pathname.startsWith("/api/diet-plans") ||
+    pathname.startsWith("/api/rewards");
   const isAdminPath = pathname.startsWith("/admin");
   const isKitchenPath = pathname.startsWith("/kitchen") && !pathname.startsWith("/kitchen/login");
   const isKitchenLoginPath = pathname === "/kitchen/login";
@@ -47,7 +49,9 @@ export async function middleware(req: NextRequest) {
     pathname === "/diet-plans" ||
     pathname.startsWith("/diet-plans/") ||
     pathname === "/meals" ||
-    pathname.startsWith("/meals/");
+    pathname.startsWith("/meals/") ||
+    pathname === "/rewards" ||
+    pathname.startsWith("/rewards/");
 
   // 1. Defense-in-depth API route protections
   if (isApiAdminPath) {
@@ -187,6 +191,7 @@ export const config = {
     "/api/admin/:path*",
     "/api/nutrition/:path*",
     "/api/diet-plans/:path*",
+    "/api/rewards/:path*",
     "/home/:path*",
     "/nutrition/:path*",
     "/cart/:path*",
@@ -196,5 +201,6 @@ export const config = {
     "/checkout/:path*",
     "/diet-plans/:path*",
     "/meals/:path*",
+    "/rewards/:path*",
   ],
 };

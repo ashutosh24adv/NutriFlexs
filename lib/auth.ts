@@ -46,7 +46,6 @@ export const authOptions: NextAuthOptions = {
                     { email: normalizedIdentifier },
                     { email: `${normalizedIdentifier}@nutriflexs.com` },
                     { name: { equals: rawIdentifier, mode: "insensitive" } },
-                    { name: { contains: rawIdentifier, mode: "insensitive" } },
                   ],
                 },
               })
@@ -152,6 +151,7 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
+  useSecureCookies: process.env.NODE_ENV === "production",
   secret:
     process.env.NEXTAUTH_SECRET ||
     process.env.AUTH_SECRET ||

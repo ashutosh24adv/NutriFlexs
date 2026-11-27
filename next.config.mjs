@@ -28,7 +28,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https://images.unsplash.com https://res.cloudinary.com https://*.razorpay.com",
       "font-src 'self' data: https://fonts.gstatic.com",
-      "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://*.neon.tech",
+      "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com",
       "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
       "frame-ancestors 'none'",
       "object-src 'none'",
@@ -41,6 +41,7 @@ const nextConfig = {
   transpilePackages: ['@nutriflexs/shared'],
   reactStrictMode: true,
   poweredByHeader: false,
+  productionBrowserSourceMaps: false,
   async headers() {
     return [
       {

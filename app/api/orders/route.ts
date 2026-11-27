@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const userRole = (session?.user as any)?.role;
 
     if (view === "kitchen" || view === "admin") {
-      if (!session || (userRole !== "KITCHEN" && userRole !== "ADMIN")) {
+      if (!session || (userRole !== "KITCHEN" && userRole !== "ADMIN" && userRole !== "SUPER_ADMIN")) {
         return NextResponse.json(
           { success: false, error: "Unauthorized. Kitchen staff or Admin role required." },
           { status: 403 }

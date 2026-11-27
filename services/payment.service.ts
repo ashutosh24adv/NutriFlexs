@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { PaymentStatus, OrderStatus } from "@/types/enums";
 import { verifyRazorpaySignature } from "@/lib/razorpay";
 import { processTrainerReferralOnPaymentSuccess } from "./referral.service";
+import { awardPurchaseFuelPoints } from "./rewards.service";
 
 export async function verifyAndCompletePayment(params: {
   orderId: string;
@@ -147,6 +148,13 @@ export async function verifyAndCompletePayment(params: {
     } catch (referralErr) {
       console.error("[Payment Security] Non-fatal referral processing error:", referralErr);
     }
+  }
+
+  // 7. Award FuelPoints for eligible paid order (idempotent, 1 FP per ₹10)
+  try {
+    await awardPurchaseFuelPoints(orderId);
+  } catch (fpErr) {
+    console.error("[FuelPoints] Non-fatal purchase reward error:", fpErr);
   }
 
   return {

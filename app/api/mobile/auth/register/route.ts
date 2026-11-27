@@ -4,6 +4,7 @@ import { prisma, withDbRetry } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { AUTH_SECRET } from "@/lib/mobile-auth";
 import { calculateBaselineGoals } from "@/lib/nutrition-baseline";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,22 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest) {
   try {
+    const clientIp = getClientIp(req);
+    const rateLimit = checkRateLimit({
+      key: `mobile-register:${clientIp}`,
+      maxRequests: 20,
+      windowMs: 15 * 60 * 1000,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many registration attempts. Please try again later." },
+        {
+          status: 429,
+          headers: { "Retry-After": Math.ceil(rateLimit.resetMs / 1000).toString() },
+        }
+      );
+    }
+
     const body = await req.json();
 
     // 1. Extract & validate required fields

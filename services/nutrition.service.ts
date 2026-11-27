@@ -1,5 +1,9 @@
 import { prisma, withDbRetry } from "@/lib/prisma";
 import { getCached, setCached } from "@/lib/cache";
+import {
+  evaluateMealLoggingReward,
+  evaluateWaterGoalReward,
+} from "./rewards.service";
 import { MealType } from "@prisma/client";
 import {
   AddFoodLogInput,
@@ -1146,6 +1150,13 @@ export async function addFoodLog(userId: string, input: AddFoodLogInput) {
     },
   });
 
+  // Award FuelPoints for verified daily meal logging (once per day, non-fatal)
+  try {
+    await evaluateMealLoggingReward(userId, input.dateKey);
+  } catch (fpErr) {
+    console.warn("[FuelPoints] Non-fatal meal logging reward check error:", fpErr);
+  }
+
   return {
     log,
     possibleDuplicate,
@@ -1417,6 +1428,13 @@ export async function addWaterEntry(userId: string, dateKey: string, amountMl: n
     select: { waterGoalMl: true },
   });
 
+  // Evaluate FuelPoints water goal completion (non-fatal)
+  try {
+    await evaluateWaterGoalReward(userId, dateKey);
+  } catch (fpErr) {
+    console.warn("[FuelPoints] Non-fatal water goal reward check error:", fpErr);
+  }
+
   return {
     entry: {
       id: entry.id,
@@ -1508,6 +1526,13 @@ export async function deleteWaterEntry(userId: string, entryId: string) {
     where: { userId },
     select: { waterGoalMl: true },
   });
+
+  // Re-evaluate FuelPoints water goal (reverses if below goal, non-fatal)
+  try {
+    await evaluateWaterGoalReward(userId, dateKey);
+  } catch (fpErr) {
+    console.warn("[FuelPoints] Non-fatal water goal reversal check error:", fpErr);
+  }
 
   return {
     success: true,

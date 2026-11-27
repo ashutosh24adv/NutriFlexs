@@ -1,4 +1,5 @@
 import { prisma, withDbRetry } from "@/lib/prisma";
+import { unstable_cache, revalidateTag } from "next/cache";
 
 // High-performance in-memory cache for static/read-heavy catalog data (60s TTL)
 interface CacheEntry<T> {
@@ -40,32 +41,73 @@ import { buildProductDietaryWhere, DietaryFilterOptions } from "./dietary-filter
 
 export function invalidateProductCache() {
   memoryCache.clear();
+  try {
+    revalidateTag("products");
+    revalidateTag("categories");
+  } catch {
+    // Safe no-op outside Next.js request/cache context (e.g., standalone scripts)
+  }
 }
 
+const fetchProductsFromDb = unstable_cache(
+  async (optionsJson: string) => {
+    const options: DietaryFilterOptions = JSON.parse(optionsJson || "{}");
+    const where = buildProductDietaryWhere(options);
+
+    return await withDbRetry(() =>
+      prisma.product.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          description: true,
+          price: true,
+          calories: true,
+          protein: true,
+          carbs: true,
+          fats: true,
+          totalSugar: true,
+          addedSugar: true,
+          preparationTimeMinutes: true,
+          imageUrl: true,
+          categoryId: true,
+          isAvailable: true,
+          isFeatured: true,
+          isPopular: true,
+          isVeg: true,
+          category: {
+            select: { id: true, name: true, slug: true },
+          },
+          ingredients: {
+            select: {
+              amount: true,
+              ingredient: {
+                select: { name: true },
+              },
+            },
+          },
+          dietGoals: {
+            select: { goal: true },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      })
+    );
+  },
+  ["nutriflexs-products"],
+  { revalidate: 300, tags: ["products"] }
+);
+
 export async function getProducts(options?: DietaryFilterOptions) {
-  const cacheKey = `products_${JSON.stringify(options || {})}`;
+  const optionsJson = JSON.stringify(options || {});
+  const cacheKey = `products_${optionsJson}`;
   const cached = getFromCache<any[]>(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const where = buildProductDietaryWhere(options);
-
-  const products = await withDbRetry(() =>
-    prisma.product.findMany({
-      where,
-      include: {
-        category: true,
-        ingredients: {
-          include: {
-            ingredient: true,
-          },
-        },
-        dietGoals: true,
-      },
-      orderBy: { createdAt: "asc" },
-    })
-  );
+  const products = await fetchProductsFromDb(optionsJson);
 
   setInCache(cacheKey, products);
   return products;
@@ -99,6 +141,25 @@ export async function getProductBySlug(slug: string) {
   return product;
 }
 
+const fetchCategoriesFromDb = unstable_cache(
+  async () => {
+    return await withDbRetry(() =>
+      prisma.category.findMany({
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          description: true,
+          displayOrder: true,
+        },
+        orderBy: { displayOrder: "asc" },
+      })
+    );
+  },
+  ["nutriflexs-categories"],
+  { revalidate: 300, tags: ["categories"] }
+);
+
 export async function getCategories() {
   const cacheKey = "categories_all";
   const cached = getFromCache<any[]>(cacheKey);
@@ -106,11 +167,7 @@ export async function getCategories() {
     return cached;
   }
 
-  const categories = await withDbRetry(() =>
-    prisma.category.findMany({
-      orderBy: { displayOrder: "asc" },
-    })
-  );
+  const categories = await fetchCategoriesFromDb();
 
   setInCache(cacheKey, categories);
   return categories;

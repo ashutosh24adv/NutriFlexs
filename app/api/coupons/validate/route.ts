@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { safeErrorResponse } from "@/lib/api-security";
@@ -42,6 +44,33 @@ export async function POST(request: Request) {
 
     if (!coupon) {
       return NextResponse.json({ success: false, error: "Invalid or expired coupon code" }, { status: 404 });
+    }
+
+    // Security: Enforce user ownership if coupon is user-specific (e.g. FuelPoints redemption)
+    if (coupon.userId) {
+      const session = await getServerSession(authOptions);
+      const sessionUserId = (session?.user as any)?.id;
+      if (!sessionUserId || coupon.userId !== sessionUserId) {
+        return NextResponse.json(
+          { success: false, error: "This reward coupon belongs to another account." },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Security: Enforce expiry and single-use / usage limit
+    if (coupon.validUntil && new Date(coupon.validUntil) < new Date()) {
+      return NextResponse.json(
+        { success: false, error: "This coupon code has expired." },
+        { status: 400 }
+      );
+    }
+
+    if (coupon.usageLimit !== null && coupon.usageCount >= coupon.usageLimit) {
+      return NextResponse.json(
+        { success: false, error: "This coupon code has already been redeemed." },
+        { status: 400 }
+      );
     }
 
     const validSubtotal = typeof subtotal === "number" && !isNaN(subtotal) ? subtotal : 0;

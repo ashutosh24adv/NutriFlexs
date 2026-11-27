@@ -30,7 +30,7 @@ interface FoodCardProps {
   onQuickView?: (product: any) => void;
 }
 
-export function FoodCard({ product, isRecommended, onAddToCart, onOpenDetails, onQuickView }: FoodCardProps) {
+export const FoodCard = React.memo(function FoodCard({ product, isRecommended, onAddToCart, onOpenDetails, onQuickView }: FoodCardProps) {
   const handleOpen = () => {
     if (onQuickView) onQuickView(product);
     else if (onOpenDetails) onOpenDetails(product);
@@ -129,4 +129,4 @@ export function FoodCard({ product, isRecommended, onAddToCart, onOpenDetails, o
       </div>
     </div>
   );
-}
+});

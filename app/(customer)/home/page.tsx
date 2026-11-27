@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -27,8 +28,14 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ProductModal } from "@/components/customer/product-modal";
-import { BmiRecommendations } from "@/components/customer/bmi-recommendations";
+const ProductModal = dynamic(
+  () => import("@/components/customer/product-modal").then((m) => m.ProductModal),
+  { ssr: false }
+);
+const BmiRecommendations = dynamic(
+  () => import("@/components/customer/bmi-recommendations").then((m) => m.BmiRecommendations),
+  { ssr: false }
+);
 import { useCart } from "@/components/customer/cart-context";
 import { useDietary } from "@/components/customer/dietary-context";
 import { getGuestDailyNutritionSummary } from "@/lib/guest-nutrition";
@@ -119,8 +126,11 @@ export default function CustomerHomePage() {
   const [recommendedImageLoaded, setRecommendedImageLoaded] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const lastFocusSyncRef = useRef<number>(0);
 
   useEffect(() => {
+    if (status === "loading") return;
+
     async function loadHomeData() {
       try {
         const clientTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Kolkata";
@@ -264,23 +274,30 @@ export default function CustomerHomePage() {
       loadHomeData();
     };
 
+    const handleThrottledFocusSync = () => {
+      const now = Date.now();
+      if (now - lastFocusSyncRef.current < 15000) return;
+      lastFocusSyncRef.current = now;
+      loadHomeData();
+    };
+
     window.addEventListener("nutriflexs:nutrition-updated", handleSync);
-    window.addEventListener("focus", handleSync);
+    window.addEventListener("focus", handleThrottledFocusSync);
     window.addEventListener("storage", handleSync);
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        handleSync();
+        handleThrottledFocusSync();
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       window.removeEventListener("nutriflexs:nutrition-updated", handleSync);
-      window.removeEventListener("focus", handleSync);
+      window.removeEventListener("focus", handleThrottledFocusSync);
       window.removeEventListener("storage", handleSync);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [isAuthenticated, isVegetarian]);
+  }, [status, isAuthenticated, isVegetarian]);
 
   const handleOrderAgain = (product: any) => {
     if (!product) return;

@@ -74,13 +74,27 @@ export async function createOrder(params: CreateOrderParams) {
   let couponId: string | undefined = undefined;
   let trainerId: string | undefined = undefined;
 
-  // 3. Server-side coupon discount calculation
+  // 3. Server-side coupon discount calculation with strict ownership, expiry & single-use checks
   if (couponCode) {
     const coupon = await prisma.coupon.findUnique({
       where: { code: couponCode.toUpperCase().trim(), isActive: true },
     });
 
-    if (coupon && subtotal >= coupon.minOrderAmount) {
+    const now = new Date();
+    const isOwnerValid = !coupon?.userId || coupon.userId === userId;
+    const isNotExpired = !coupon?.validUntil || new Date(coupon.validUntil) >= now;
+    const isUnderLimit =
+      coupon?.usageLimit === null ||
+      coupon?.usageLimit === undefined ||
+      coupon.usageCount < coupon.usageLimit;
+
+    if (
+      coupon &&
+      isOwnerValid &&
+      isNotExpired &&
+      isUnderLimit &&
+      subtotal >= coupon.minOrderAmount
+    ) {
       couponId = coupon.id;
       if (coupon.discountType === "PERCENTAGE") {
         const calculatedDiscount = (subtotal * coupon.discountValue) / 100;
@@ -149,7 +163,19 @@ export async function createOrder(params: CreateOrderParams) {
     },
   });
 
-  // 6. Create Razorpay Payment order
+  // 6. Atomically mark coupon usage & FuelPoints redemption as USED if a coupon was applied
+  if (couponId) {
+    await prisma.coupon.update({
+      where: { id: couponId },
+      data: { usageCount: { increment: 1 } },
+    });
+    await prisma.rewardRedemption.updateMany({
+      where: { couponId, userId, status: "ACTIVE" },
+      data: { status: "USED", usedAt: new Date(), orderId: order.id },
+    });
+  }
+
+  // 7. Create Razorpay Payment order
   const rzpOrder = await createRazorpayOrder(finalAmount, order.id);
 
   const payment = await prisma.payment.create({

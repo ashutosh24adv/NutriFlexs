@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -138,6 +138,7 @@ export function NutritionDashboard({ onRetakeOnboarding }: NutritionDashboardPro
   const [currentDateKey, setCurrentDateKey] = useState<string>(getLocalTodayDateKey());
   const [diary, setDiary] = useState<DailyNutritionSummary | null>(null);
   const [loading, setLoading] = useState(false);
+  const lastFocusSyncRef = useRef<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   // Guest migration state
@@ -231,19 +232,26 @@ export function NutritionDashboard({ onRetakeOnboarding }: NutritionDashboardPro
       fetchDiary(currentDateKey);
     };
 
+    const handleThrottledFocusSync = () => {
+      const now = Date.now();
+      if (now - lastFocusSyncRef.current < 15000) return;
+      lastFocusSyncRef.current = now;
+      fetchDiary(currentDateKey);
+    };
+
     window.addEventListener("nutriflexs:nutrition-updated", handleSync);
-    window.addEventListener("focus", handleSync);
+    window.addEventListener("focus", handleThrottledFocusSync);
     window.addEventListener("storage", handleSync);
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        handleSync();
+        handleThrottledFocusSync();
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
       window.removeEventListener("nutriflexs:nutrition-updated", handleSync);
-      window.removeEventListener("focus", handleSync);
+      window.removeEventListener("focus", handleThrottledFocusSync);
       window.removeEventListener("storage", handleSync);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
@@ -754,37 +762,66 @@ export function NutritionDashboard({ onRetakeOnboarding }: NutritionDashboardPro
         />
       </div>
 
-      {/* Action shortcuts banner */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-nutri-green-soft border border-nutri-green/20 rounded-2xl">
+      {/* Primary Action: Prominent Scan Your Meal Section */}
+      <section
+        aria-label="Scan Your Meal"
+        className="bg-[#EAF4E3]/75 border border-[#2F7D16]/25 rounded-3xl p-5 sm:p-6"
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#2F7D16] text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Camera className="w-6 h-6 sm:w-7 sm:h-7" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="font-heading font-extrabold text-base sm:text-lg text-[#111111] leading-tight">
+                Scan Your Meal
+              </h2>
+              <p className="text-xs sm:text-sm text-[#4B5563] leading-snug">
+                Snap a photo of your meal and let AI estimate its calories, protein, carbs and fats.
+              </p>
+              <p className="text-[11px] font-medium text-[#2F7D16]">
+                Upload a photo or take one using your camera.
+              </p>
+            </div>
+          </div>
+
+          <div className="shrink-0 w-full md:w-auto">
+            <Button
+              type="button"
+              onClick={() => handleOpenScannerModal(MealType.LUNCH)}
+              className="w-full md:w-auto bg-[#2F7D16] hover:bg-[#24630F] text-white font-extrabold text-sm px-6 py-3 h-auto rounded-2xl shadow-xs cursor-pointer transition-colors"
+            >
+              <Camera className="w-4 h-4 mr-2" />
+              Scan My Meal
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Secondary Actions & Kiosk Sync Notice */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-white border border-nutri-border rounded-2xl">
         <div className="flex items-center gap-2">
           <Info className="w-4 h-4 text-nutri-green shrink-0" />
           <span className="text-xs text-nutri-secondary leading-snug">
-            Completed NutriFlexs express kiosk orders are synced automatically. Use <strong>Scan Your Meal</strong> to log plate photos with AI.
+            Completed NutriFlexs express kiosk orders are synced automatically.
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Button
             size="sm"
-            onClick={() => handleOpenScannerModal(MealType.LUNCH)}
-            className="bg-nutri-green hover:bg-nutri-green-dark text-white font-bold text-xs cursor-pointer shadow-xs transition-all"
+            variant="outline"
+            onClick={() => handleOpenSearchModal("BREAKFAST")}
+            className="text-xs font-bold border-nutri-border text-nutri-charcoal hover:bg-nutri-green-soft cursor-pointer"
           >
-            <Camera className="w-3.5 h-3.5 mr-1.5" /> Scan Your Meal
+            <Plus className="w-3.5 h-3.5 mr-1" /> Add Food
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => setCustomFoodModalOpen(true)}
-            className="text-xs font-bold border-nutri-border text-nutri-charcoal hover:bg-white cursor-pointer"
+            className="text-xs font-bold border-nutri-border text-nutri-charcoal hover:bg-nutri-green-soft cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-600" /> Custom Food
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleOpenSearchModal("BREAKFAST")}
-            className="text-xs font-bold border-nutri-border text-nutri-charcoal hover:bg-white cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5 mr-1" /> Add Food
           </Button>
         </div>
       </div>

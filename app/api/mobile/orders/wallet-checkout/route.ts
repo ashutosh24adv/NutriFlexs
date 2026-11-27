@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma, withDbRetry } from "@/lib/prisma";
 import { getMobileAuthUser } from "@/lib/mobile-auth";
 import { OrderStatus, PaymentStatus } from "@/types/enums";
+import { RewardRedemptionStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +29,15 @@ export async function POST(req: NextRequest) {
     const {
       items = [],
       outletId: requestedOutletId,
-      trainerCode,
-      totalAmount: clientTotalAmount,
-      discount: clientDiscount = 0,
       couponCode,
-      walletUsed: clientWalletUsed,
     } = body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Order must contain at least one item" },
+        { status: 400 }
+      );
+    }
 
     // 1. Resolve outlet
     let outlet = requestedOutletId
@@ -69,101 +73,121 @@ export async function POST(req: NextRequest) {
     const orderItemsCreate: any[] = [];
 
     for (const item of items) {
-      let product = dbProducts.find(
+      const product = dbProducts.find(
         (p) =>
           p.id === item.id ||
           p.id === item.productId ||
-          p.name.toLowerCase() === (item.name || "").toLowerCase()
+          (item.name && p.name.toLowerCase() === String(item.name).toLowerCase())
       );
-      if (!product && dbProducts.length > 0) {
-        product = dbProducts[0];
+
+      if (!product) {
+        return NextResponse.json(
+          { success: false, error: "One or more selected products are unavailable" },
+          { status: 400 }
+        );
       }
 
-      if (product) {
-        const qty =
-          typeof item.quantity === "number" && item.quantity > 0
-            ? item.quantity
-            : 1;
-        const itemPrice =
-          typeof item.price === "number" ? item.price : product.price;
-        subtotal += itemPrice * qty;
-        totalProtein += (item.proteinGrams || product.protein || 0) * qty;
-        totalCalories += (item.calories || product.calories || 0) * qty;
+      const qty =
+        typeof item.quantity === "number" && Number.isInteger(item.quantity) && item.quantity > 0 && item.quantity <= 50
+          ? item.quantity
+          : 1;
+      // Always use authoritative server-side Product.price
+      const itemPrice = product.price;
+      subtotal += itemPrice * qty;
+      totalProtein += (product.protein || 0) * qty;
+      totalCalories += (product.calories || 0) * qty;
 
-        orderItemsCreate.push({
-          productId: product.id,
-          quantity: qty,
-          priceAtPurchase: itemPrice,
-          productJson: JSON.stringify({
-            name: item.name || product.name,
-            price: itemPrice,
-            protein: item.proteinGrams || product.protein,
-            calories: item.calories || product.calories,
-            imageUrl: item.imageUrl || product.imageUrl,
-          }),
-        });
-      }
+      orderItemsCreate.push({
+        productId: product.id,
+        quantity: qty,
+        priceAtPurchase: itemPrice,
+        productJson: JSON.stringify({
+          name: product.name,
+          price: itemPrice,
+          protein: product.protein,
+          calories: product.calories,
+          imageUrl: product.imageUrl,
+        }),
+      });
     }
 
-    const discount =
-      typeof clientDiscount === "number" ? Math.max(0, clientDiscount) : 0;
-    const computedTotal = Math.max(0, subtotal - discount);
-    const finalAmount =
-      typeof clientTotalAmount === "number" && clientTotalAmount >= 0
-        ? clientTotalAmount
-        : computedTotal;
-
-    const walletUsed =
-      typeof clientWalletUsed === "number" && clientWalletUsed > 0
-        ? clientWalletUsed
-        : finalAmount;
-
-    // Resolve optional coupon
+    // Validate optional coupon strictly server-side
     let couponId: string | null = null;
+    let discount = 0;
     if (couponCode) {
       const dbCoupon = await prisma.coupon.findUnique({
         where: { code: String(couponCode).toUpperCase().trim() },
-        select: { id: true },
       });
-      if (dbCoupon) {
-        couponId = dbCoupon.id;
+      if (
+        !dbCoupon ||
+        !dbCoupon.isActive ||
+        (dbCoupon.validUntil && new Date() > dbCoupon.validUntil) ||
+        (dbCoupon.usageLimit !== null && dbCoupon.usageCount >= dbCoupon.usageLimit) ||
+        (dbCoupon.userId && dbCoupon.userId !== authUser.id) ||
+        subtotal < dbCoupon.minOrderAmount
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Invalid, expired, or ineligible coupon code" },
+          { status: 400 }
+        );
       }
+      couponId = dbCoupon.id;
+      discount =
+        dbCoupon.discountType === "PERCENTAGE"
+          ? Math.round((subtotal * dbCoupon.discountValue) / 100)
+          : dbCoupon.discountValue;
     }
+
+    discount = Math.min(subtotal, Math.max(0, discount));
+    const finalAmount = Math.max(0, subtotal - discount);
+    const walletUsed = finalAmount;
 
     const orderNumber = `NF-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    // 3. In a Prisma transaction: verify balance, deduct walletUsed, create confirmed Order
+    // 3. In an atomic Prisma transaction: verify & deduct balance conditionally to prevent race conditions
     const { updatedUser, order } = await prisma.$transaction(async (tx) => {
-      const freshUser = await tx.user.findUnique({
-        where: { id: authUser.id },
-        select: { id: true, passBalance: true },
-      });
-
-      if (!freshUser) {
-        throw new Error("USER_NOT_FOUND");
-      }
-
-      const currentBalance = freshUser.passBalance || 0;
-      if (currentBalance < walletUsed) {
-        const err: any = new Error(
-          `Insufficient wallet balance. You have ₹${currentBalance.toFixed(
-            2
-          )}, but order requires ₹${walletUsed.toFixed(2)}.`
-        );
-        err.code = "INSUFFICIENT_BALANCE";
-        err.currentBalance = currentBalance;
-        err.requiredAmount = walletUsed;
-        throw err;
-      }
-
-      // Deduct walletUsed from user's passBalance
-      const updatedUser = await tx.user.update({
-        where: { id: authUser.id },
-        data: {
-          passBalance: {
-            decrement: walletUsed,
+      if (walletUsed > 0) {
+        const debit = await tx.user.updateMany({
+          where: {
+            id: authUser.id,
+            passBalance: { gte: walletUsed },
           },
-        },
+          data: {
+            passBalance: { decrement: walletUsed },
+          },
+        });
+
+        if (debit.count === 0) {
+          const freshUser = await tx.user.findUnique({
+            where: { id: authUser.id },
+            select: { passBalance: true },
+          });
+          const currentBalance = freshUser?.passBalance || 0;
+          const err: any = new Error(
+            `Insufficient wallet balance. You have ₹${currentBalance.toFixed(
+              2
+            )}, but order requires ₹${walletUsed.toFixed(2)}.`
+          );
+          err.code = "INSUFFICIENT_BALANCE";
+          err.currentBalance = currentBalance;
+          err.requiredAmount = walletUsed;
+          throw err;
+        }
+      }
+
+      if (couponId) {
+        await tx.coupon.update({
+          where: { id: couponId },
+          data: { usageCount: { increment: 1 } },
+        });
+        await tx.rewardRedemption.updateMany({
+          where: { couponId, userId: authUser.id, status: RewardRedemptionStatus.ACTIVE },
+          data: { status: RewardRedemptionStatus.USED, usedAt: new Date() },
+        });
+      }
+
+      const updatedUser = await tx.user.findUniqueOrThrow({
+        where: { id: authUser.id },
         select: {
           id: true,
           passBalance: true,

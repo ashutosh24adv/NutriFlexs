@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma, withDbRetry } from "@/lib/prisma";
 import { invalidateProductCache } from "@/services/product.service";
 import { DietGoal } from "@prisma/client";
@@ -14,6 +16,15 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    const userRole = ((session?.user as { role?: string } | undefined)?.role || "").toUpperCase();
+    if (!session?.user || (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN")) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden: Admin privileges required." },
+        { status: 403 }
+      );
+    }
+
     const { id } = params;
     const body = await request.json();
 

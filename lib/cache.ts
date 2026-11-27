@@ -1,3 +1,5 @@
+import { revalidateTag } from "next/cache";
+
 /**
  * High-performance, memory-safe caching utility for read-heavy static public data.
  * Drastically reduces trans-Atlantic WAN round-trip latency to Neon PostgreSQL.
@@ -63,6 +65,11 @@ export function invalidateCacheByTag(tag: string): void {
     if (entry.tags && entry.tags.includes(tag)) {
       cache.delete(key);
     }
+  }
+  try {
+    revalidateTag(tag);
+  } catch {
+    // Safe no-op outside Next.js request context
   }
 }
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { NutriFlexsLogo } from "@/components/ui/logo";
+import { FuelPointsPill } from "@/components/customer/fuelpoints-pill";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import {
@@ -52,6 +53,7 @@ export function PublicHeader() {
   const user = session?.user as any;
   const userRole = (user?.role as string) || (isAuthenticated ? "CUSTOMER" : "GUEST");
   const isCustomer = isAuthenticated && userRole === "CUSTOMER";
+  const logoHref = isCustomer ? "/home" : "/";
   // Staff Portal visibility rule:
   // Visible to guests (!isAuthenticated) and staff operators, but strictly hidden for logged-in customers.
   const showStaffPortalButton = !isCustomer;
@@ -156,23 +158,25 @@ export function PublicHeader() {
         <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* 1. LEFT — Brand: NutriFlexs logo and wordmark anchored to the left */}
           <div className="flex items-center shrink-0">
-            <NutriFlexsLogo size="md" showTagline={true} href="/" />
+            <NutriFlexsLogo size="md" showTagline={true} href={logoHref} />
           </div>
 
-          {/* 2. CENTER — Navigation: Order Food, NutriFlexs Pass, Nearby Gyms, Blog, and About */}
+          {/* 2. CENTER — Navigation */}
           <nav className="hidden lg:flex items-center justify-center min-w-0 flex-1 px-2">
             <div className="flex items-center justify-center gap-1.5 xl:gap-2.5 text-xs xl:text-[13px] font-semibold text-nutri-secondary whitespace-nowrap">
-              <Link
-                href="/menu"
-                className={cn(
-                  "px-3.5 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap",
-                  pathname.startsWith("/menu")
-                    ? "text-[#2F7D16] font-bold bg-[#EAF4E3]"
-                    : "text-nutri-secondary hover:text-[#2F7D16] hover:bg-[#EAF4E3]/60"
-                )}
-              >
-                Order Food
-              </Link>
+              {!isCustomer && (
+                <Link
+                  href="/menu"
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap",
+                    pathname.startsWith("/menu")
+                      ? "text-[#2F7D16] font-bold bg-[#EAF4E3]"
+                      : "text-nutri-secondary hover:text-[#2F7D16] hover:bg-[#EAF4E3]/60"
+                  )}
+                >
+                  Order Food
+                </Link>
+              )}
               <Link
                 href="/dietitians"
                 className={cn(
@@ -182,7 +186,7 @@ export function PublicHeader() {
                     : "text-nutri-secondary hover:text-[#2F7D16] hover:bg-[#EAF4E3]/60"
                 )}
               >
-                Health Coaches
+                Human Coach
               </Link>
               <Link
                 href="/ai-coach"
@@ -453,10 +457,11 @@ export function PublicHeader() {
               <MenuIcon className="w-5 h-5 stroke-[2.2]" />
             </button>
 
-            {/* Customer Two-Mode Switcher for Logged-In Customers */}
+            {/* Customer Two-Mode Switcher & FuelPoints Pill for Logged-In Customers */}
             {isCustomer && (
-              <div className="shrink-0 hidden md:block">
+              <div className="shrink-0 hidden md:flex items-center gap-2">
                 <CustomerModeSwitcher variant="header" />
+                <FuelPointsPill variant="header" />
               </div>
             )}
 
@@ -636,7 +641,7 @@ export function PublicHeader() {
           <div>
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-4 border-b border-nutri-border mb-4">
-              <NutriFlexsLogo size="sm" showTagline={false} href="/" />
+              <NutriFlexsLogo size="sm" showTagline={false} href={logoHref} />
               <button
                 type="button"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -647,13 +652,17 @@ export function PublicHeader() {
               </button>
             </div>
 
-            {/* Customer Two-Mode Switcher inside Mobile Drawer */}
+            {/* Customer Two-Mode Switcher & FuelPoints inside Mobile Drawer */}
             {isCustomer && (
-              <div className="mb-4 pb-3 border-b border-nutri-border-light">
+              <div className="mb-4 pb-3 border-b border-nutri-border-light space-y-2.5">
                 <p className="text-[10px] font-bold text-nutri-secondary uppercase tracking-wider mb-2">
                   Active Mode
                 </p>
                 <CustomerModeSwitcher variant="drawer" />
+                <FuelPointsPill
+                  variant="mobile"
+                  onNavigate={() => setIsMobileMenuOpen(false)}
+                />
               </div>
             )}
 
@@ -672,20 +681,22 @@ export function PublicHeader() {
               </div>
             )}
 
-            {/* Main Links: Order Food, Track Nutrition, NutriFlexs Pass, Nearby Gyms, Blog, About Us */}
+            {/* Main Links */}
             <nav className="space-y-1">
-              <Link
-                href="/menu"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold transition-colors",
-                  pathname.startsWith("/menu")
-                    ? "bg-nutri-green-light text-nutri-green"
-                    : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
-                )}
-              >
-                <Utensils className="w-4 h-4 text-nutri-green" /> Order Food
-              </Link>
+              {!isCustomer && (
+                <Link
+                  href="/menu"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 p-2.5 rounded-xl text-sm font-bold transition-colors",
+                    pathname.startsWith("/menu")
+                      ? "bg-nutri-green-light text-nutri-green"
+                      : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
+                  )}
+                >
+                  <Utensils className="w-4 h-4 text-nutri-green" /> Order Food
+                </Link>
+              )}
               <Link
                 href="/dietitians"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -696,7 +707,7 @@ export function PublicHeader() {
                     : "text-nutri-charcoal hover:bg-nutri-green-soft hover:text-nutri-green"
                 )}
               >
-                <HeartPulse className="w-4 h-4 text-nutri-green" /> Health Coaches
+                <HeartPulse className="w-4 h-4 text-nutri-green" /> Human Coach
               </Link>
               <Link
                 href="/ai-coach"
@@ -710,7 +721,7 @@ export function PublicHeader() {
               >
                 <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500/20" /> AI Coach
               </Link>
-              {isAuthenticated && (
+              {isAuthenticated && !isCustomer && (
                 <Link
                   href="/nutrition"
                   onClick={() => setIsMobileMenuOpen(false)}

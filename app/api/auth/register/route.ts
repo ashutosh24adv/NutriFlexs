@@ -76,9 +76,18 @@ export async function POST(request: Request) {
     // 5. Staff Role Security & Registration Handling
     const hashedPassword = hashPassword(password);
 
-    // KITCHEN STAFF REGISTRATION
-    // Temporarily removed access-code requirement for development/testing
+    // KITCHEN STAFF REGISTRATION (Requires valid KITCHEN staff access code)
     if (normalizedPortal === "kitchen") {
+      if (!providedCode) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Kitchen Staff Access Code is required for kitchen registration.",
+          },
+          { status: 403 }
+        );
+      }
+
       // 1. Validate that assigned outletId is provided
       if (!outletId || !outletId.trim()) {
         return NextResponse.json(
@@ -108,27 +117,39 @@ export async function POST(request: Request) {
         );
       }
 
-      // 3. Create kitchen staff user restricted to the assigned outlet
-      const newUser = await prisma.user.create({
-        data: {
-          name: name.trim(),
-          email: normalizedEmail,
-          phone: phone ? phone.trim() : null,
-          passwordHash: hashedPassword,
-          role: Role.KITCHEN,
-          selectedOutletId: foundOutlet.id,
-          selectedGymId: foundOutlet.gymId,
-          streakDays: 1,
-          proteinGoalGrams: 120,
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          selectedOutletId: true,
-          selectedGymId: true,
-        },
+      // 3. Atomically validate/consume access code and create kitchen staff user
+      const newUser = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const validation = await validateAndConsumeStaffCode({
+          code: providedCode,
+          requiredRole: Role.KITCHEN,
+          tx,
+        });
+
+        if (!validation.valid) {
+          throw new Error(validation.error || "Invalid or unauthorized kitchen access code.");
+        }
+
+        return await tx.user.create({
+          data: {
+            name: name.trim(),
+            email: normalizedEmail,
+            phone: phone ? phone.trim() : null,
+            passwordHash: hashedPassword,
+            role: Role.KITCHEN,
+            selectedOutletId: foundOutlet.id,
+            selectedGymId: foundOutlet.gymId,
+            streakDays: 1,
+            proteinGoalGrams: 120,
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            selectedOutletId: true,
+            selectedGymId: true,
+          },
+        });
       });
 
       return NextResponse.json({
@@ -138,9 +159,18 @@ export async function POST(request: Request) {
       });
     }
 
-    // TRAINER PARTNER REGISTRATION
-    // Temporarily removed partner invitation passcode requirement for development/testing
+    // TRAINER PARTNER REGISTRATION (Requires valid TRAINER staff access code)
     if (normalizedPortal === "trainer") {
+      if (!providedCode) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Trainer Partner Access Code is required for trainer registration.",
+          },
+          { status: 403 }
+        );
+      }
+
       // Generate unique referral code for trainer
       const rawHandle = (referralCode || name)
         .replace(/[^A-Za-z0-9]/g, "")
@@ -158,6 +188,16 @@ export async function POST(request: Request) {
       }
 
       const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const validation = await validateAndConsumeStaffCode({
+          code: providedCode,
+          requiredRole: Role.TRAINER,
+          tx,
+        });
+
+        if (!validation.valid) {
+          throw new Error(validation.error || "Invalid or unauthorized trainer access code.");
+        }
+
         const newUser = await tx.user.create({
           data: {
             name: name.trim(),

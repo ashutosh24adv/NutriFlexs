@@ -13,7 +13,9 @@ export interface MobileAuthUser {
 export const AUTH_SECRET =
   process.env.NEXTAUTH_SECRET ||
   process.env.AUTH_SECRET ||
-  "nutriflexs_super_secret_auth_key_2026_jwt";
+  (process.env.NODE_ENV === "production"
+    ? ""
+    : "nutriflexs_super_secret_auth_key_2026_jwt");
 
 /**
  * Extracts Authorization Bearer <token> consistently from request headers.
@@ -32,10 +34,11 @@ export function extractBearerToken(req: NextRequest | Request): string | null {
 }
 
 /**
- * Decodes and verifies a JWT token using NextAuth secret or fallback base64 payload.
+ * Decodes and cryptographically verifies a JWT token using NextAuth secret.
+ * Never trusts unverified/unsigned JWT payloads.
  */
 export async function decodeMobileToken(tokenString: string): Promise<any> {
-  if (!tokenString) return null;
+  if (!tokenString || !AUTH_SECRET) return null;
 
   try {
     const decoded = await decode({
@@ -46,21 +49,7 @@ export async function decodeMobileToken(tokenString: string): Promise<any> {
       return decoded;
     }
   } catch {
-    // Continue to fallback decode
-  }
-
-  // Fallback: parse standard unencrypted JWT payload if valid format
-  try {
-    const parts = tokenString.split(".");
-    if (parts.length === 3) {
-      const payloadJson = Buffer.from(parts[1], "base64url").toString("utf8");
-      const parsed = JSON.parse(payloadJson);
-      if (parsed && (parsed.id || parsed.sub || parsed.email)) {
-        return parsed;
-      }
-    }
-  } catch {
-    // Invalid token format
+    return null;
   }
 
   return null;

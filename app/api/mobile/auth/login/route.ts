@@ -4,6 +4,7 @@ import { prisma, withDbRetry } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 import { AUTH_SECRET } from "@/lib/mobile-auth";
 import { calculateBaselineGoals } from "@/lib/nutrition-baseline";
+import { checkRateLimit, getClientIp, resetRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,23 @@ export async function POST(req: NextRequest) {
 
     const rawIdentifier = (body.email || body.emailOrPhone || body.phone || body.username || "").trim();
     const password = body.password || "";
+
+    const clientIp = getClientIp(req);
+    const rateLimitKey = `mobile-login:${clientIp}:${rawIdentifier.toLowerCase()}`;
+    const rateLimit = checkRateLimit({
+      key: rateLimitKey,
+      maxRequests: 5,
+      windowMs: 15 * 60 * 1000,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many login attempts. Please wait 15 minutes." },
+        {
+          status: 429,
+          headers: { "Retry-After": Math.ceil(rateLimit.resetMs / 1000).toString() },
+        }
+      );
+    }
 
     if (!rawIdentifier) {
       return NextResponse.json(
@@ -64,6 +82,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Invalid email/phone or password" },
         { status: 401 }
+      );
+    }
+
+    resetRateLimit(rateLimitKey);
+
+    if (!AUTH_SECRET) {
+      return NextResponse.json(
+        { success: false, error: "Server authentication secret is not configured" },
+        { status: 500 }
       );
     }
 

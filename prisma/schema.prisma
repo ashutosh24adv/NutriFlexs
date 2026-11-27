@@ -192,6 +192,11 @@ model User {
 
   // AI Health Coach Relations
   aiConversations               AIConversation[]
+
+  // FuelPoints Rewards Relations
+  rewardAccount                 RewardAccount?
+  rewardTransactions            RewardTransaction[]
+  rewardRedemptions             RewardRedemption[]
 }
 
 model Gym {
@@ -556,6 +561,7 @@ model TrainerReward {
 model Coupon {
   id             String       @id @default(uuid())
   code           String       @unique
+  userId         String?      // Optional: restricts coupon to a single user (e.g. FuelPoints redemptions)
   discountType   DiscountType @default(PERCENTAGE)
   discountValue  Float
   minOrderAmount Float        @default(0)
@@ -568,6 +574,8 @@ model Coupon {
   updatedAt      DateTime     @updatedAt
 
   orders Order[]
+
+  @@index([userId])
 }
 
 model InventoryItem {
@@ -1271,6 +1279,114 @@ model AIMessage {
 
   @@index([conversationId, createdAt])
 }
+
+// ==========================================
+// FUELPOINTS REWARDS SYSTEM
+// ==========================================
+
+enum RewardTransactionType {
+  EARNED
+  REDEEMED
+  REVERSED
+  ADJUSTED
+}
+
+enum RewardActivityType {
+  DAILY_CHECK_IN
+  MEAL_LOGGING
+  WATER_GOAL
+  FOOD_PURCHASE
+}
+
+enum RewardRedemptionStatus {
+  ACTIVE
+  USED
+  EXPIRED
+  CANCELLED
+}
+
+model RewardAccount {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  availableBalance Int      @default(0)
+  lifetimeEarned   Int      @default(0)
+  lifetimeRedeemed Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RewardTransaction {
+  id              String                @id @default(uuid())
+  userId          String
+  type            RewardTransactionType
+  points          Int
+  source          String
+  sourceReference String?
+  idempotencyKey  String                @unique
+  description     String
+  status          String                @default("COMPLETED")
+  performedBy     String?
+  createdAt       DateTime              @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, source, sourceReference])
+}
+
+model RewardRule {
+  id            String             @id @default(uuid())
+  activityType  RewardActivityType @unique
+  label         String
+  description   String
+  points        Int
+  enabled       Boolean            @default(true)
+  dailyLimit    Int?
+  configuration Json?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+}
+
+model RewardCatalogue {
+  id                String   @id @default(uuid())
+  name              String
+  description       String
+  pointsRequired    Int
+  discountAmount    Int
+  minimumOrderValue Int      @default(0)
+  enabled           Boolean  @default(true)
+  expiryDays        Int      @default(30)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  redemptions RewardRedemption[]
+
+  @@index([enabled, pointsRequired])
+}
+
+model RewardRedemption {
+  id             String                 @id @default(uuid())
+  userId         String
+  rewardId       String
+  pointsSpent    Int
+  discountAmount Int
+  couponCode     String                 @unique
+  couponId       String?                @unique
+  status         RewardRedemptionStatus @default(ACTIVE)
+  expiresAt      DateTime
+  usedAt         DateTime?
+  orderId        String?
+  createdAt      DateTime               @default(now())
+
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reward RewardCatalogue @relation(fields: [rewardId], references: [id])
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
+}
+
 
 
 

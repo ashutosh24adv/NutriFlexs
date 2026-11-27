@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { Shield, ShoppingBag, Box, BarChart3, Tag, Check, RefreshCw, ChevronLeft, Plus, LogOut, KeyRound, Building2, Sparkles, Stethoscope } from "lucide-react";
+import { Shield, ShoppingBag, Box, BarChart3, Tag, Check, RefreshCw, ChevronLeft, Plus, LogOut, KeyRound, Building2, Sparkles, Stethoscope, Zap } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
@@ -12,6 +12,7 @@ import { AccessCodesTab } from "@/components/admin/access-codes-tab";
 import { GymsTab } from "@/components/admin/gyms-tab";
 import { SubscriptionsTab } from "@/components/admin/subscriptions-tab";
 import { DietitiansTab } from "@/components/admin/dietitians-tab";
+import { RewardsTab } from "@/components/admin/rewards-tab";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -127,6 +128,7 @@ export default function AdminDashboard() {
           { id: "products", label: "Product Catalog", icon: ShoppingBag },
           { id: "coupons", label: "Coupons & Offers", icon: Tag },
           { id: "inventory", label: "Kiosk Inventory", icon: Box },
+          { id: "rewards", label: "FuelPoints", icon: Zap },
         ].map((tab) => {
           const Icon = tab.icon;
           return (
@@ -338,6 +340,9 @@ export default function AdminDashboard() {
 
       {/* 5. STAFF ACCESS CODES TAB */}
       {activeTab === "access-codes" && <AccessCodesTab />}
+
+      {/* 6. FUELPOINTS REWARDS TAB */}
+      {activeTab === "rewards" && <RewardsTab />}
     </div>
   );
 }

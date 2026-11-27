@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 export interface OutletInfo {
@@ -60,11 +60,14 @@ interface GymContextType {
 
 const STORAGE_GYM_KEY = "nutriflexs_selected_gym_id";
 const STORAGE_OUTLET_KEY = "nutriflexs_selected_outlet_id";
+const SESSION_GYMS_CACHE_KEY = "nutriflexs_gyms_cache_v1";
+const SESSION_GYMS_TTL_MS = 5 * 60 * 1000;
 
 const GymContext = createContext<GymContextType | undefined>(undefined);
 
 export function GymProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
+  const pathname = usePathname();
   const [selectedGym, setSelectedGym] = useState<GymInfo | null>(null);
   const [selectedOutlet, setSelectedOutlet] = useState<OutletInfo | null>(null);
   const [allGyms, setAllGyms] = useState<GymInfo[]>([]);
@@ -135,16 +138,69 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true;
 
     async function initGymState() {
+      // Skip unnecessary gym fetching on staff/admin portals
+      if (
+        pathname?.startsWith("/admin") ||
+        pathname?.startsWith("/kitchen") ||
+        pathname?.startsWith("/trainer") ||
+        pathname?.startsWith("/dietitian")
+      ) {
+        if (isMounted) setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       try {
-        const gymsRes = await fetch("/api/gyms");
-        const gymsData = await gymsRes.json();
+        // Hydrate from sessionStorage immediately if fresh to avoid blocking navigation
+        let cachedGyms: GymInfo[] | null = null;
+        let cachedCities: string[] | null = null;
+        if (typeof window !== "undefined") {
+          try {
+            const raw = sessionStorage.getItem(SESSION_GYMS_CACHE_KEY);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed?.expiresAt > Date.now() && Array.isArray(parsed.gyms)) {
+                cachedGyms = parsed.gyms;
+                cachedCities = Array.isArray(parsed.cities) ? parsed.cities : null;
+              }
+            }
+          } catch {
+            // Ignore malformed session cache
+          }
+        }
+
+        const gymsPromise = cachedGyms
+          ? Promise.resolve({ success: true, gyms: cachedGyms, cities: cachedCities })
+          : fetch("/api/gyms").then((r) => r.json());
+
+        const userGymPromise = session?.user?.email
+          ? fetch("/api/user/gym")
+              .then((r) => r.json())
+              .catch(() => null)
+          : Promise.resolve(null);
+
+        const [gymsData, userData] = await Promise.all([gymsPromise, userGymPromise]);
         const gymsList: GymInfo[] =
-          gymsData.success && Array.isArray(gymsData.gyms) ? gymsData.gyms : [];
+          gymsData?.success && Array.isArray(gymsData.gyms) ? gymsData.gyms : [];
+
+        if (!cachedGyms && gymsList.length > 0 && typeof window !== "undefined") {
+          try {
+            sessionStorage.setItem(
+              SESSION_GYMS_CACHE_KEY,
+              JSON.stringify({
+                gyms: gymsList,
+                cities: gymsData.cities,
+                expiresAt: Date.now() + SESSION_GYMS_TTL_MS,
+              })
+            );
+          } catch {
+            // Ignore storage quota errors
+          }
+        }
 
         if (isMounted) {
           setAllGyms(gymsList);
-          if (Array.isArray(gymsData.cities) && gymsData.cities.length > 0) {
+          if (Array.isArray(gymsData?.cities) && gymsData.cities.length > 0) {
             setAvailableCities(gymsData.cities);
           }
         }
@@ -157,22 +213,15 @@ export function GymProvider({ children }: { children: React.ReactNode }) {
         const localGymId = typeof window !== "undefined" ? localStorage.getItem(STORAGE_GYM_KEY) : null;
         const localOutletId = typeof window !== "undefined" ? localStorage.getItem(STORAGE_OUTLET_KEY) : null;
 
-        // Check authenticated user profile if logged in
-        if (session?.user?.email) {
-          try {
-            const userRes = await fetch("/api/user/gym");
-            const userData = await userRes.json();
-            if (userData.success && userData.selectedGymId && userData.selectedOutletId) {
-              chosenGymId = userData.selectedGymId;
-              chosenOutletId = userData.selectedOutletId;
-            } else if (localGymId && localOutletId) {
-              // User logged in but had no DB gym yet: reconcile guest selection to DB
-              chosenGymId = localGymId;
-              chosenOutletId = localOutletId;
-              guestSelectedInLocalStorage = true;
-            }
-          } catch (e) {
-            console.warn("Failed to load user gym preference:", e);
+        // Reconcile authenticated user profile selection
+        if (session?.user?.email && userData) {
+          if (userData.success && userData.selectedGymId && userData.selectedOutletId) {
+            chosenGymId = userData.selectedGymId;
+            chosenOutletId = userData.selectedOutletId;
+          } else if (localGymId && localOutletId) {
+            chosenGymId = localGymId;
+            chosenOutletId = localOutletId;
+            guestSelectedInLocalStorage = true;
           }
         }
 

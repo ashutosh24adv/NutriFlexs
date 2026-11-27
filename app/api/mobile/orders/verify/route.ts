@@ -20,6 +20,13 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const authUser = await getMobileAuthUser(req);
+    if (!authUser) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
 
     const orderId = body.orderId || body.order_id;

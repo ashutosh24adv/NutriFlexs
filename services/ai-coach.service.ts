@@ -372,10 +372,14 @@ export async function generateAICoachChatResponse(params: {
   for (const model of uniqueModels) {
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": geminiApiKey,
+          },
+          signal: AbortSignal.timeout(20000),
           body: JSON.stringify({
             systemInstruction: {
               parts: [{ text: systemInstruction }],
@@ -494,12 +498,15 @@ export async function getOrCreateUserConversation(userId: string, conversationId
       where: { id: conversationId, userId },
       include: {
         messages: {
-          orderBy: { createdAt: "asc" },
-          take: 50,
+          orderBy: { createdAt: "desc" },
+          take: 40,
         },
       },
     });
-    if (conv) return conv;
+    if (conv) {
+      conv.messages.reverse();
+      return conv;
+    }
   }
 
   // Get most recent or create new
@@ -508,13 +515,15 @@ export async function getOrCreateUserConversation(userId: string, conversationId
     orderBy: { updatedAt: "desc" },
     include: {
       messages: {
-        orderBy: { createdAt: "asc" },
-        take: 50,
+        orderBy: { createdAt: "desc" },
+        take: 40,
       },
     },
   });
 
-  if (!conv) {
+  if (conv) {
+    conv.messages.reverse();
+  } else {
     conv = await prisma.aIConversation.create({
       data: {
         userId,

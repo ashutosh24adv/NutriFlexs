@@ -22,8 +22,8 @@ export async function GET() {
     startOfDay.setHours(0, 0, 0, 0);
 
     const [
-      totalOrdersCount,
-      todayOrders,
+      totalOrdersAgg,
+      todayOrdersAgg,
       activeCustomersCount,
       activeSubscriptionsCount,
       allOrders,
@@ -31,17 +31,43 @@ export async function GET() {
       coupons,
       inventoryItems,
     ] = await Promise.all([
-      prisma.order.count(),
-      prisma.order.findMany({
+      prisma.order.aggregate({
+        _count: { _all: true },
+        _sum: { totalAmount: true },
+      }),
+      prisma.order.aggregate({
         where: { createdAt: { gte: startOfDay } },
+        _count: { _all: true },
+        _sum: { totalAmount: true },
       }),
       prisma.user.count({ where: { role: "CUSTOMER" } }),
       prisma.subscription.count({ where: { status: "ACTIVE" } }),
       prisma.order.findMany({
         take: 20,
         orderBy: { createdAt: "desc" },
-        include: {
-          items: { include: { product: { include: { category: true } } } },
+        select: {
+          id: true,
+          orderNumber: true,
+          totalAmount: true,
+          totalProtein: true,
+          totalCalories: true,
+          status: true,
+          paymentStatus: true,
+          createdAt: true,
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              priceAtPurchase: true,
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  category: { select: { name: true } },
+                },
+              },
+            },
+          },
           user: {
             select: {
               id: true,
@@ -51,26 +77,60 @@ export async function GET() {
               role: true,
             },
           },
-          outlet: { include: { gym: true } },
+          outlet: {
+            select: {
+              id: true,
+              name: true,
+              gym: { select: { id: true, name: true } },
+            },
+          },
         },
       }),
       prisma.product.findMany({
-        include: { category: true, dietGoals: true },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          price: true,
+          protein: true,
+          calories: true,
+          isVeg: true,
+          isAvailable: true,
+          isFeatured: true,
+          isPopular: true,
+          category: { select: { id: true, name: true, slug: true } },
+          dietGoals: { select: { goal: true } },
+        },
         orderBy: { createdAt: "asc" },
       }),
       prisma.coupon.findMany({
+        take: 50,
         orderBy: { createdAt: "desc" },
       }),
       prisma.inventoryItem.findMany({
-        include: {
-          ingredient: true,
-          outlet: { include: { gym: true } },
+        take: 100,
+        select: {
+          id: true,
+          quantity: true,
+          reservedQuantity: true,
+          lowStockThreshold: true,
+          unit: true,
+          ingredient: { select: { id: true, name: true } },
+          outlet: {
+            select: {
+              id: true,
+              name: true,
+              gym: { select: { id: true, name: true } },
+            },
+          },
         },
       }),
     ]);
 
-    const todayRevenue = todayOrders.reduce((sum, ord) => sum + ord.totalAmount, 0);
-    const totalRevenue = allOrders.reduce((sum, ord) => sum + ord.totalAmount, 0);
+    const totalOrdersCount = totalOrdersAgg._count._all;
+    const todayOrdersCount = todayOrdersAgg._count._all;
+    const todayRevenue = todayOrdersAgg._sum.totalAmount || 0;
+    const totalRevenue = totalOrdersAgg._sum.totalAmount || 0;
 
     // Sales by Category calculation
     const categorySalesMap: Record<string, number> = {};
@@ -96,7 +156,7 @@ export async function GET() {
         success: true,
         stats: {
           totalOrdersCount,
-          todayOrdersCount: todayOrders.length,
+          todayOrdersCount,
           todayRevenue,
           totalRevenue,
           activeCustomersCount,

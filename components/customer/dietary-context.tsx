@@ -6,6 +6,7 @@ import { useCart } from "@/components/customer/cart-context";
 
 interface DietaryContextType {
   isVegetarian: boolean;
+  primaryNutritionGoal: string | null;
   setIsVegetarian: (value: boolean) => Promise<void>;
   toggleVegetarian: () => Promise<void>;
   nonVegRemovedAlert: string | null;
@@ -23,6 +24,7 @@ export function DietaryProvider({ children }: { children: ReactNode }) {
   const { cartItems, removeItem } = useCart();
 
   const [isVegetarian, setIsVegetarianState] = useState<boolean>(false);
+  const [primaryNutritionGoal, setPrimaryNutritionGoal] = useState<string | null>(null);
   const [isLoadingPreference, setIsLoadingPreference] = useState<boolean>(true);
   const [nonVegRemovedAlert, setNonVegRemovedAlert] = useState<string | null>(null);
 
@@ -49,11 +51,16 @@ export function DietaryProvider({ children }: { children: ReactNode }) {
       try {
         const res = await fetch("/api/user/preference");
         const data = await res.json();
-        if (data.success && typeof data.isVegetarian === "boolean" && isMounted) {
-          setIsVegetarianState(data.isVegetarian);
-          try {
-            localStorage.setItem(STORAGE_KEY, String(data.isVegetarian));
-          } catch (e) {}
+        if (data.success && isMounted) {
+          if (typeof data.isVegetarian === "boolean") {
+            setIsVegetarianState(data.isVegetarian);
+            try {
+              localStorage.setItem(STORAGE_KEY, String(data.isVegetarian));
+            } catch (e) {}
+          }
+          if (data.primaryNutritionGoal) {
+            setPrimaryNutritionGoal(data.primaryNutritionGoal);
+          }
         }
       } catch (err) {
         console.error("Failed to sync dietary preference with server", err);
@@ -129,6 +136,7 @@ export function DietaryProvider({ children }: { children: ReactNode }) {
     <DietaryContext.Provider
       value={{
         isVegetarian,
+        primaryNutritionGoal,
         setIsVegetarian,
         toggleVegetarian,
         nonVegRemovedAlert,

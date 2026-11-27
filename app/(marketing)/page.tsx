@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -29,7 +30,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { LandingPassSection } from "@/components/customer/landing-pass-section";
+const LandingPassSection = dynamic(
+  () => import("@/components/customer/landing-pass-section").then((m) => m.LandingPassSection),
+  { ssr: false }
+);
 import { cn } from "@/lib/utils";
 
 export default function MarketingLandingPage() {
